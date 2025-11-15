@@ -16,9 +16,9 @@ import { extractArticles } from "@/lib/crawl4ai";
 /**
  * Constantes de configuración
  */
-const SCRAPE_TIMEOUT = 120000; // 120 segundos (2 minutos) - Firecrawl puede ser lento
-const MAX_RETRIES = 2; // Reducir a 2 intentos ya que cada uno toma más tiempo
-const RETRY_DELAYS = [3000, 5000]; // 3s, 5s
+const SCRAPE_TIMEOUT = 70000; // 70 segundos - Alineado con timeout de Firecrawl (60s) + margen
+const MAX_RETRIES = 1; // Solo 1 reintento para evitar demoras excesivas
+const RETRY_DELAYS = [2000]; // 2s entre reintentos
 
 /**
  * Obtiene la URL del API de Firecrawl desde variables de entorno
@@ -352,6 +352,15 @@ export async function enrichWithFullContent(
  * ```
  */
 export async function scrapeSource(source: NewsSource): Promise<ScrapedArticle[]> {
+  const disableFirecrawl = process.env.DISABLE_FIRECRAWL === "true";
+
+  // Si Firecrawl está deshabilitado, usar solo Crawl4AI
+  if (disableFirecrawl) {
+    console.log(`  🚀 Usando solo Crawl4AI para ${source.name} (Firecrawl deshabilitado)`);
+    return await scrapeWithCrawl4AIOnly(source);
+  }
+
+  // Lógica original con Firecrawl
   const apiKey = process.env.FIRECRAWL_API_KEY;
 
   if (!apiKey) {
@@ -384,6 +393,48 @@ export async function scrapeSource(source: NewsSource): Promise<ScrapedArticle[]
   }
 
   console.log(`  ✅ ${source.name}: Total ${allArticles.length} artículos de ${urls.length} URL(s)`);
+
+  return allArticles;
+}
+
+/**
+ * Scrapea una fuente usando SOLO Crawl4AI (sin Firecrawl)
+ * Usado cuando Firecrawl está deshabilitado o no funciona
+ */
+async function scrapeWithCrawl4AIOnly(source: NewsSource): Promise<ScrapedArticle[]> {
+  const scrapeConfig = source.scrapeConfig as ScrapeConfig | null;
+  const urls = scrapeConfig?.urls || [source.url];
+
+  console.log(`  📋 ${source.name}: ${urls.length} URL(s) a scrapear con Crawl4AI`);
+
+  const allArticles: ScrapedArticle[] = [];
+
+  // Scrapear cada URL con Crawl4AI
+  for (let urlIndex = 0; urlIndex < urls.length; urlIndex++) {
+    const url = urls[urlIndex];
+    const urlLabel = urls.length > 1 ? `${urlIndex + 1}/${urls.length}` : "";
+
+    console.log(`  🔗 ${source.name} ${urlLabel}: ${url}`);
+
+    try {
+      // Usar extractArticles de Crawl4AI directamente
+      const articles = await extractArticles([url], source.name, 3);
+
+      // Los artículos ya vienen en el formato correcto de ScrapedArticle
+      allArticles.push(...articles);
+      console.log(`  ✓ ${source.name} ${urlLabel}: ${articles.length} artículos`);
+    } catch (error) {
+      console.error(
+        `  ⚠️  ${source.name} ${urlLabel} falló con Crawl4AI:`,
+        (error as Error).message
+      );
+      // Continuar con la siguiente URL
+    }
+  }
+
+  console.log(
+    `  ✅ ${source.name}: Total ${allArticles.length} artículos de ${urls.length} URL(s) (Crawl4AI)`
+  );
 
   return allArticles;
 }
@@ -434,7 +485,7 @@ async function scrapeURL(
           onlyMainContent: true,
           waitFor: 0, // No esperar, scrapear inmediatamente
           removeBase64Images: true,
-          timeout: 90000, // 90 segundos de timeout en Firecrawl
+          timeout: 60000, // 60 segundos - Reducido para fallar más rápido
           mobile: false, // Desktop user agent (más rápido)
           skipTlsVerification: false,
         }),
@@ -471,10 +522,19 @@ async function scrapeURL(
       return articles;
     } catch (error) {
       lastError = error as Error;
+      const errorMessage = (error as Error).message;
+
       console.error(
         `  Intento ${attempt + 1}/${MAX_RETRIES} falló para ${source.name}:`,
-        (error as Error).message
+        errorMessage
       );
+
+      // No reintentar en caso de timeouts (408) - son muy lentos
+      if (errorMessage.includes("408") || errorMessage.includes("timeout")) {
+        console.log(`  ⏭️  Saltando reintentos para ${source.name} (timeout detectado)`);
+        console.log(`  💡 Crawl4AI intentará extraer el contenido en FASE 2`);
+        break; // Salir del loop de reintentos
+      }
 
       // Si no es el último intento, esperar antes de reintentar
       if (attempt < MAX_RETRIES - 1) {

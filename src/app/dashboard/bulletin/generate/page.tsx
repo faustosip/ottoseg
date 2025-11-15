@@ -22,16 +22,28 @@ export default function GenerateBulletinPage() {
    * Ejecuta el pipeline completo
    */
   const generateBulletin = async () => {
+    console.log("🚀 Iniciando scraping de noticias...");
     setIsGenerating(true);
     setError(null);
 
     try {
+      // Crear un timeout para la petición (5 minutos)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.error("⏱️ Timeout: La petición tardó más de 5 minutos");
+        controller.abort();
+      }, 300000);
+
       // Iniciar scraping
       const scrapeRes = await fetch("/api/news/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enableCrawl4AI: true }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+      console.log("✅ Respuesta recibida del servidor:", scrapeRes.status);
 
       if (!scrapeRes.ok) {
         const error = await scrapeRes.json();
@@ -44,7 +56,24 @@ export default function GenerateBulletinPage() {
       // El componente PipelineProgress ahora maneja el polling y redirección
     } catch (err) {
       console.error("❌ Error en pipeline:", err);
-      setError((err as Error).message);
+
+      // Manejar diferentes tipos de errores
+      if (err instanceof Error) {
+        if (err.name === "AbortError") {
+          setError(
+            "⏱️ La petición tardó más de 5 minutos. Por favor verifica los logs del servidor."
+          );
+        } else if (err.message.includes("Failed to fetch")) {
+          setError(
+            "🌐 Error de conexión. Verifica que el servidor esté corriendo."
+          );
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Error desconocido en el scraping");
+      }
+
       setIsGenerating(false);
     }
   };
@@ -103,6 +132,24 @@ export default function GenerateBulletinPage() {
           <Button onClick={generateBulletin} size="lg">
             Iniciar Scraping
           </Button>
+        </div>
+      )}
+
+      {/* Mensaje de "Esperando respuesta del servidor..." */}
+      {isGenerating && !bulletinId && !error && (
+        <div className="bg-card rounded-lg border p-8 text-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <h2 className="text-xl font-semibold">
+              Esperando respuesta del servidor...
+            </h2>
+            <p className="text-muted-foreground max-w-md">
+              La petición se envió correctamente. Esto puede tardar unos minutos mientras se scrapean las noticias.
+            </p>
+            <p className="text-sm text-muted-foreground/60">
+              Si esto tarda más de 5 minutos, revisa los logs del servidor.
+            </p>
+          </div>
         </div>
       )}
 

@@ -81,10 +81,15 @@ export async function POST(request: NextRequest) {
 
     // Obtener configuración del request body
     const body = await request.json().catch(() => ({}));
+    const disableFirecrawl = process.env.DISABLE_FIRECRAWL === "true";
     const enableCrawl4AI = body.enableCrawl4AI ?? true; // Habilitado por defecto
 
-    // FASE 1: Scrapear todas las fuentes con Firecrawl
-    console.log("🔍 FASE 1: Iniciando scraping con Firecrawl...");
+    // FASE 1: Scrapear todas las fuentes
+    if (disableFirecrawl) {
+      console.log("🔍 FASE 1: Iniciando scraping con Crawl4AI (Firecrawl deshabilitado)...");
+    } else {
+      console.log("🔍 FASE 1: Iniciando scraping con Firecrawl...");
+    }
     const scrapeResult = await scrapeAllSources();
 
     console.log(
@@ -115,10 +120,17 @@ export async function POST(request: NextRequest) {
     );
 
     // FASE 2: Enriquecer con Crawl4AI (opcional)
+    // Si ya usamos Crawl4AI en FASE 1, saltamos FASE 2
     let enrichedResult = scrapeResult;
     let crawl4aiStats = null;
 
-    if (enableCrawl4AI) {
+    if (disableFirecrawl) {
+      console.log("⏭️  FASE 2 omitida: Ya se usó Crawl4AI en FASE 1");
+      crawl4aiStats = {
+        enabled: false,
+        reason: "Already used in FASE 1",
+      };
+    } else if (enableCrawl4AI) {
       console.log("🚀 FASE 2: Enriqueciendo con Crawl4AI...");
 
       try {
