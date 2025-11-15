@@ -4,9 +4,9 @@ import {
   bulletinLogs,
   type Bulletin,
   type NewBulletin,
-  type NewBulletinLog,
+  type BulletinLog,
 } from "@/lib/schema";
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 
 // ============================================================================
 // BULLETIN QUERIES
@@ -109,14 +109,17 @@ export async function getAllBulletins(
 
     // Filtro por status si se proporciona
     if (status) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       query = query.where(eq(bulletins.status, status)) as any;
     }
 
     // Ordenamiento
     const orderColumn = orderBy === "date" ? bulletins.date : bulletins.createdAt;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query = query.orderBy(order === "asc" ? orderColumn : desc(orderColumn)) as any;
 
     // Paginación
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query = query.limit(limit).offset(offset) as any;
 
     return await query;
@@ -231,7 +234,7 @@ export async function updateBulletinFullArticles(
  */
 export async function updateBulletinClassification(
   id: string,
-  classifiedNews: any
+  classifiedNews: Record<string, unknown>
 ): Promise<Bulletin> {
   try {
     const [bulletin] = await db
@@ -298,7 +301,7 @@ export async function updateBulletinSummaries(
 export interface VideoData {
   videoUrl?: string;
   videoStatus: string;
-  videoMetadata?: any;
+  videoMetadata?: Record<string, unknown>;
 }
 
 /**
@@ -428,12 +431,12 @@ export async function createBulletinLog(
   step: string,
   status: string,
   message?: string,
-  metadata?: any
-): Promise<any> {
+  metadata?: Record<string, unknown>
+): Promise<BulletinLog> {
   try {
     // Calcular duración si hay startTime en metadata
     let duration: number | undefined;
-    if (metadata?.startTime && status === "completed") {
+    if (metadata?.startTime && status === "completed" && typeof metadata.startTime === 'number') {
       duration = Date.now() - metadata.startTime;
     }
 
@@ -462,7 +465,7 @@ export async function createBulletinLog(
  * @param bulletinId - UUID del boletín
  * @returns Array de logs
  */
-export async function getBulletinLogs(bulletinId: string): Promise<any[]> {
+export async function getBulletinLogs(bulletinId: string): Promise<BulletinLog[]> {
   try {
     return await db
       .select()

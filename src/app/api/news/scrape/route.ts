@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
         const totalArticles = scrapeResult.metadata.totalArticles;
         const enrichedCount = Object.values(enrichedResult)
           .filter((value) => Array.isArray(value))
-          .reduce((count: number, articles: any[]) => {
+          .reduce((count: number, articles: Array<{ fullContent?: string }>) => {
             return (
               count +
               articles.filter((article) => article.fullContent).length

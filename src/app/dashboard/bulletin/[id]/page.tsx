@@ -66,7 +66,7 @@ export default async function BulletinDetailPage({ params }: PageProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            <StatusBadge status={bulletin.status as any} />
+            <StatusBadge status={bulletin.status as "scraping" | "classifying" | "summarizing" | "ready" | "published" | "failed"} />
           </div>
         </div>
 
@@ -95,7 +95,7 @@ export default async function BulletinDetailPage({ params }: PageProps) {
       </div>
 
       {/* Tabs de contenido */}
-      <BulletinDetailTabs bulletin={bulletin} logs={logs} />
+      <BulletinDetailTabs bulletin={bulletin} logs={logs as Parameters<typeof BulletinDetailTabs>[0]['logs']} />
     </div>
   );
 }

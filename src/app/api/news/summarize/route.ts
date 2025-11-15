@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
 
     // Generar resúmenes
     const summaries = await summarizeByCategory(
-      bulletin.classifiedNews as any,
+      bulletin.classifiedNews as Parameters<typeof summarizeByCategory>[0],
       bulletinId
     );
 

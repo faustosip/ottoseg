@@ -209,7 +209,7 @@ function CategorySection({ number, categoryName, data }: CategorySectionProps) {
  */
 export function ClassicBulletinLayout({
   bulletin,
-  editable = false,
+  editable: _editable = false,
 }: ClassicBulletinLayoutProps) {
   const formattedDate = formatClassicDate(bulletin.date);
 

@@ -273,7 +273,7 @@ function NewsCard({ categoryName, data }: NewsCardProps) {
  */
 export function ModernBulletinLayout({
   bulletin,
-  editable = false,
+  editable: _editable = false,
 }: ModernBulletinLayoutProps) {
   const formattedDate = formatModernDate(bulletin.date);
 

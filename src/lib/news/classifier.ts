@@ -152,7 +152,7 @@ export async function classifyNews(
     console.log("  📈 Distribución:", counts);
 
     // Actualizar bulletin
-    await updateBulletinClassification(bulletinId, classified);
+    await updateBulletinClassification(bulletinId, classified as unknown as Record<string, unknown>);
 
     console.log("  💾 Clasificación guardada en DB");
 

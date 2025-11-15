@@ -136,10 +136,10 @@ export function PipelineProgress({ bulletinId, onComplete, onError }: PipelinePr
             </div>
 
             {/* Progreso por fuente */}
-            {Object.entries(progress.sources).filter(([_, data]) => data.total && data.total > 0).length > 0 && (
+            {Object.entries(progress.sources).filter(([, data]) => data.total && data.total > 0).length > 0 && (
               <div className="space-y-3">
                 {Object.entries(progress.sources)
-                  .filter(([_, data]) => data.total && data.total > 0)
+                  .filter(([, data]) => data.total && data.total > 0)
                   .map(([sourceName, sourceData]) => {
                     const enrichedPercent = sourceData.total
                       ? Math.round(((sourceData.enriched || 0) / sourceData.total) * 100)

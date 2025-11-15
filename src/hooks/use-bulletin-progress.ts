@@ -81,7 +81,7 @@ export function useBulletinProgress({
 
       const data: BulletinProgress = await response.json();
 
-      setProgress(prev => ({
+      setProgress(() => ({
         ...data,
         isLoading: false,
         isComplete: data.currentPhase === 'completed' || data.currentPhase === 'failed',

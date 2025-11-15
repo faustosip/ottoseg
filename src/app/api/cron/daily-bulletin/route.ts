@@ -13,9 +13,21 @@ import { getTodayBulletin } from "@/lib/db/queries/bulletins";
  *
  * Pipeline completo: scrape → classify → summarize
  */
+interface PipelineStep {
+  success: boolean;
+  duration: number;
+  error?: string;
+  bulletinId?: string;
+  totalNews?: number;
+  sources?: Record<string, number>;
+  totalClassified?: number;
+  breakdown?: Record<string, number>;
+  categoriesGenerated?: number;
+}
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
-  let pipeline: Record<string, any> = {};
+  const pipeline: Record<string, PipelineStep> = {};
 
   try {
     // Verificar autorización con CRON_SECRET

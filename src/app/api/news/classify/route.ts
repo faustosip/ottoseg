@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     // Clasificar noticias
     const classified = await classifyNews(
-      bulletin.rawNews as any,
+      bulletin.rawNews as Parameters<typeof classifyNews>[0],
       bulletinId
     );
 

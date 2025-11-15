@@ -59,6 +59,7 @@ export function DesignSwitcher({
         onDesignChange(savedDesign);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Solo ejecutar al montar
 
   /**

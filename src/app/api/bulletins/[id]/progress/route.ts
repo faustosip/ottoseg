@@ -16,6 +16,41 @@ interface SourceProgress {
   total?: number;
 }
 
+interface BulletinLog {
+  step: string;
+  status: string;
+  metadata?: unknown;
+  details?: {
+    totalArticles?: number;
+    sourcesSuccess?: number;
+    sourcesFailed?: number;
+    duration?: number;
+    enrichedArticles?: number;
+    failedArticles?: number;
+  };
+}
+
+interface BulletinData {
+  status: string;
+  rawNews?: unknown;
+  fullArticles?: unknown;
+}
+
+interface StatsData {
+  phase1?: {
+    totalArticles: number;
+    sourcesSuccess: number;
+    sourcesFailed: number;
+    duration: number;
+  };
+  phase2?: {
+    totalArticles: number;
+    enrichedArticles: number;
+    failedArticles: number;
+    duration: number;
+  };
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -80,7 +115,7 @@ export async function GET(
  */
 function determineCurrentPhase(
   status: string,
-  logs: any[]
+  logs: BulletinLog[]
 ): 'scraping' | 'enrichment' | 'classifying' | 'summarizing' | 'completed' | 'failed' {
   if (status === 'failed') return 'failed';
   if (status === 'ready' || status === 'published') return 'completed';
@@ -100,7 +135,7 @@ function determineCurrentPhase(
 /**
  * Calcula el progreso total (0-100)
  */
-function calculateProgress(logs: any[], bulletin: any): number {
+function calculateProgress(logs: BulletinLog[], bulletin: BulletinData): number {
   const status = bulletin.status;
 
   // Pesos de cada fase
@@ -125,13 +160,13 @@ function calculateProgress(logs: any[], bulletin: any): number {
 
   // Enrichment completado
   const enrichmentLog = logs.find(
-    (log) => log.step === 'enrichment' && log.status === 'completed'
+    (log) => log.step === 'enrichment'
   );
-  if (enrichmentLog) {
+  if (enrichmentLog && enrichmentLog.status === 'completed') {
     progress += weights.enrichment;
   } else if (enrichmentLog && enrichmentLog.status === 'in_progress') {
-    const enrichedCount = enrichmentLog.details?.enrichedArticles || 0;
-    const totalCount = enrichmentLog.details?.totalArticles || 1;
+    const enrichedCount = (enrichmentLog.metadata as { enrichedArticles?: number })?.enrichedArticles || 0;
+    const totalCount = (enrichmentLog.metadata as { totalArticles?: number })?.totalArticles || 1;
     const enrichmentProgress = enrichedCount / totalCount;
     progress += weights.enrichment * enrichmentProgress;
   }
@@ -157,8 +192,8 @@ function calculateProgress(logs: any[], bulletin: any): number {
 /**
  * Extrae estadísticas de los logs
  */
-function extractStats(logs: any[], bulletin: any) {
-  const stats: any = {};
+function extractStats(logs: BulletinLog[], _bulletin: BulletinData): StatsData {
+  const stats: StatsData = {};
 
   // FASE 1: Scraping
   const scrapingLog = logs.find(
@@ -192,7 +227,7 @@ function extractStats(logs: any[], bulletin: any) {
 /**
  * Extrae el progreso de cada fuente
  */
-function extractSourcesProgress(logs: any[], bulletin: any): Record<string, SourceProgress> {
+function extractSourcesProgress(logs: BulletinLog[], bulletin: BulletinData): Record<string, SourceProgress> {
   const sources: Record<string, SourceProgress> = {};
 
   const sourceNames = ['primicias', 'laHora', 'elComercio', 'teleamazonas', 'ecu911'];
@@ -205,8 +240,9 @@ function extractSourcesProgress(logs: any[], bulletin: any): Record<string, Sour
   }
 
   if (bulletin.rawNews) {
+    const rawNews = bulletin.rawNews as Record<string, unknown[]>;
     for (const sourceName of sourceNames) {
-      const articles = bulletin.rawNews[sourceName] || [];
+      const articles = rawNews[sourceName] || [];
       if (articles.length > 0) {
         sources[sourceName] = {
           ...sources[sourceName],
@@ -218,9 +254,10 @@ function extractSourcesProgress(logs: any[], bulletin: any): Record<string, Sour
   }
 
   if (bulletin.fullArticles) {
+    const fullArticles = bulletin.fullArticles as Record<string, Array<{ fullContent?: string }>>;
     for (const sourceName of sourceNames) {
-      const articles = bulletin.fullArticles[sourceName] || [];
-      const enrichedCount = articles.filter((a: any) => a.fullContent).length;
+      const articles = fullArticles[sourceName] || [];
+      const enrichedCount = articles.filter((a) => a.fullContent).length;
 
       if (articles.length > 0) {
         sources[sourceName] = {

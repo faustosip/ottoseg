@@ -46,7 +46,7 @@ export function BulletinList({ bulletins }: BulletinListProps) {
             key={bulletin.id}
             id={bulletin.id}
             date={bulletin.date}
-            status={bulletin.status as any}
+            status={bulletin.status as "scraping" | "classifying" | "summarizing" | "ready" | "published" | "failed"}
             totalNews={bulletin.totalNews || 0}
             videoStatus={videoStatus || "not_started"}
             categories={categories}

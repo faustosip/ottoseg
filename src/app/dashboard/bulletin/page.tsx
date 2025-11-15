@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import { BulletinList } from "./components/bulletin-list";
-import { BulletinCard } from "@/components/bulletin/bulletin-card";
 
 /**
  * Página Lista de Boletines
