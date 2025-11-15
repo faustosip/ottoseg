@@ -21,7 +21,7 @@ import {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Validar autenticación
@@ -33,7 +33,7 @@ export async function GET(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const sourceId = params.id;
+    const { id: sourceId } = await params;
 
     // Obtener fuente
     const source = await getSourceById(sourceId);
@@ -64,7 +64,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Validar autenticación
@@ -76,7 +76,7 @@ export async function PUT(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const sourceId = params.id;
+    const { id: sourceId } = await params;
 
     // Verificar que la fuente existe
     const existingSource = await getSourceById(sourceId);
@@ -122,7 +122,7 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Validar autenticación
@@ -134,7 +134,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const sourceId = params.id;
+    const { id: sourceId } = await params;
 
     // Verificar que la fuente existe
     const existingSource = await getSourceById(sourceId);

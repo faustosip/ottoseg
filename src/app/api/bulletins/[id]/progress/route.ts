@@ -53,7 +53,7 @@ interface StatsData {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Validar autenticación
@@ -65,7 +65,7 @@ export async function GET(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const bulletinId = params.id;
+    const { id: bulletinId } = await params;
 
     // Obtener bulletin
     const bulletin = await getBulletinById(bulletinId);
