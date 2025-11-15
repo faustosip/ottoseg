@@ -1,4 +1,12 @@
-import { pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  uuid,
+  integer,
+  jsonb,
+} from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -59,3 +67,220 @@ export const verification = pgTable("verification", {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
+
+// ============================================================================
+// BULLETIN SYSTEM TABLES
+// ============================================================================
+
+/**
+ * Tabla de Boletines
+ * Almacena los boletines generados con todos sus datos y metadatos
+ */
+export const bulletins = pgTable("bulletins", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  date: timestamp("date").notNull().defaultNow(),
+  status: text("status").notNull().default("draft"), // draft, scraping, classifying, summarizing, ready, video_processing, published, failed
+  rawNews: jsonb("raw_news"), // Noticias scrapeadas sin procesar (Firecrawl - excerpts)
+  fullArticles: jsonb("full_articles"), // Artículos completos (Crawl4AI - contenido full)
+  classifiedNews: jsonb("classified_news"), // Noticias clasificadas por categoría
+
+  // Resúmenes por categoría
+  economia: text("economia"),
+  politica: text("politica"),
+  sociedad: text("sociedad"),
+  seguridad: text("seguridad"),
+  internacional: text("internacional"),
+  vial: text("vial"),
+
+  // Estadísticas
+  totalNews: integer("total_news").default(0),
+  crawl4aiStats: jsonb("crawl4ai_stats"), // Métricas de Crawl4AI (enriquecimiento)
+
+  // Video
+  videoUrl: text("video_url"),
+  videoStatus: text("video_status").default("pending"), // pending, processing, completed, failed
+  videoMetadata: jsonb("video_metadata"),
+
+  // Logs y errores
+  errorLog: jsonb("error_log"),
+
+  // Diseño y branding
+  designVersion: text("design_version").default("classic"), // classic, modern
+  logoUrl: text("logo_url"),
+  headerImageUrl: text("header_image_url"),
+  footerImageUrl: text("footer_image_url"),
+  brandColors: jsonb("brand_colors"),
+
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  publishedAt: timestamp("published_at"),
+});
+
+/**
+ * Tabla de Fuentes de Noticias
+ * Configuración de las fuentes de donde se scrapean las noticias
+ */
+export const newsSources = pgTable("news_sources", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(), // Primicias, La Hora, El Comercio, etc.
+  url: text("url").notNull(),
+  baseUrl: text("base_url").notNull(),
+  selector: text("selector"), // CSS selector para scraping
+  scrapeConfig: jsonb("scrape_config"), // Configuración de Firecrawl
+
+  // Estado
+  isActive: boolean("is_active").default(true).notNull(),
+  lastScraped: timestamp("last_scraped"),
+  lastScrapedStatus: text("last_scraped_status"), // success, failed, partial
+  totalScraped: integer("total_scraped").default(0),
+
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
+/**
+ * Tabla de Templates de Boletín
+ * Plantillas de prompts para generación con IA
+ */
+export const bulletinTemplates = pgTable("bulletin_templates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // economia, politica, sociedad, etc.
+  systemPrompt: text("system_prompt").notNull(),
+  userPromptTemplate: text("user_prompt_template").notNull(),
+  exampleOutput: text("example_output"),
+
+  // Configuración
+  maxWords: integer("max_words").default(50),
+  tone: text("tone").default("profesional"), // profesional, informal, técnico
+
+  // Versionado
+  isActive: boolean("is_active").default(true).notNull(),
+  version: integer("version").default(1),
+
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
+/**
+ * Tabla de Logs de Boletín
+ * Registro de eventos del proceso de generación
+ */
+export const bulletinLogs = pgTable("bulletin_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  bulletinId: uuid("bulletin_id")
+    .notNull()
+    .references(() => bulletins.id, { onDelete: "cascade" }),
+
+  step: text("step").notNull(), // scraping, classifying, summarizing, video_generation
+  status: text("status").notNull(), // started, in_progress, completed, failed
+  message: text("message"),
+  metadata: jsonb("metadata"),
+  duration: integer("duration"), // Duración en milisegundos
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/**
+ * Tabla de Diseños de Boletín
+ * Configuración de diferentes diseños/layouts
+ */
+export const bulletinDesigns = pgTable("bulletin_designs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(), // classic, modern, custom
+  displayName: text("display_name").notNull(),
+  description: text("description"),
+
+  isActive: boolean("is_active").default(true).notNull(),
+
+  // Configuración de diseño
+  cssTemplate: text("css_template"),
+  layoutConfig: jsonb("layout_config"),
+
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
+// ============================================================================
+// BULLETIN NEWS TYPES
+// ============================================================================
+
+/**
+ * Estructura de una noticia individual scrapeada
+ */
+export interface BulletinNews {
+  id: string; // UUID único
+  title: string; // Título de la noticia
+  content: string; // Resumen/extracto (de Firecrawl)
+  fullContent?: string; // Contenido completo (de Crawl4AI)
+  url: string; // URL de la noticia original
+  imageUrl?: string; // URL de la imagen principal
+  author?: string; // Autor del artículo (de Crawl4AI)
+  publishedDate?: string; // Fecha de publicación (de Crawl4AI)
+  source: string; // Fuente (Primicias, La Hora, etc.)
+  selected: boolean; // Si está seleccionada para el boletín
+  scrapedAt: string; // Timestamp del scraping
+  category?: string; // Categoría asignada (economia, politica, etc.)
+  metadata?: {
+    wordCount?: number; // Número de palabras
+    readingTime?: number; // Tiempo de lectura estimado (minutos)
+    contentQuality?: number; // Score de calidad del contenido (0-100)
+  };
+}
+
+/**
+ * Estructura de noticias organizadas por categoría
+ */
+export interface CategorizedNews {
+  economia: BulletinNews[];
+  politica: BulletinNews[];
+  sociedad: BulletinNews[];
+  seguridad: BulletinNews[];
+  internacional: BulletinNews[];
+  vial: BulletinNews[];
+}
+
+/**
+ * Estructura de noticias "raw" (sin categorizar, por fuente)
+ */
+export interface RawNewsBySource {
+  [source: string]: BulletinNews[]; // Key = nombre de la fuente
+}
+
+// ============================================================================
+// TYPESCRIPT TYPES
+// ============================================================================
+
+// Better Auth tables
+export type User = typeof user.$inferSelect;
+export type NewUser = typeof user.$inferInsert;
+export type Session = typeof session.$inferSelect;
+export type NewSession = typeof session.$inferInsert;
+export type Account = typeof account.$inferSelect;
+export type NewAccount = typeof account.$inferInsert;
+export type Verification = typeof verification.$inferSelect;
+export type NewVerification = typeof verification.$inferInsert;
+
+// Bulletin System tables
+export type Bulletin = typeof bulletins.$inferSelect;
+export type NewBulletin = typeof bulletins.$inferInsert;
+export type NewsSource = typeof newsSources.$inferSelect;
+export type NewNewsSource = typeof newsSources.$inferInsert;
+export type BulletinTemplate = typeof bulletinTemplates.$inferSelect;
+export type NewBulletinTemplate = typeof bulletinTemplates.$inferInsert;
+export type BulletinLog = typeof bulletinLogs.$inferSelect;
+export type NewBulletinLog = typeof bulletinLogs.$inferInsert;
+export type BulletinDesign = typeof bulletinDesigns.$inferSelect;
+export type NewBulletinDesign = typeof bulletinDesigns.$inferInsert;

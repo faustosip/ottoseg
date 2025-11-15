@@ -1,0 +1,149 @@
+version: "3.8"
+services:
+
+## --------------------------- ORION --------------------------- ##
+
+  firecrawl_api:
+    image: oriondesign/firecrawl-api:v2.1.0
+    command: [ "pnpm", "run", "start:production" ]
+
+    networks:
+     - Ottoseguridadnet ## Nome da rede interna
+
+    environment:
+      ## Credencial
+      - FIRECRAWL_API_KEY=YOUR_FIRECRAWL_API_KEY_HERE
+
+      ## Dados do Redis
+      - REDIS_URL=redis://redis:6379
+      - REDIS_RATE_LIMIT_URL=redis://redis:6379
+
+      ## Dados da OpenAI
+      - OPENAI_API_KEY=YOUR_OPENAI_API_KEY_HERE
+      - OPENAI_BASE_URL=https://api.openai.com/v1
+      - MODEL_NAME=gpt-4o
+      
+      # Dados do ScrapingBee
+      - SCRAPING_BEE_API_KEY=
+      - HOST=0.0.0.0
+      
+      # Dados do Webhook e Debug
+      - SELF_HOSTED_WEBHOOK_URL=
+      - LOGGING_LEVEL=DEBUG
+
+      ## Dados do Supabase
+      - USE_DB_AUTHENTICATION=false
+      #- SUPABASE_URL=
+      #- SUPABASE_ANON_TOKEN=
+      #- SUPABASE_SERVICE_TOKEN=
+
+      ## Outras configurações
+      - PORT=3002
+      - NUM_WORKERS_PER_QUEUE=8 
+      - FLY_PROCESS_GROUP=app
+      - PLAYWRIGHT_MICROSERVICE_URL=http://firecrawl_playwright:3000/scrape
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.firecrawl_api.rule=Host(`firec.ottoseguridadai.com`)
+        - traefik.http.services.firecrawl_api.loadbalancer.server.port=3002
+        - traefik.http.routers.firecrawl_api.service=firecrawl_api
+        - traefik.http.routers.firecrawl_api.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.firecrawl_api.entrypoints=websecure
+        - traefik.http.routers.firecrawl_api.tls=true
+
+## --------------------------- ORION --------------------------- ##
+
+  firecrawl_worker:
+    image: oriondesign/firecrawl-api:v2.1.0
+    command: [ "pnpm", "run", "workers" ]
+
+    networks:
+     - Ottoseguridadnet ## Nome da rede interna
+
+    environment:
+      ## Credencial
+      - FIRECRAWL_API_KEY=YOUR_FIRECRAWL_API_KEY_HERE
+
+      ## Dados do Redis
+      - REDIS_URL=redis://redis:6379
+      - REDIS_RATE_LIMIT_URL=redis://redis:6379
+
+      ## Dados da OpenAI
+      - OPENAI_API_KEY=YOUR_OPENAI_API_KEY_HERE
+      - OPENAI_BASE_URL=https://api.openai.com/v1
+      - MODEL_NAME=gpt-4o
+      
+      # Dados do ScrapingBee
+      - SCRAPING_BEE_API_KEY=
+      - HOST=0.0.0.0
+      
+      # Dados do Webhook e Debug
+      - SELF_HOSTED_WEBHOOK_URL=
+      - LOGGING_LEVEL=DEBUG
+
+      ## Dados do Supabase
+      - USE_DB_AUTHENTICATION=false
+      #- SUPABASE_URL=
+      #- SUPABASE_ANON_TOKEN=
+      #- SUPABASE_SERVICE_TOKEN=
+
+      ## Outras configurações
+      - PORT=3002
+      - NUM_WORKERS_PER_QUEUE=8 
+      - FLY_PROCESS_GROUP=worker
+      - PLAYWRIGHT_MICROSERVICE_URL=http://firecrawl_playwright:3000/scrape
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+
+## --------------------------- ORION --------------------------- ##
+
+  firecrawl_playwright:
+    image: oriondesign/firecrawl-playwright-service:v2.1.0
+
+    networks:
+     - Ottoseguridadnet ## Nome da rede interna
+
+    environment:
+      - PORT=3000
+      - PROXY_SERVER=http://proxy-server.com:3128
+      - PROXY_USERNAME=admin
+      - PROXY_PASSWORD=admin
+      - BLOCK_MEDIA=true
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+
+## --------------------------- ORION --------------------------- ##
+
+networks:
+  Ottoseguridadnet: ## Nome da rede interna
+    name: Ottoseguridadnet ## Nome da rede interna
+    external: true

@@ -4,17 +4,11 @@
       "command": "npx",
       "args": ["shadcn@latest", "mcp"]
     },
-    "playwright": {
-      "command": "npx",
-      "args": [
-        "@playwright/mcp@latest"
-      ]
-    },
     "context7": {
       "type": "http",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
+        "CONTEXT7_API_KEY": "ctx7sk-b63f54c2-8ea3-4a70-8a4e-aac2abe6b7cd"
       }
     }
   }

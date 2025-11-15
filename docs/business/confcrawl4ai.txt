@@ -1,0 +1,71 @@
+version: "3.8"
+services:
+
+## --------------------------- CRAWL4AI --------------------------- ##
+
+  crawl4ai_api:
+    image: unclecode/crawl4ai:latest
+
+    networks:
+     - Ottoseguridadnet ## Nome da rede interna
+
+    environment:
+      ## Server Configuration
+      - PORT=11235
+      - HOST=0.0.0.0
+
+      ## AI Provider - OpenRouter Integration
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=openai/gpt-4o
+      - OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+
+      ## Optional: Fallback to OpenAI if needed
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # - OPENAI_BASE_URL=https://api.openai.com/v1
+
+      ## Crawling Configuration
+      - MAX_CONCURRENT_CRAWLS=5
+      - DEFAULT_TIMEOUT=120000
+      - ENABLE_CACHING=true
+      - CACHE_TTL=3600
+
+      ## Browser Configuration
+      - HEADLESS=true
+      - BROWSER_TYPE=chromium
+      - BLOCK_MEDIA=true
+      - REMOVE_BASE64_IMAGES=true
+
+      ## Advanced Features
+      - ENABLE_VIRTUAL_SCROLL=true
+      - ENABLE_LLM_EXTRACTION=true
+      - ENABLE_DEEP_CRAWLING=true
+
+      ## Logging
+      - LOG_LEVEL=info
+      - DEBUG_MODE=false
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.crawl4ai_api.rule=Host(`crawl.ottoseguridadai.com`)
+        - traefik.http.services.crawl4ai_api.loadbalancer.server.port=11235
+        - traefik.http.routers.crawl4ai_api.service=crawl4ai_api
+        - traefik.http.routers.crawl4ai_api.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.crawl4ai_api.entrypoints=websecure
+        - traefik.http.routers.crawl4ai_api.tls=true
+
+## --------------------------- CRAWL4AI --------------------------- ##
+
+networks:
+  Ottoseguridadnet: ## Nome da rede interna
+    name: Ottoseguridadnet ## Nome da rede interna
+    external: true
