@@ -249,3 +249,17 @@ export interface Crawl4AIArticleExtractionConfig {
   useLLM?: boolean;
   llmInstruction?: string;
 }
+
+/**
+ * Configuration for extracting multiple articles from category pages
+ */
+export interface CategoryExtractionConfig {
+  /** JSON-CSS schema for extracting article listings */
+  schema: JsonCssExtractionConfig['schema'];
+  /** Whether to use LLM as fallback if CSS extraction fails */
+  useLLMFallback?: boolean;
+  /** Custom LLM instruction for fallback extraction */
+  llmInstruction?: string;
+  /** Expected minimum number of articles to extract (for validation) */
+  minArticles?: number;
+}

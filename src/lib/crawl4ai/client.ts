@@ -12,6 +12,10 @@ import type {
   Crawl4AIBatchResponse,
   Crawl4AIBatchResult,
   Crawl4AIError as Crawl4AIErrorType,
+  ExtractionStrategy,
+  JsonCssExtractionConfig,
+  LLMExtractionConfig,
+  CosineExtractionConfig,
 } from './types';
 import { crawl4aiConfig } from './config';
 
@@ -82,6 +86,45 @@ export class Crawl4AIClient {
   }
 
   /**
+   * Convert our internal ExtractionStrategy format to Crawl4AI API format
+   */
+  private convertExtractionStrategy(strategy: ExtractionStrategy): unknown {
+    if (strategy.type === 'json_css') {
+      const config = strategy.config as JsonCssExtractionConfig;
+      return {
+        type: 'JsonCssExtractionStrategy',
+        params: {
+          schema: {
+            type: 'dict',
+            value: config.schema,
+          },
+        },
+      };
+    } else if (strategy.type === 'llm') {
+      const config = strategy.config as LLMExtractionConfig;
+      return {
+        type: 'LLMExtractionStrategy',
+        params: {
+          provider: config.provider,
+          ...(config.apiToken && { api_token: config.apiToken }),
+          instruction: config.instruction,
+          ...(config.schema && { schema: config.schema }),
+        },
+      };
+    } else if (strategy.type === 'cosine') {
+      const config = strategy.config as CosineExtractionConfig;
+      return {
+        type: 'CosineExtractionStrategy',
+        params: {
+          ...(config.keywords && { keywords: config.keywords }),
+          ...(config.minSimilarity && { min_similarity: config.minSimilarity }),
+        },
+      };
+    }
+    throw new Crawl4AIError(`Unsupported extraction strategy type: ${strategy.type}`);
+  }
+
+  /**
    * Health check
    */
   async healthCheck(): Promise<Crawl4AIHealthResponse> {
@@ -124,11 +167,28 @@ export class Crawl4AIClient {
       const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
       try {
-        // Crawl4AI API expects 'urls' (plural) not 'url'
-        const { url, ...restConfig } = config;
+        // Build Crawl4AI API payload in the correct format
         const crawl4aiPayload = {
-          urls: [url],  // Convert single URL to array
-          ...restConfig,
+          urls: [config.url],
+          browser_config: {
+            type: 'BrowserConfig',
+            params: {
+              headless: true,
+              verbose: false,
+            },
+          },
+          crawler_config: {
+            type: 'CrawlerRunConfig',
+            params: {
+              // Convert our config to Crawl4AI format
+              ...(config.formats && { word_count_threshold: 0 }),
+              ...(config.waitTime && { wait_for: `css:body` }),
+              ...(config.waitTime && { delay_before_return_html: config.waitTime }),
+              ...(config.extractionStrategy && {
+                extraction_strategy: this.convertExtractionStrategy(config.extractionStrategy),
+              }),
+            },
+          },
         };
 
         const response = await fetch(`${this.baseUrl}/crawl`, {
@@ -153,13 +213,36 @@ export class Crawl4AIClient {
 
         const data = await response.json();
 
+        // Crawl4AI returns { success, results: [...] }
+        // Extract the first result since we only send one URL
+        const result = data.results?.[0];
+
+        if (!result) {
+          throw new Crawl4AIError('No results returned from Crawl4AI');
+        }
+
         return {
-          success: true,
-          data: data.data,
+          success: data.success,
+          data: {
+            markdown: result.markdown,
+            html: result.html,
+            text: result.text,
+            extracted: result.extracted,
+            screenshot: result.screenshot,
+            pdf: result.pdf,
+            links: result.links,
+            images: result.images,
+            title: result.title,
+            description: result.description,
+            author: result.author,
+            publishedDate: result.published_date,
+            keywords: result.keywords,
+          },
           metadata: {
-            url: config.url,
+            url: result.url || config.url,
             crawledAt: new Date().toISOString(),
-            ...data.metadata,
+            statusCode: result.status_code,
+            duration: result.crawl_time,
           },
         };
       } catch (error) {

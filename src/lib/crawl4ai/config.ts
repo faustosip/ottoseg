@@ -4,7 +4,7 @@
  * Site-specific configurations for scraping Ecuadorian news sources
  */
 
-import type { Crawl4AIArticleExtractionConfig } from './types';
+import type { Crawl4AIArticleExtractionConfig, CategoryExtractionConfig } from './types';
 
 // ============================================================================
 // Environment Configuration
@@ -83,6 +83,224 @@ Return as JSON with these exact field names.`,
     dateSelector: '.date, time',
     imageSelector: 'img.main-image, .featured-image img',
     useLLM: false,
+  },
+};
+
+// ============================================================================
+// Category Page Extraction Configurations
+// ============================================================================
+
+/**
+ * Extraction configurations for category/listing pages
+ * These extract multiple article cards from category pages
+ */
+export const categoryExtractionConfigs: Record<string, CategoryExtractionConfig> = {
+  // Primicias - Category pages (política, economía, seguridad)
+  primicias: {
+    schema: {
+      name: 'Primicias Articles Listing',
+      baseSelector: 'article.post, article, .post, .article-item, .entry, .c-card',
+      fields: [
+        {
+          name: 'title',
+          selector: 'h2 a, h3 a, .entry-title a, .post-title a, h2, h3',
+          type: 'text',
+        },
+        {
+          name: 'url',
+          selector: 'h2 a, h3 a, .entry-title a, .post-title a, a[rel="bookmark"]',
+          type: 'attribute',
+          attribute: 'href',
+        },
+        {
+          name: 'excerpt',
+          selector: '.entry-excerpt, .excerpt, .post-excerpt, p, .description',
+          type: 'text',
+        },
+        {
+          name: 'imageUrl',
+          selector: 'img.wp-post-image, .featured-image img, img, .entry-image img',
+          type: 'attribute',
+          attribute: 'src',
+        },
+        {
+          name: 'publishedDate',
+          selector: 'time, .entry-date, .post-date, .published',
+          type: 'attribute',
+          attribute: 'datetime',
+        },
+      ],
+    },
+    useLLMFallback: true,
+    llmInstruction: `Extract all news articles from this Primicias category page. For each article card, extract:
+- title: The article headline/title
+- url: The link to the full article
+- excerpt: A brief summary or first paragraph (50-200 words)
+- imageUrl: The featured image URL if available
+- publishedDate: The publication date if shown
+
+Return an array of article objects. Ignore navigation, ads, and other non-article content.`,
+    minArticles: 5,
+  },
+
+  // La Hora - Category pages
+  laHora: {
+    schema: {
+      name: 'La Hora Articles Listing',
+      baseSelector: 'article, .article-item, .post, .news-item',
+      fields: [
+        {
+          name: 'title',
+          selector: 'h2, h3, .article-title, .post-title',
+          type: 'text',
+        },
+        {
+          name: 'url',
+          selector: 'a[href*="/seccion/"], a',
+          type: 'attribute',
+          attribute: 'href',
+        },
+        {
+          name: 'excerpt',
+          selector: '.summary, .excerpt, p',
+          type: 'text',
+        },
+        {
+          name: 'imageUrl',
+          selector: 'img',
+          type: 'attribute',
+          attribute: 'src',
+        },
+        {
+          name: 'publishedDate',
+          selector: 'time, .date',
+          type: 'attribute',
+          attribute: 'datetime',
+        },
+      ],
+    },
+    useLLMFallback: true,
+    minArticles: 5,
+  },
+
+  // El Comercio - Category pages
+  elComercio: {
+    schema: {
+      name: 'El Comercio Articles Listing',
+      baseSelector: 'article, .story-card, .article-card, [data-article]',
+      fields: [
+        {
+          name: 'title',
+          selector: 'h2, h3, .headline, [itemprop="headline"]',
+          type: 'text',
+        },
+        {
+          name: 'url',
+          selector: 'a[href*="/actualidad/"], a[href*="/tendencias/"], a',
+          type: 'attribute',
+          attribute: 'href',
+        },
+        {
+          name: 'excerpt',
+          selector: '.summary, .description, p',
+          type: 'text',
+        },
+        {
+          name: 'imageUrl',
+          selector: 'img, [itemprop="image"]',
+          type: 'attribute',
+          attribute: 'src',
+        },
+        {
+          name: 'publishedDate',
+          selector: 'time, [itemprop="datePublished"]',
+          type: 'attribute',
+          attribute: 'datetime',
+        },
+      ],
+    },
+    useLLMFallback: true,
+    minArticles: 5,
+  },
+
+  // Teleamazonas - Category pages (complex, may need LLM)
+  teleamazonas: {
+    schema: {
+      name: 'Teleamazonas Articles Listing',
+      baseSelector: 'article, .news-card, .video-card, .story-item',
+      fields: [
+        {
+          name: 'title',
+          selector: 'h2, h3, .title',
+          type: 'text',
+        },
+        {
+          name: 'url',
+          selector: 'a',
+          type: 'attribute',
+          attribute: 'href',
+        },
+        {
+          name: 'excerpt',
+          selector: '.summary, p',
+          type: 'text',
+        },
+        {
+          name: 'imageUrl',
+          selector: 'img',
+          type: 'attribute',
+          attribute: 'src',
+        },
+        {
+          name: 'publishedDate',
+          selector: 'time, .date',
+          type: 'text',
+        },
+      ],
+    },
+    useLLMFallback: true,
+    llmInstruction: `Extract all news articles from this Teleamazonas category page. Include both regular articles and video content. For each item, extract:
+- title: The headline
+- url: Link to full content
+- excerpt: Brief description
+- imageUrl: Thumbnail or featured image
+- publishedDate: When it was published
+
+Return an array. Ignore ads and navigation.`,
+    minArticles: 3,
+  },
+
+  // ECU911 - Special case with virtual scrolling
+  ecu911: {
+    schema: {
+      name: 'ECU911 Traffic Incidents',
+      baseSelector: '.incident-item, .report-card, .alert-item',
+      fields: [
+        {
+          name: 'title',
+          selector: 'h3, .incident-title',
+          type: 'text',
+        },
+        {
+          name: 'excerpt',
+          selector: '.description, .details, p',
+          type: 'text',
+        },
+        {
+          name: 'imageUrl',
+          selector: 'img',
+          type: 'attribute',
+          attribute: 'src',
+        },
+        {
+          name: 'publishedDate',
+          selector: '.date, time',
+          type: 'text',
+        },
+      ],
+    },
+    useLLMFallback: true,
+    minArticles: 3,
   },
 };
 
@@ -169,4 +387,29 @@ export function shouldUseLLM(source: string): boolean {
   const normalizedSource = source.toLowerCase().replace(/\s+/g, '');
   const config = getExtractionConfig(source);
   return config.useLLM || llmExtractionSites.has(normalizedSource);
+}
+
+/**
+ * Get category extraction config for a specific source
+ */
+export function getCategoryExtractionConfig(source: string): CategoryExtractionConfig {
+  const normalizedSource = source.toLowerCase().replace(/\s+/g, '');
+
+  // Default fallback configuration
+  const defaultConfig: CategoryExtractionConfig = {
+    schema: {
+      name: 'Generic Articles Listing',
+      baseSelector: 'article, .article, .post, .news-item',
+      fields: [
+        { name: 'title', selector: 'h2, h3, .title', type: 'text' },
+        { name: 'url', selector: 'a', type: 'attribute', attribute: 'href' },
+        { name: 'excerpt', selector: 'p, .excerpt, .summary', type: 'text' },
+        { name: 'imageUrl', selector: 'img', type: 'attribute', attribute: 'src' },
+      ],
+    },
+    useLLMFallback: true,
+    minArticles: 3,
+  };
+
+  return categoryExtractionConfigs[normalizedSource] || defaultConfig;
 }

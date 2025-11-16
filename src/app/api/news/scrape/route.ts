@@ -85,15 +85,19 @@ export async function POST(request: NextRequest) {
     const enableCrawl4AI = body.enableCrawl4AI ?? true; // Habilitado por defecto
 
     // FASE 1: Scrapear todas las fuentes
+    const phase1Start = Date.now();
     if (disableFirecrawl) {
       console.log("🔍 FASE 1: Iniciando scraping con Crawl4AI (Firecrawl deshabilitado)...");
     } else {
       console.log("🔍 FASE 1: Iniciando scraping con Firecrawl...");
     }
+    console.log(`⏱️  TIMESTAMP: ${new Date().toISOString()}`);
+
     const scrapeResult = await scrapeAllSources();
 
+    const phase1Duration = (Date.now() - phase1Start) / 1000;
     console.log(
-      `✅ FASE 1 completada: ${scrapeResult.metadata.totalArticles} artículos descubiertos`
+      `✅ FASE 1 completada: ${scrapeResult.metadata.totalArticles} artículos descubiertos en ${phase1Duration.toFixed(2)}s`
     );
 
     // Actualizar bulletin con raw news (sin metadata)
@@ -105,14 +109,13 @@ export async function POST(request: NextRequest) {
     );
 
     // Crear log de FASE 1
-    const phase1Duration = Date.now() - startTime;
     await createBulletinLog(
       bulletin.id,
       "scraping",
       "completed",
       `FASE 1 (Firecrawl) completada: ${scrapeResult.metadata.totalArticles} artículos de ${scrapeResult.metadata.sourcesSuccess} fuentes`,
       {
-        duration: phase1Duration,
+        duration: phase1Duration * 1000, // Convertir segundos a milisegundos
         totalArticles: scrapeResult.metadata.totalArticles,
         sourcesSuccess: scrapeResult.metadata.sourcesSuccess,
         sourcesFailed: scrapeResult.metadata.sourcesFailed,
@@ -148,7 +151,7 @@ export async function POST(request: NextRequest) {
         // Enriquecer artículos con contenido completo
         enrichedResult = await enrichWithFullContent(scrapeResult, {
           maxConcurrency: 5,
-          enableCrawl4AI: true,
+          enableEnrichment: true,
         });
 
         const phase2Duration = Date.now() - phase2Start;
@@ -217,8 +220,8 @@ export async function POST(request: NextRequest) {
       crawl4aiStats = { enabled: false };
     }
 
-    // Actualizar status a 'draft' (listo para edición)
-    await updateBulletinStatus(bulletin.id, "draft");
+    // Actualizar status a 'ready' (listo para edición)
+    await updateBulletinStatus(bulletin.id, "ready");
 
     // Calcular duración total
     const duration = Date.now() - startTime;

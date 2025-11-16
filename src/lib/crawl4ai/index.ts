@@ -10,10 +10,18 @@
 export { Crawl4AIClient, Crawl4AIError, getCrawl4AIClient, scrapeURL, scrapeURLs, checkCrawl4AIHealth } from './client';
 
 // Strategy exports
-export { extractArticle, extractArticles } from './strategies';
+export { extractArticle, extractArticles, extractCategoryArticles } from './strategies';
 
 // Configuration exports
-export { crawl4aiConfig, getExtractionConfig, needsVirtualScroll, needsJSRendering, shouldUseLLM } from './config';
+export {
+  crawl4aiConfig,
+  getExtractionConfig,
+  getCategoryExtractionConfig,
+  needsVirtualScroll,
+  needsJSRendering,
+  shouldUseLLM,
+  categoryExtractionConfigs
+} from './config';
 
 // Type exports
 export type {
@@ -35,4 +43,5 @@ export type {
   ProxyConfig,
   Cookie,
   Crawl4AIArticleExtractionConfig,
+  CategoryExtractionConfig,
 } from './types';
