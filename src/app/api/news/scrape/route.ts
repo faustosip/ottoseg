@@ -20,6 +20,22 @@ import {
 import { scrapeAllSources, enrichWithFullContent } from "@/lib/news/scraper";
 
 /**
+ * Verifica si un proceso de boletín quedó atascado
+ * Un proceso se considera atascado si lleva más de 10 minutos desde su creación
+ */
+function isStaleProcess(bulletin: { createdAt: Date }): boolean {
+  const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutos
+  const timeSinceCreation = Date.now() - new Date(bulletin.createdAt).getTime();
+
+  if (timeSinceCreation > STALE_THRESHOLD_MS) {
+    console.log(`⚠️  Boletín atascado detectado (${Math.round(timeSinceCreation / 1000 / 60)} minutos desde creación)`);
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * POST /api/news/scrape
  *
  * Scrapea noticias y crea boletín
@@ -43,11 +59,15 @@ export async function POST(request: NextRequest) {
     const todayBulletin = await getTodayBulletin();
 
     if (todayBulletin) {
-      // Si existe y está en proceso (scraping, classifying, summarizing), retornar error
+      // Verificar si el boletín está "realmente" en proceso o solo quedó atascado
+      const isStale = isStaleProcess(todayBulletin);
+
+      // Si existe y está en proceso (scraping, classifying, summarizing)
       if (
-        todayBulletin.status === "scraping" ||
+        (todayBulletin.status === "scraping" ||
         todayBulletin.status === "classifying" ||
-        todayBulletin.status === "summarizing"
+        todayBulletin.status === "summarizing") &&
+        !isStale
       ) {
         return NextResponse.json(
           {
@@ -59,7 +79,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Si existe pero falló o está listo, podemos crear uno nuevo (sobrescribir)
+      // Si existe pero falló, está listo, o quedó atascado, podemos crear uno nuevo
       console.log(
         `⚠️  Ya existe boletín de hoy (${todayBulletin.status}), se creará uno nuevo`
       );

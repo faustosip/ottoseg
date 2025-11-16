@@ -35,11 +35,10 @@ export default function GenerateBulletinPage() {
       }, 300000);
 
       // Iniciar scraping
-      // 🧪 MODO TEST: Deshabilitar FASE 2 (enriquecimiento) para diagnóstico
       const scrapeRes = await fetch("/api/news/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enableCrawl4AI: false }), // Solo FASE 1
+        body: JSON.stringify({ enableCrawl4AI: true }),
         signal: controller.signal,
       });
 

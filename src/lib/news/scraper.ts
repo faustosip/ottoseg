@@ -127,11 +127,8 @@ export async function scrapeAllSources(): Promise<ScrapeResult> {
     const sources = await getActiveSources();
     console.log(`📡 Encontradas ${sources.length} fuentes activas`);
 
-    // 🧪 MODO TEST: Solo scrapear Primicias para diagnóstico
-    const testMode = true;
-    const primiciasSource = sources.find(s => s.name.toLowerCase().includes('primicias'));
-    const sourcesToScrape = testMode && primiciasSource ? [primiciasSource] : sources;
-    console.log(`🧪 MODO TEST ACTIVADO: Solo scrapeando ${sourcesToScrape.map(s => s.name).join(', ')}`);
+    // Scrapear todas las fuentes
+    const sourcesToScrape = sources;
 
     // Scrapear cada fuente
     const scrapePromises = sourcesToScrape.map(async (source) => {
@@ -335,10 +332,9 @@ export async function scrapeSource(source: NewsSource): Promise<ScrapedArticle[]
   const scrapeConfig = source.scrapeConfig as ScrapeConfig | null;
   const urls = scrapeConfig?.urls || [source.url];
 
-  // 🧪 MODO TEST: Solo scrapear la primera URL
-  const testMode = true;
-  const urlsToScrape = testMode ? urls.slice(0, 1) : urls;
-  console.log(`  📋 ${source.name}: ${urlsToScrape.length}/${urls.length} URL(s) a scrapear (MODO TEST)`);
+  // Scrapear todas las URLs configuradas
+  const urlsToScrape = urls;
+  console.log(`  📋 ${source.name}: ${urlsToScrape.length} URL(s) a scrapear con Crawl4AI`);
 
   const allArticles: ScrapedArticle[] = [];
 
