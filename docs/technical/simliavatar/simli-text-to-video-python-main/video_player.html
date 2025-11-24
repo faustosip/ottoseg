@@ -1,0 +1,64 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Video Player</title>
+            <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+            <style>
+                .container {
+                    max-width: 800px;
+                    margin: 20px auto;
+                    text-align: center;
+                }
+                video {
+                    width: 100%;
+                    margin: 20px 0;
+                }
+                #playButton {
+                    padding: 10px 20px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    background-color: #4CAF50;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    margin-bottom: 20px;
+                }
+                #playButton:hover {
+                    background-color: #45a049;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <button id="playButton">Click to Play Video</button>
+                <video id="video" controls playsinline></video>
+            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    var video = document.getElementById('video');
+                    var playButton = document.getElementById('playButton');
+                    var videoSrc = 'http://api.simli.ai/hls/MTkyLjE2OC4xMTguMTA6NjA3NQ==/f44904cf-27cb-40a0-b7c9-e9a04fa73748/output.m3u8';
+                    var hls;
+                    
+                    if (Hls.isSupported()) {
+                        hls = new Hls();
+                        hls.loadSource(videoSrc);
+                        hls.attachMedia(video);
+                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                        video.src = videoSrc;
+                    }
+
+                    playButton.addEventListener('click', function() {
+                        video.play()
+                            .then(() => {
+                                console.log('Playback started');
+                                playButton.style.display = 'none';
+                            })
+                            .catch(e => console.error('Playback failed:', e));
+                    });
+                });
+            </script>
+        </body>
+        </html>
+        

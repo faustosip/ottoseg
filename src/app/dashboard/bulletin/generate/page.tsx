@@ -34,11 +34,11 @@ export default function GenerateBulletinPage() {
         controller.abort();
       }, 300000);
 
-      // Iniciar scraping
+      // Iniciar scraping (deshabilitar enriquecimiento para ser más rápido)
       const scrapeRes = await fetch("/api/news/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enableCrawl4AI: true }),
+        body: JSON.stringify({ enableCrawl4AI: false }), // FASE 2 deshabilitada
         signal: controller.signal,
       });
 
@@ -123,11 +123,13 @@ export default function GenerateBulletinPage() {
             ¿Listo para scrapear las noticias?
           </h2>
           <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-            El proceso tomará aproximadamente 3-5 minutos:
+            El proceso tomará aproximadamente 1-2 minutos:
             <br />
-            • FASE 1 (Firecrawl): ~60s - Descubre artículos en páginas de categorías
+            • Fuente: Primicias (Economía, Política, Quito/Sociedad, Seguridad, Internacional)
             <br />
-            • FASE 2 (Crawl4AI): ~3-4min - Extrae contenido completo de cada artículo
+            • Extrae 3 noticias por sección (clasificación automática por URL)
+            <br />
+            • Total aproximado: 15 artículos pre-clasificados
           </p>
           <Button onClick={generateBulletin} size="lg">
             Iniciar Scraping
@@ -144,10 +146,10 @@ export default function GenerateBulletinPage() {
               Esperando respuesta del servidor...
             </h2>
             <p className="text-muted-foreground max-w-md">
-              La petición se envió correctamente. Esto puede tardar unos minutos mientras se scrapean las noticias.
+              La petición se envió correctamente. Esto tomará 1-2 minutos mientras se scrapean las noticias.
             </p>
             <p className="text-sm text-muted-foreground/60">
-              Si esto tarda más de 5 minutos, revisa los logs del servidor.
+              Extrayendo las primeras 3 noticias de cada sección...
             </p>
           </div>
         </div>

@@ -14,6 +14,11 @@ import type { NewsSource } from "@/lib/schema";
 import { extractCategoryArticles, extractArticles } from "@/lib/crawl4ai";
 
 /**
+ * Categorías válidas para clasificación de noticias
+ */
+export type NewsCategory = "economia" | "politica" | "sociedad" | "seguridad" | "internacional" | "vial";
+
+/**
  * Estructura de un artículo scrapeado
  */
 export interface ScrapedArticle {
@@ -26,6 +31,7 @@ export interface ScrapedArticle {
   author?: string; // Autor del artículo
   publishedDate?: string; // Fecha de publicación
   source: string;
+  category?: NewsCategory; // Categoría detectada automáticamente por URL
   selected?: boolean; // Si está seleccionada para el boletín (por defecto true)
   scrapedAt?: string; // Timestamp del scraping
   metadata?: {
@@ -90,6 +96,53 @@ function normalizeSourceName(name: string): keyof Omit<ScrapeResult, "metadata">
   };
 
   return mapping[normalized] || "primicias";
+}
+
+/**
+ * Detecta la categoría de una noticia basándose en su URL
+ *
+ * @param url - URL del artículo o página de categoría
+ * @returns Categoría detectada o undefined si no se puede determinar
+ *
+ * @example
+ * ```ts
+ * detectCategoryFromUrl("https://www.primicias.ec/economia/...") // "economia"
+ * detectCategoryFromUrl("https://www.primicias.ec/politica/...") // "politica"
+ * detectCategoryFromUrl("https://www.primicias.ec/quito/...") // "sociedad"
+ * ```
+ */
+export function detectCategoryFromUrl(url: string): NewsCategory | undefined {
+  const urlLower = url.toLowerCase();
+
+  // Mapeo de patrones de URL a categorías
+  const patterns: Array<{ pattern: RegExp; category: NewsCategory }> = [
+    // Economía
+    { pattern: /\/(economia|economy|negocios|business)\//i, category: "economia" },
+
+    // Política
+    { pattern: /\/(politica|politics|gobierno|government)\//i, category: "politica" },
+
+    // Sociedad (incluye Quito para Primicias)
+    { pattern: /\/(sociedad|society|quito|comunidad|cultura|social)\//i, category: "sociedad" },
+
+    // Seguridad
+    { pattern: /\/(seguridad|security|policia|judicial|justicia|crimen)\//i, category: "seguridad" },
+
+    // Internacional
+    { pattern: /\/(internacional|international|mundo|world|global)\//i, category: "internacional" },
+
+    // Vial
+    { pattern: /\/(vial|transito|traffic|via|carreteras)\//i, category: "vial" },
+  ];
+
+  // Buscar la primera coincidencia
+  for (const { pattern, category } of patterns) {
+    if (pattern.test(urlLower)) {
+      return category;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -332,11 +385,18 @@ export async function scrapeSource(source: NewsSource): Promise<ScrapedArticle[]
   const scrapeConfig = source.scrapeConfig as ScrapeConfig | null;
   const urls = scrapeConfig?.urls || [source.url];
 
+  // Obtener el selector personalizado de la base de datos
+  const customSelector = source.selector || undefined;
+  if (customSelector) {
+    console.log(`  📌 ${source.name}: Usando selector de BD: "${customSelector}"`);
+  }
+
   // Scrapear todas las URLs configuradas
   const urlsToScrape = urls;
   console.log(`  📋 ${source.name}: ${urlsToScrape.length} URL(s) a scrapear con Crawl4AI`);
 
   const allArticles: ScrapedArticle[] = [];
+  const seenUrls = new Set<string>(); // Track URLs to avoid duplicates
 
   // Scrapear cada URL con Crawl4AI
   for (let urlIndex = 0; urlIndex < urlsToScrape.length; urlIndex++) {
@@ -347,11 +407,36 @@ export async function scrapeSource(source: NewsSource): Promise<ScrapedArticle[]
 
     try {
       // Usar extractCategoryArticles para páginas de categoría
-      const articles = await extractCategoryArticles(url, source.name);
+      // Pasar el selector personalizado de la base de datos
+      const articles = await extractCategoryArticles(url, source.name, customSelector);
 
-      // Los artículos ya vienen en el formato correcto de ScrapedArticle
-      allArticles.push(...articles);
-      console.log(`  ✓ ${source.name} ${urlLabel}: ${articles.length} artículos`);
+      // Detectar categoría de la URL de categoría y asignarla a todos los artículos
+      const categoryFromUrl = detectCategoryFromUrl(url);
+
+      // Asignar categoría a cada artículo
+      const articlesWithCategory = articles.map(article => ({
+        ...article,
+        category: categoryFromUrl, // Asignar categoría detectada de la URL
+      }));
+
+      if (categoryFromUrl) {
+        console.log(`  🏷️  Categoría detectada: ${categoryFromUrl}`);
+      }
+
+      // Deduplicate: Only add articles with unique URLs
+      let duplicateCount = 0;
+      for (const article of articlesWithCategory) {
+        if (!seenUrls.has(article.url)) {
+          seenUrls.add(article.url);
+          allArticles.push(article);
+        } else {
+          duplicateCount++;
+          console.log(`  🔁 Duplicado omitido: "${article.title.substring(0, 50)}..."`);
+        }
+      }
+
+      const uniqueCount = articles.length - duplicateCount;
+      console.log(`  ✓ ${source.name} ${urlLabel}: ${uniqueCount} artículos únicos (${duplicateCount} duplicados omitidos)`);
     } catch (error) {
       console.error(
         `  ⚠️  ${source.name} ${urlLabel} falló con Crawl4AI:`,
@@ -362,7 +447,7 @@ export async function scrapeSource(source: NewsSource): Promise<ScrapedArticle[]
   }
 
   console.log(
-    `  ✅ ${source.name}: Total ${allArticles.length} artículos de ${urls.length} URL(s)`
+    `  ✅ ${source.name}: Total ${allArticles.length} artículos únicos de ${urls.length} URL(s)`
   );
 
   return allArticles;

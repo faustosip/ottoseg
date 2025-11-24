@@ -119,7 +119,7 @@ export const categoryExtractionConfigs: Record<string, CategoryExtractionConfig>
         },
         {
           name: 'imageUrl',
-          selector: 'img.wp-post-image, .featured-image img, img, .entry-image img',
+          selector: 'picture img, img.wp-post-image, .featured-image img, img, .entry-image img',
           type: 'attribute',
           attribute: 'src',
         },
@@ -147,35 +147,34 @@ Return an array of article objects. Ignore navigation, ads, and other non-articl
   laHora: {
     schema: {
       name: 'La Hora Articles Listing',
-      baseSelector: 'article, .article-item, .post, .news-item',
+      baseSelector: 'section.styles_content__Pe1Q_, div[class*="ItemCustomContent"]',
       fields: [
         {
           name: 'title',
-          selector: 'h2, h3, .article-title, .post-title',
+          selector: 'h2 a, a.styles_linkStyled__pYJA9',
           type: 'text',
         },
         {
           name: 'url',
-          selector: 'a[href*="/seccion/"], a',
+          selector: 'a[href$=".html"]',
           type: 'attribute',
           attribute: 'href',
         },
         {
           name: 'excerpt',
-          selector: '.summary, .excerpt, p',
+          selector: '.styles_correspondent__Q3Mer',
           type: 'text',
         },
         {
           name: 'imageUrl',
-          selector: 'img',
+          selector: 'picture img, img.styles_imageStyled__kKZxw, img',
           type: 'attribute',
           attribute: 'src',
         },
         {
           name: 'publishedDate',
-          selector: 'time, .date',
-          type: 'attribute',
-          attribute: 'datetime',
+          selector: '.styles_correspondent__Q3Mer',
+          type: 'text',
         },
       ],
     },
@@ -187,35 +186,34 @@ Return an array of article objects. Ignore navigation, ads, and other non-articl
   elComercio: {
     schema: {
       name: 'El Comercio Articles Listing',
-      baseSelector: 'article, .story-card, .article-card, [data-article]',
+      baseSelector: 'a.feed__item',
       fields: [
         {
           name: 'title',
-          selector: 'h2, h3, .headline, [itemprop="headline"]',
+          selector: '.feed__title',
           type: 'text',
         },
         {
           name: 'url',
-          selector: 'a[href*="/actualidad/"], a[href*="/tendencias/"], a',
+          selector: '',
           type: 'attribute',
           attribute: 'href',
         },
         {
           name: 'excerpt',
-          selector: '.summary, .description, p',
+          selector: '.feed__title',
           type: 'text',
         },
         {
           name: 'imageUrl',
-          selector: 'img, [itemprop="image"]',
+          selector: 'picture img, img',
           type: 'attribute',
           attribute: 'src',
         },
         {
           name: 'publishedDate',
-          selector: 'time, [itemprop="datePublished"]',
-          type: 'attribute',
-          attribute: 'datetime',
+          selector: '.feed__time',
+          type: 'text',
         },
       ],
     },
@@ -247,7 +245,7 @@ Return an array of article objects. Ignore navigation, ads, and other non-articl
         },
         {
           name: 'imageUrl',
-          selector: 'img',
+          selector: 'picture img, img',
           type: 'attribute',
           attribute: 'src',
         },
@@ -270,31 +268,36 @@ Return an array. Ignore ads and navigation.`,
     minArticles: 3,
   },
 
-  // ECU911 - Special case with virtual scrolling
+  // ECU911 - News page with simple link structure
   ecu911: {
     schema: {
-      name: 'ECU911 Traffic Incidents',
-      baseSelector: '.incident-item, .report-card, .alert-item',
+      name: 'ECU911 News Articles',
+      baseSelector: '#contenido-comunica a[href*="ecu911.gob.ec"]',
       fields: [
         {
           name: 'title',
-          selector: 'h3, .incident-title',
+          selector: 'span.titulo',
           type: 'text',
         },
         {
+          name: 'url',
+          selector: '',
+          type: 'attribute',
+          attribute: 'href',
+        },
+        {
           name: 'excerpt',
-          selector: '.description, .details, p',
+          selector: 'span.titulo',
           type: 'text',
         },
         {
           name: 'imageUrl',
-          selector: 'img',
-          type: 'attribute',
-          attribute: 'src',
+          selector: '',
+          type: 'text',
         },
         {
           name: 'publishedDate',
-          selector: '.date, time',
+          selector: 'span.time',
           type: 'text',
         },
       ],
@@ -404,7 +407,7 @@ export function getCategoryExtractionConfig(source: string): CategoryExtractionC
         { name: 'title', selector: 'h2, h3, .title', type: 'text' },
         { name: 'url', selector: 'a', type: 'attribute', attribute: 'href' },
         { name: 'excerpt', selector: 'p, .excerpt, .summary', type: 'text' },
-        { name: 'imageUrl', selector: 'img', type: 'attribute', attribute: 'src' },
+        { name: 'imageUrl', selector: 'picture img, img', type: 'attribute', attribute: 'src' },
       ],
     },
     useLLMFallback: true,

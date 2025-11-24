@@ -39,6 +39,12 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
 
   // Convertir Bulletin a BulletinData para los layouts
   const classifiedNews = bulletin.classifiedNews as ClassifiedNews | null;
+
+  // Helper para obtener la primera imagen de una categoría
+  const getFirstImageUrl = (newsArray: ClassifiedNews[keyof ClassifiedNews] | undefined): string | undefined => {
+    return newsArray?.find((n) => n.imageUrl)?.imageUrl;
+  };
+
   const bulletinData: BulletinData = {
     date: bulletin.date,
     economia: bulletin.economia
@@ -46,6 +52,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
           title: "Economía",
           summary: bulletin.economia,
           news: classifiedNews?.economia || [],
+          imageUrl: getFirstImageUrl(classifiedNews?.economia),
         }
       : undefined,
     politica: bulletin.politica
@@ -53,6 +60,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
           title: "Política",
           summary: bulletin.politica,
           news: classifiedNews?.politica || [],
+          imageUrl: getFirstImageUrl(classifiedNews?.politica),
         }
       : undefined,
     sociedad: bulletin.sociedad
@@ -60,6 +68,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
           title: "Sociedad",
           summary: bulletin.sociedad,
           news: classifiedNews?.sociedad || [],
+          imageUrl: getFirstImageUrl(classifiedNews?.sociedad),
         }
       : undefined,
     seguridad: bulletin.seguridad
@@ -67,6 +76,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
           title: "Seguridad",
           summary: bulletin.seguridad,
           news: classifiedNews?.seguridad || [],
+          imageUrl: getFirstImageUrl(classifiedNews?.seguridad),
         }
       : undefined,
     internacional: bulletin.internacional
@@ -74,6 +84,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
           title: "Internacional",
           summary: bulletin.internacional,
           news: classifiedNews?.internacional || [],
+          imageUrl: getFirstImageUrl(classifiedNews?.internacional),
         }
       : undefined,
     vial: bulletin.vial
@@ -81,6 +92,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
           title: "Vial",
           summary: bulletin.vial,
           news: classifiedNews?.vial || [],
+          imageUrl: getFirstImageUrl(classifiedNews?.vial),
         }
       : undefined,
   };

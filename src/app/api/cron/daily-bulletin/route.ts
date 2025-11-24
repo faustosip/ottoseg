@@ -11,7 +11,7 @@ import { getTodayBulletin } from "@/lib/db/queries/bulletins";
 /**
  * GET /api/cron/daily-bulletin
  *
- * Pipeline completo: scrape → classify → summarize
+ * Pipeline completo: scrape (con clasificación automática) → summarize
  */
 interface PipelineStep {
   success: boolean;
@@ -72,8 +72,8 @@ export async function GET(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-    // Paso 1: Scraping
-    console.log("\n📍 Paso 1/3: Scraping");
+    // Paso 1: Scraping (con clasificación automática)
+    console.log("\n📍 Paso 1/2: Scraping + Clasificación Automática");
     const scrapeStart = Date.now();
 
     try {
@@ -106,83 +106,49 @@ export async function GET(request: NextRequest) {
 
       const bulletinId = scrapeData.bulletinId;
 
-      // Paso 2: Clasificación
-      console.log("\n📍 Paso 2/3: Clasificación");
-      const classifyStart = Date.now();
+      // Paso 2: Clasificación (OMITIDO - Ya se hace automáticamente en scraping)
+      console.log("\n⏭️  Paso 2: Clasificación automática ya realizada durante scraping");
+
+      // La clasificación ya se hizo en el endpoint de scraping basándose en URLs
+      // No es necesario llamar a /api/news/classify
+
+      // Paso 2: Summarización
+      console.log("\n📍 Paso 2/2: Summarización");
+      const summarizeStart = Date.now();
 
       try {
-        const classifyResponse = await fetch(`${baseUrl}/api/news/classify`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: request.headers.get("Cookie") || "",
-          },
-          body: JSON.stringify({ bulletinId }),
-        });
+        const summarizeResponse = await fetch(
+          `${baseUrl}/api/news/summarize`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: request.headers.get("Cookie") || "",
+            },
+            body: JSON.stringify({ bulletinId, streaming: false }),
+          }
+        );
 
-        if (!classifyResponse.ok) {
+        if (!summarizeResponse.ok) {
           throw new Error(
-            `Clasificación falló: ${classifyResponse.status} ${classifyResponse.statusText}`
+            `Summarización falló: ${summarizeResponse.status} ${summarizeResponse.statusText}`
           );
         }
 
-        const classifyData = await classifyResponse.json();
-        pipeline.classification = {
+        const summarizeData = await summarizeResponse.json();
+        pipeline.summarization = {
           success: true,
-          duration: Date.now() - classifyStart,
-          totalClassified: classifyData.totalClassified,
-          breakdown: classifyData.breakdown,
+          duration: Date.now() - summarizeStart,
+          categoriesGenerated: summarizeData.categoriesGenerated,
         };
 
-        console.log(`✅ Clasificación exitosa: ${classifyData.totalClassified} noticias`);
-        console.log(`   Duración: ${(pipeline.classification.duration / 1000).toFixed(2)}s`);
-        console.log("   Distribución:", classifyData.breakdown);
-
-        // Paso 3: Summarización
-        console.log("\n📍 Paso 3/3: Summarización");
-        const summarizeStart = Date.now();
-
-        try {
-          const summarizeResponse = await fetch(
-            `${baseUrl}/api/news/summarize`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Cookie: request.headers.get("Cookie") || "",
-              },
-              body: JSON.stringify({ bulletinId, streaming: false }),
-            }
-          );
-
-          if (!summarizeResponse.ok) {
-            throw new Error(
-              `Summarización falló: ${summarizeResponse.status} ${summarizeResponse.statusText}`
-            );
-          }
-
-          const summarizeData = await summarizeResponse.json();
-          pipeline.summarization = {
-            success: true,
-            duration: Date.now() - summarizeStart,
-            categoriesGenerated: summarizeData.categoriesGenerated,
-          };
-
-          console.log(`✅ Summarización exitosa: ${summarizeData.categoriesGenerated} categorías`);
-          console.log(`   Duración: ${(pipeline.summarization.duration / 1000).toFixed(2)}s`);
-        } catch (error) {
-          pipeline.summarization = {
-            success: false,
-            error: (error as Error).message,
-            duration: Date.now() - summarizeStart,
-          };
-          throw error;
-        }
+        console.log(`✅ Summarización exitosa: ${summarizeData.categoriesGenerated} categorías`);
+        console.log(`   Duración: ${(pipeline.summarization.duration / 1000).toFixed(2)}s`);
       } catch (error) {
-        pipeline.classification = {
+        pipeline.summarization = {
           success: false,
           error: (error as Error).message,
-          duration: Date.now() - classifyStart,
+          duration: Date.now() - summarizeStart,
         };
         throw error;
       }

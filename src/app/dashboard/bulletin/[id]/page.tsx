@@ -2,9 +2,10 @@ import { notFound } from "next/navigation";
 import { getBulletinById, getBulletinLogs } from "@/lib/db/queries/bulletins";
 import { StatusBadge } from "@/components/bulletin/status-badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Trash2, Send } from "lucide-react";
+import { ArrowLeft, Download, Send } from "lucide-react";
 import Link from "next/link";
 import { BulletinDetailTabs } from "./components/bulletin-detail-tabs";
+import { DeleteBulletinButton } from "@/components/bulletin/delete-bulletin-button";
 
 /**
  * Props de la página
@@ -87,10 +88,11 @@ export default async function BulletinDetailPage({ params }: PageProps) {
           </Button>
 
           {/* Eliminar */}
-          <Button variant="destructive" className="gap-2">
-            <Trash2 className="h-4 w-4" />
-            Eliminar
-          </Button>
+          <DeleteBulletinButton
+            bulletinId={id}
+            bulletinDate={formattedDate}
+            isPublished={bulletin.status === "published"}
+          />
         </div>
       </div>
 

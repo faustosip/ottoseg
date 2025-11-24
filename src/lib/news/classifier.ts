@@ -49,6 +49,73 @@ export interface ValidationResult {
 }
 
 /**
+ * Actualiza rawNews con las categorías asignadas
+ *
+ * Agrega el campo `category` a cada noticia en rawNews basándose
+ * en la clasificación realizada por la IA
+ *
+ * @param bulletinId - ID del boletín
+ * @param rawNews - Noticias organizadas por fuente
+ * @param classified - Noticias clasificadas por categoría
+ */
+async function updateRawNewsWithCategories(
+  bulletinId: string,
+  rawNews: ScrapeResult,
+  classified: ClassifiedNews
+): Promise<void> {
+  // Crear un mapa de título -> categoría para búsqueda rápida
+  // NewsCategory es el mismo tipo que keyof ClassifiedNews
+  type NewsCategory = keyof ClassifiedNews;
+  const titleToCategoryMap = new Map<string, NewsCategory>();
+
+  // Llenar el mapa con todas las noticias clasificadas
+  (Object.keys(classified) as Array<NewsCategory>).forEach((category) => {
+    classified[category].forEach((article) => {
+      // Normalizar título para comparación (sin espacios extras, lowercase)
+      const normalizedTitle = article.title.trim().toLowerCase();
+      titleToCategoryMap.set(normalizedTitle, category);
+    });
+  });
+
+  // Actualizar cada noticia en rawNews con su categoría
+  const updatedRawNews: ScrapeResult = {
+    primicias: rawNews.primicias.map((article) => ({
+      ...article,
+      category: titleToCategoryMap.get(article.title.trim().toLowerCase()),
+    })),
+    laHora: rawNews.laHora.map((article) => ({
+      ...article,
+      category: titleToCategoryMap.get(article.title.trim().toLowerCase()),
+    })),
+    elComercio: rawNews.elComercio.map((article) => ({
+      ...article,
+      category: titleToCategoryMap.get(article.title.trim().toLowerCase()),
+    })),
+    teleamazonas: rawNews.teleamazonas.map((article) => ({
+      ...article,
+      category: titleToCategoryMap.get(article.title.trim().toLowerCase()),
+    })),
+    ecu911: rawNews.ecu911.map((article) => ({
+      ...article,
+      category: titleToCategoryMap.get(article.title.trim().toLowerCase()),
+    })),
+    metadata: rawNews.metadata,
+  };
+
+  // Guardar el rawNews actualizado en la base de datos
+  const { db } = await import("@/lib/db");
+  const { bulletins } = await import("@/lib/schema");
+  const { eq } = await import("drizzle-orm");
+
+  await db
+    .update(bulletins)
+    .set({
+      rawNews: updatedRawNews as unknown as Record<string, unknown>,
+    })
+    .where(eq(bulletins.id, bulletinId));
+}
+
+/**
  * Clasifica noticias usando IA
  *
  * @param rawNews - Noticias scrapeadas organizadas por fuente
@@ -151,10 +218,15 @@ export async function classifyNews(
 
     console.log("  📈 Distribución:", counts);
 
-    // Actualizar bulletin
+    // Actualizar bulletin con clasificación
     await updateBulletinClassification(bulletinId, classified as unknown as Record<string, unknown>);
 
     console.log("  💾 Clasificación guardada en DB");
+
+    // Actualizar rawNews con categorías asignadas
+    await updateRawNewsWithCategories(bulletinId, rawNews, classified);
+
+    console.log("  🏷️  Categorías asignadas a rawNews");
 
     // Crear log de completado
     const duration = Date.now() - startTime;

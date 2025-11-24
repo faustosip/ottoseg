@@ -96,10 +96,18 @@ export const bulletins = pgTable("bulletins", {
   totalNews: integer("total_news").default(0),
   crawl4aiStats: jsonb("crawl4ai_stats"), // Métricas de Crawl4AI (enriquecimiento)
 
-  // Video
+  // Video (Legacy - individual avatar video)
   videoUrl: text("video_url"),
   videoStatus: text("video_status").default("pending"), // pending, processing, completed, failed
   videoMetadata: jsonb("video_metadata"),
+
+  // Sistema de Video Automatizado
+  selectedNews: jsonb("selected_news"), // Noticias seleccionadas para el video con imágenes
+  categoryAudios: jsonb("category_audios"), // Audios generados por ElevenLabs {categoria: {url, duration}}
+  categoryVideos: jsonb("category_videos"), // Videos de avatar por Simli {categoria: {simliUrl, mp4Url, duration}}
+  finalVideoUrl: text("final_video_url"), // URL del video final compuesto
+  finalVideoStatus: text("final_video_status").default("pending"), // pending, generating_audio, generating_avatars, rendering, completed, failed
+  finalVideoMetadata: jsonb("final_video_metadata"), // Metadata del video final
 
   // Logs y errores
   errorLog: jsonb("error_log"),

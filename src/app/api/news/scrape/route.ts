@@ -16,8 +16,9 @@ import {
   updateBulletinFullArticles,
   updateBulletinStatus,
   createBulletinLog,
+  updateBulletinClassification,
 } from "@/lib/db/queries/bulletins";
-import { scrapeAllSources, enrichWithFullContent } from "@/lib/news/scraper";
+import { scrapeAllSources, enrichWithFullContent, type ScrapedArticle } from "@/lib/news/scraper";
 
 /**
  * Verifica si un proceso de boletín quedó atascado
@@ -239,6 +240,77 @@ export async function POST(request: NextRequest) {
       console.log("⏭️  FASE 2 (Crawl4AI) deshabilitada");
       crawl4aiStats = { enabled: false };
     }
+
+    // CLASIFICACIÓN AUTOMÁTICA: Organizar artículos por categoría (sin IA)
+    console.log("📂 Iniciando clasificación automática por URL...");
+    const classificationStart = Date.now();
+
+    const classified = {
+      economia: [] as ScrapedArticle[],
+      politica: [] as ScrapedArticle[],
+      sociedad: [] as ScrapedArticle[],
+      seguridad: [] as ScrapedArticle[],
+      internacional: [] as ScrapedArticle[],
+      vial: [] as ScrapedArticle[],
+    };
+
+    // Clasificar artículos basándose en el campo category ya asignado
+    const allArticles = [
+      ...enrichedResult.primicias,
+      ...enrichedResult.laHora,
+      ...enrichedResult.elComercio,
+      ...enrichedResult.teleamazonas,
+      ...enrichedResult.ecu911,
+    ];
+
+    let classifiedCount = 0;
+    let unclassifiedCount = 0;
+
+    for (const article of allArticles) {
+      if (article.category) {
+        classified[article.category].push(article);
+        classifiedCount++;
+      } else {
+        console.warn(`  ⚠️  Artículo sin categoría: ${article.title.substring(0, 50)}...`);
+        unclassifiedCount++;
+      }
+    }
+
+    const classificationDuration = Date.now() - classificationStart;
+
+    console.log(`✅ Clasificación automática completada: ${classifiedCount} artículos clasificados, ${unclassifiedCount} sin clasificar`);
+    console.log(`  📊 Distribución:`);
+    console.log(`     Economía: ${classified.economia.length}`);
+    console.log(`     Política: ${classified.politica.length}`);
+    console.log(`     Sociedad: ${classified.sociedad.length}`);
+    console.log(`     Seguridad: ${classified.seguridad.length}`);
+    console.log(`     Internacional: ${classified.internacional.length}`);
+    console.log(`     Vial: ${classified.vial.length}`);
+
+    // Guardar clasificación en la base de datos
+    await updateBulletinClassification(bulletin.id, classified);
+
+    // Log de clasificación
+    await createBulletinLog(
+      bulletin.id,
+      "classification",
+      "completed",
+      `Clasificación automática por URL: ${classifiedCount} artículos clasificados`,
+      {
+        duration: classificationDuration,
+        totalArticles: allArticles.length,
+        classified: classifiedCount,
+        unclassified: unclassifiedCount,
+        distribution: {
+          economia: classified.economia.length,
+          politica: classified.politica.length,
+          sociedad: classified.sociedad.length,
+          seguridad: classified.seguridad.length,
+          internacional: classified.internacional.length,
+          vial: classified.vial.length,
+        },
+      }
+    );
 
     // Actualizar status a 'ready' (listo para edición)
     await updateBulletinStatus(bulletin.id, "ready");

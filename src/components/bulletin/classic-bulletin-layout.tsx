@@ -117,66 +117,79 @@ function CategorySection({ number, categoryName, data }: CategorySectionProps) {
     return null;
   }
 
+  // Obtener la primera noticia con imagen si existe
+  const newsWithImage = data.news?.find((n) => n.url);
+  const firstNewsTitle = newsWithImage?.title || data.title;
+  const firstNewsUrl = newsWithImage?.url;
+  const firstNewsImageUrl = data.imageUrl; // Ya viene del CategoryData
+
   return (
     <section className="classic-section mb-[60px]">
       {/* Título de categoría numerado y subrayado */}
       <h2
-        className="classic-section-title text-[44px] leading-[1.3] font-bold underline mb-6"
+        className="classic-section-title text-[24px] leading-[1.3] mb-6"
         style={{
-          fontFamily: CLASSIC_DESIGN.typography.fontFamily.heading,
-          color: CLASSIC_DESIGN.colors.text,
+          fontWeight: 700,
+          color: "#000000",
+          textDecorationLine: "underline",
         }}
       >
         {number}. {categoryName}
       </h2>
 
-      {/* Título de la noticia */}
-      {data.title && (
+      {/* Título de la noticia - Color azul específico */}
+      {firstNewsTitle && (
         <h3
-          className="classic-news-title text-[42px] leading-[1.4] font-bold text-center my-6"
+          className="classic-news-title text-[22px] leading-[1.4] text-center my-6"
           style={{
-            fontFamily: CLASSIC_DESIGN.typography.fontFamily.body,
-            color: CLASSIC_DESIGN.colors.primary,
+            fontWeight: 700,
+            color: "rgb(0, 74, 173)", // Azul específico del diseño original
           }}
         >
-          {data.title}
+          {firstNewsTitle}
         </h3>
       )}
 
       {/* Imagen */}
-      {data.imageUrl && (
-        <div className="classic-news-image-container flex justify-center my-8">
+      {firstNewsImageUrl && (
+        <div className="classic-news-image-container flex justify-center my-6">
           <Image
-            src={data.imageUrl}
-            alt={data.title || categoryName}
-            width={450}
-            height={300}
-            className="classic-news-image max-w-[450px] w-full h-auto"
-            style={{ objectFit: "cover" }}
+            src={firstNewsImageUrl}
+            alt={firstNewsTitle || categoryName}
+            width={455}
+            height={256}
+            className="classic-news-image w-full h-auto"
+            style={{
+              maxWidth: "455px",
+              objectFit: "cover"
+            }}
           />
         </div>
       )}
 
       {/* Contenido del resumen */}
       <div
-        className="classic-news-content text-[37px] leading-[1.5] text-justify my-6"
+        className="classic-news-content text-[16px] leading-[1.6] text-justify my-6 mt-6"
         style={{
-          fontFamily: CLASSIC_DESIGN.typography.fontFamily.body,
-          color: CLASSIC_DESIGN.colors.text,
+          fontWeight: 400,
+          color: "#000000",
         }}
       >
         {data.summary}
       </div>
 
       {/* Link "Leer más" */}
-      {data.sourceUrl && (
+      {firstNewsUrl && (
         <div className="text-right mt-4">
           <Link
-            href={data.sourceUrl}
+            href={firstNewsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="classic-link text-[37px] font-bold underline"
-            style={{ color: CLASSIC_DESIGN.colors.secondary }}
+            className="classic-link text-[16px] underline"
+            style={{
+              fontWeight: 700,
+              color: "rgb(0, 74, 173)"
+            }}
           >
             Leer más
           </Link>
@@ -223,38 +236,43 @@ export function ClassicBulletinLayout({
       }}
     >
       {/* HEADER */}
-      <header
-        className="classic-header relative h-[485px] w-full flex flex-col items-center justify-center"
-        style={{
-          backgroundImage: "url('/bulletin-assets/classic/header-bg.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        {/* Fallback si no hay imagen */}
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-100 to-gray-200 -z-10" />
+      <header className="classic-header relative w-full">
+        {/* Banner Image */}
+        <div className="w-full">
+          <Image
+            src="/banner.png"
+            alt="Resumen Diario de Noticias"
+            width={1920}
+            height={485}
+            className="w-full h-auto"
+            priority
+          />
+        </div>
 
-        {/* Título principal */}
-        <h1
-          className="classic-title text-[44px] leading-[1.2] font-bold text-center uppercase tracking-wide px-4"
-          style={{
-            fontFamily: CLASSIC_DESIGN.typography.fontFamily.heading,
-            color: CLASSIC_DESIGN.colors.text,
-          }}
-        >
-          RESUMEN DIARIO DE NOTICIAS
-        </h1>
+        {/* Título y fecha sobre fondo blanco */}
+        <div className="bg-white py-8">
+          {/* Título principal */}
+          <h1
+            className="classic-title text-center px-4 text-[28px]"
+            style={{
+              fontWeight: 700,
+              color: "#000000",
+            }}
+          >
+            RESUMEN DIARIO DE NOTICIAS
+          </h1>
 
-        {/* Fecha */}
-        <p
-          className="classic-date text-[22px] text-center mt-4"
-          style={{
-            fontFamily: CLASSIC_DESIGN.typography.fontFamily.body,
-            color: CLASSIC_DESIGN.colors.text,
-          }}
-        >
-          {formattedDate}
-        </p>
+          {/* Fecha */}
+          <p
+            className="classic-date text-center mt-4 px-4 text-[20px]"
+            style={{
+              fontWeight: 400,
+              color: "#000000",
+            }}
+          >
+            {formattedDate}
+          </p>
+        </div>
       </header>
 
       {/* Separador después del header */}
@@ -332,7 +350,7 @@ export function ClassicBulletinLayout({
           }
 
           .classic-title {
-            font-size: 36px !important;
+            font-size: 24px !important;
           }
 
           .classic-date {
@@ -340,19 +358,19 @@ export function ClassicBulletinLayout({
           }
 
           .classic-section-title {
-            font-size: 36px !important;
+            font-size: 22px !important;
           }
 
           .classic-news-title {
-            font-size: 32px !important;
+            font-size: 20px !important;
           }
 
           .classic-news-content {
-            font-size: 28px !important;
+            font-size: 15px !important;
           }
 
           .classic-link {
-            font-size: 28px !important;
+            font-size: 15px !important;
           }
         }
 
@@ -363,12 +381,12 @@ export function ClassicBulletinLayout({
           }
 
           .classic-title {
-            font-size: 28px !important;
+            font-size: 20px !important;
             padding: 0 16px;
           }
 
           .classic-date {
-            font-size: 16px !important;
+            font-size: 14px !important;
           }
 
           .classic-section {
@@ -376,11 +394,11 @@ export function ClassicBulletinLayout({
           }
 
           .classic-section-title {
-            font-size: 28px !important;
+            font-size: 18px !important;
           }
 
           .classic-news-title {
-            font-size: 24px !important;
+            font-size: 16px !important;
             text-align: left !important;
           }
 
@@ -389,12 +407,12 @@ export function ClassicBulletinLayout({
           }
 
           .classic-news-content {
-            font-size: 18px !important;
+            font-size: 14px !important;
             text-align: left !important;
           }
 
           .classic-link {
-            font-size: 18px !important;
+            font-size: 14px !important;
           }
 
           .classic-content {

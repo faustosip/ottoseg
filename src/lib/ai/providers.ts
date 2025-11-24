@@ -35,7 +35,7 @@ export function getClaudeModel() {
  * @returns Modelo GPT-4 Turbo
  */
 export function getGPTModel() {
-  return openrouter("openai/gpt-4-turbo");
+  return openrouter("openai/gpt-4o-mini");
 }
 
 /**

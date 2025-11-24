@@ -55,7 +55,7 @@ NOTICIAS A CLASIFICAR:
 Responde con un objeto JSON con esta estructura exacta:
 {
   "economia": [
-    { "title": "Título de la noticia", "content": "Contenido...", "url": "https://...", "source": "nombre_fuente" }
+    { "title": "Título de la noticia", "content": "Contenido...", "url": "https://...", "source": "nombre_fuente", "imageUrl": "https://..." }
   ],
   "politica": [...],
   "sociedad": [...],
@@ -67,6 +67,7 @@ Responde con un objeto JSON con esta estructura exacta:
 IMPORTANTE:
 - Cada categoría debe ser un array (puede estar vacío [])
 - Cada noticia debe tener: title, content, url, source
+- Si la noticia tiene imageUrl, DEBES incluirla en la clasificación (es OBLIGATORIO preservar este campo)
 - NO agregues texto explicativo, solo el JSON
 - Clasifica TODAS las noticias proporcionadas`;
 

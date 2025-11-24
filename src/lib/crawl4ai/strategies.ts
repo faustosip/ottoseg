@@ -13,6 +13,7 @@ import type {
   JsonCssExtractionConfig,
   LLMExtractionConfig,
   VirtualScrollConfig,
+  CategoryExtractionConfig,
 } from './types';
 import {
   getExtractionConfig,
@@ -46,7 +47,7 @@ export async function extractArticle(
       formats: ['markdown', 'html'],
       onlyMainContent: true,
       removeBase64Images: true,
-      timeout: 120000, // 2 minutes per article
+      timeout: 30000, // 30 seconds per article (reduced for speed)
     };
 
     // Add virtual scrolling if needed (e.g., ECU911)
@@ -88,6 +89,109 @@ export async function extractArticle(
 function isImageUrl(url: string): boolean {
   const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i;
   return imageExtensions.test(url);
+}
+
+/**
+ * Extract image URL from an element with multiple fallback strategies
+ * Handles lazy loading attributes (data-src, srcset) and relative URLs
+ */
+function extractImageUrl(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  $element: cheerio.Cheerio<any>,
+  selector: string,
+  baseUrl: string
+): string | undefined {
+  let imageUrl: string | undefined;
+
+  // Try to find the image element
+  const $img = selector ? $element.find(selector).first() : $element;
+
+  if ($img.length === 0) {
+    console.log(`      - No element found with selector: "${selector}"`);
+    return undefined;
+  }
+
+  console.log(`      - Found element with selector: "${selector}"`);
+
+
+  // Strategy 1: Try srcset attribute (common in responsive images)
+  const srcset = $img.attr('srcset');
+  if (srcset) {
+    // Extract the first URL from srcset (format: "url 1x, url 2x")
+    const srcsetMatch = srcset.match(/([^\s,]+)/);
+    if (srcsetMatch) {
+      imageUrl = srcsetMatch[1];
+      console.log(`      - Strategy 1 (srcset): Found "${imageUrl.substring(0, 50)}..."`);
+    }
+  }
+
+  // Strategy 2: Try data-src (lazy loading)
+  if (!imageUrl) {
+    const dataSrc = $img.attr('data-src');
+    if (dataSrc) {
+      imageUrl = dataSrc;
+      console.log(`      - Strategy 2 (data-src): Found "${imageUrl.substring(0, 50)}..."`);
+    }
+  }
+
+  // Strategy 3: Try data-lazy-src (another lazy loading variant)
+  if (!imageUrl) {
+    const dataLazySrc = $img.attr('data-lazy-src');
+    if (dataLazySrc) {
+      imageUrl = dataLazySrc;
+      console.log(`      - Strategy 3 (data-lazy-src): Found "${imageUrl.substring(0, 50)}..."`);
+    }
+  }
+
+  // Strategy 4: Try standard src attribute
+  if (!imageUrl) {
+    const src = $img.attr('src');
+    if (src) {
+      imageUrl = src;
+      console.log(`      - Strategy 4 (src): Found "${imageUrl.substring(0, 50)}..."`);
+    }
+  }
+
+  // Strategy 5: Try source elements inside picture tag
+  if (!imageUrl) {
+    const $picture = $element.find('picture').first();
+    if ($picture.length > 0) {
+      const $source = $picture.find('source').first();
+      const sourceSrcset = $source.attr('srcset');
+      if (sourceSrcset) {
+        const srcsetMatch = sourceSrcset.match(/([^\s,]+)/);
+        if (srcsetMatch) {
+          imageUrl = srcsetMatch[1];
+          console.log(`      - Strategy 5 (picture > source): Found "${imageUrl.substring(0, 50)}..."`);
+        }
+      }
+    }
+  }
+
+  if (!imageUrl) {
+    console.log(`      - No image URL found with any strategy`);
+    return undefined;
+  }
+
+  imageUrl = imageUrl.trim();
+
+  // Normalize relative URLs to absolute
+  if (imageUrl && !imageUrl.match(/^https?:\/\//)) {
+    try {
+      const base = new URL(baseUrl);
+      imageUrl = new URL(imageUrl, base.origin).href;
+    } catch {
+      console.log(`    ⚠️  Failed to normalize image URL: "${imageUrl}"`);
+      return undefined;
+    }
+  }
+
+  // Validate that it's a proper HTTP(S) URL
+  if (!imageUrl || !imageUrl.match(/^https?:\/\/.+/)) {
+    return undefined;
+  }
+
+  return imageUrl;
 }
 
 /**
@@ -148,12 +252,20 @@ export async function extractArticles(
  */
 export async function extractCategoryArticles(
   url: string,
-  source: string
+  source: string,
+  customSelector?: string
 ): Promise<ScrapedArticle[]> {
   try {
     console.log(`  🔍 Extracting articles from category page: ${url}`);
 
     const config = getCategoryExtractionConfig(source);
+
+    // Override baseSelector if custom selector is provided from database
+    if (customSelector && customSelector.trim() !== '') {
+      console.log(`  📌 Using custom selector from database: "${customSelector}"`);
+      config.schema.baseSelector = customSelector;
+    }
+
     const client = getCrawl4AIClient();
 
     // Build the request configuration with CSS extraction strategy
@@ -162,7 +274,7 @@ export async function extractCategoryArticles(
       formats: ['markdown', 'html'],
       onlyMainContent: false, // Category pages need full content including sidebars
       removeBase64Images: true,
-      timeout: 120000, // 2 minutes
+      timeout: 30000, // 30 seconds per URL (reduced for speed)
     };
 
     // Add virtual scrolling if needed (e.g., ECU911)
@@ -187,8 +299,8 @@ export async function extractCategoryArticles(
       return [];
     }
 
-    // Parse with Cheerio (parseCategoryResponse handles fallback automatically)
-    const articles = parseCategoryResponse(response, url, source);
+    // Parse with Cheerio using the modified config (with custom selector)
+    const articles = parseCategoryResponseWithConfig(response, url, source, config);
 
     console.log(`  ✅ Total extracted: ${articles.length} articles from category page`);
     return articles;
@@ -289,56 +401,6 @@ function createLLMExtractionStrategy(
   };
 }
 
-/**
- * Create LLM-based extraction strategy for category pages
- */
-function createCategoryLLMStrategy(instruction: string): ExtractionStrategy {
-  const llmConfig: LLMExtractionConfig = {
-    provider: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
-    apiToken: process.env.OPENROUTER_API_KEY,
-    instruction,
-    schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          url: { type: 'string' },
-          excerpt: { type: 'string' },
-          imageUrl: { type: 'string' },
-          publishedDate: { type: 'string' },
-        },
-        required: ['title', 'url'],
-      },
-    },
-  };
-
-  return {
-    type: 'llm',
-    config: llmConfig,
-  };
-}
-
-/**
- * Generate default LLM instruction for category page extraction
- */
-function generateDefaultCategoryLLMInstruction(source: string): string {
-  return `Extract all news articles from this ${source} category page. For each article card/item, extract:
-- title: The article headline or title
-- url: The link to the full article (must be a valid URL)
-- excerpt: A brief summary or description (50-200 words)
-- imageUrl: The featured/thumbnail image URL if available
-- publishedDate: The publication date if shown
-
-Return an array of article objects. Focus only on actual news articles, ignore:
-- Navigation menus
-- Advertisements
-- Related content widgets
-- Footer content
-- Social media links
-
-Minimum expected: 5 articles.`;
-}
 
 /**
  * Create virtual scroll configuration
@@ -357,14 +419,14 @@ function createVirtualScrollConfig(): VirtualScrollConfig {
 // ============================================================================
 
 /**
- * Parse HTML with Cheerio using CSS selectors (fallback when Crawl4AI doesn't extract)
+ * Parse HTML with Cheerio using a pre-configured schema (supports custom selectors from DB)
  */
-function parseHTMLWithCheerio(
+function parseHTMLWithCheerioAndConfig(
   html: string,
   categoryUrl: string,
-  source: string
+  source: string,
+  config: CategoryExtractionConfig
 ): ScrapedArticle[] {
-  const config = getCategoryExtractionConfig(source);
   const schema = config.schema;
   const $ = cheerio.load(html);
   const articles: ScrapedArticle[] = [];
@@ -376,28 +438,52 @@ function parseHTMLWithCheerio(
   const containers = $(schema.baseSelector);
   console.log(`     Found ${containers.length} containers`);
 
+  let validArticleIndex = 0;
+
   containers.each((index, element) => {
+    // Limit to maximum 3 VALID articles per category page
+    if (articles.length >= 3) {
+      return false; // Stop iteration
+    }
+
     const $el = $(element);
     const extracted: Record<string, unknown> = {};
 
+    console.log(`    🔍 Examining container ${index + 1}/${containers.length}`);
+
     // Extract each field
     for (const field of schema.fields) {
-      const fieldElement = $el.find(field.selector).first();
+      // Special handling for image fields to use advanced extraction
+      if (field.name === 'imageUrl' && field.type === 'attribute') {
+        const imageUrl = extractImageUrl($el, field.selector || '', categoryUrl);
+        extracted[field.name] = imageUrl;
+        continue;
+      }
 
-      if (field.type === 'text') {
-        extracted[field.name] = fieldElement.text().trim();
-      } else if (field.type === 'attribute' && field.attribute) {
-        extracted[field.name] = fieldElement.attr(field.attribute)?.trim();
-      } else if (field.type === 'html') {
-        extracted[field.name] = fieldElement.html()?.trim();
+      // If selector is empty string, get attribute from the base element itself
+      if (field.selector === '' && field.type === 'attribute' && field.attribute) {
+        extracted[field.name] = $el.attr(field.attribute)?.trim();
+      } else if (field.selector) {
+        const fieldElement = $el.find(field.selector).first();
+
+        if (field.type === 'text') {
+          extracted[field.name] = fieldElement.text().trim();
+        } else if (field.type === 'attribute' && field.attribute) {
+          extracted[field.name] = fieldElement.attr(field.attribute)?.trim();
+        } else if (field.type === 'html') {
+          extracted[field.name] = fieldElement.html()?.trim();
+        }
       }
     }
 
     // Validate required fields
     const title = String(extracted.title || '').trim();
     let url = String(extracted.url || '').trim();
+    const imageUrl = extracted.imageUrl ? String(extracted.imageUrl).trim() : undefined;
 
+    // Skip if no title
     if (!title || title.length < 10) {
+      console.log(`    ⏭️  Container ${index + 1}: Skipping - title too short (${title.length} chars)`);
       return; // Skip
     }
 
@@ -406,32 +492,48 @@ function parseHTMLWithCheerio(
       try {
         const baseUrl = new URL(categoryUrl);
         url = new URL(url, baseUrl.origin).href;
-      } catch (e) {
-        console.log(`    ⏭️  Skipping item with invalid URL: "${url}"`);
+      } catch {
+        console.log(`    ⏭️  Container ${index + 1}: Skipping - invalid URL: "${url}"`);
         return;
       }
     }
 
+    // Skip if no valid URL
     if (!url || !url.match(/^https?:\/\/.+/)) {
+      console.log(`    ⏭️  Container ${index + 1}: Skipping - no valid URL`);
       return; // Skip
     }
 
     // Filter out non-article URLs
     if (isNonArticleUrl(url)) {
+      console.log(`    ⏭️  Container ${index + 1}: Skipping - non-article URL: ${url}`);
       return; // Skip
     }
 
-    // Create article
+    // IMPORTANT: Skip if no image found
+    // This ensures we only get articles with images
+    if (!imageUrl) {
+      console.log(`    ⏭️  Container ${index + 1}: Skipping - NO IMAGE FOUND`);
+      console.log(`       Title: "${title.substring(0, 50)}..."`);
+      console.log(`       URL: ${url}`);
+      return; // Skip articles without images
+    }
+
+    // Create article (only if it has an image!)
+    validArticleIndex++;
     const excerpt = String(extracted.excerpt || extracted.content || '').trim().substring(0, 500);
-    const imageUrl = extracted.imageUrl ? String(extracted.imageUrl).trim() : undefined;
     const publishedDate = extracted.publishedDate ? String(extracted.publishedDate).trim() : undefined;
+
+    console.log(`    ✅ Container ${index + 1} → Valid Article #${validArticleIndex}`);
+    console.log(`       Title: "${title.substring(0, 50)}..."`);
+    console.log(`       Image: ${imageUrl.substring(0, 60)}...`);
 
     const article: ScrapedArticle = {
       id: randomUUID(),
       title,
       content: excerpt || title,
       url,
-      imageUrl: imageUrl && imageUrl.match(/^https?:\/\//) ? imageUrl : undefined,
+      imageUrl, // Already validated and normalized by extractImageUrl
       source,
       publishedDate,
       selected: true,
@@ -446,12 +548,13 @@ function parseHTMLWithCheerio(
 }
 
 /**
- * Parse category page response into array of ScrapedArticle
+ * Parse category page response with pre-configured schema (supports custom selectors from DB)
  */
-function parseCategoryResponse(
+function parseCategoryResponseWithConfig(
   response: Crawl4AIResponse,
   categoryUrl: string,
-  source: string
+  source: string,
+  config: CategoryExtractionConfig
 ): ScrapedArticle[] {
   const data = response.data;
 
@@ -459,7 +562,7 @@ function parseCategoryResponse(
   if (!data || !data.extracted) {
     console.warn(`  ⚠️  No extracted data, falling back to Cheerio parsing`);
     if (data?.html) {
-      return parseHTMLWithCheerio(data.html, categoryUrl, source);
+      return parseHTMLWithCheerioAndConfig(data.html, categoryUrl, source, config);
     }
     return [];
   }
@@ -471,6 +574,11 @@ function parseCategoryResponse(
   const items = Array.isArray(extracted) ? extracted : [extracted];
 
   for (const item of items) {
+    // Limit to maximum 3 articles per category page
+    if (articles.length >= 3) {
+      break;
+    }
+
     if (typeof item !== 'object' || item === null) continue;
 
     const rawItem = item as Record<string, unknown>;
@@ -498,8 +606,19 @@ function parseCategoryResponse(
 
     // Extract optional fields
     const excerpt = String(rawItem.excerpt || rawItem.content || '').trim().substring(0, 500);
-    const imageUrl = rawItem.imageUrl ? String(rawItem.imageUrl).trim() : undefined;
+    let imageUrl = rawItem.imageUrl ? String(rawItem.imageUrl).trim() : undefined;
     const publishedDate = rawItem.publishedDate ? String(rawItem.publishedDate).trim() : undefined;
+
+    // Normalize image URL if it's relative
+    if (imageUrl && !imageUrl.match(/^https?:\/\//)) {
+      try {
+        const base = new URL(categoryUrl);
+        imageUrl = new URL(imageUrl, base.origin).href;
+      } catch {
+        console.log(`    ⚠️  Failed to normalize image URL from extracted data: "${imageUrl}"`);
+        imageUrl = undefined;
+      }
+    }
 
     // Create article object
     const article: ScrapedArticle = {
@@ -507,7 +626,7 @@ function parseCategoryResponse(
       title,
       content: excerpt || title, // Use title as fallback if no excerpt
       url,
-      imageUrl: imageUrl && imageUrl.match(/^https?:\/\//) ? imageUrl : undefined,
+      imageUrl, // Already normalized
       source,
       publishedDate,
       selected: true,
