@@ -6,8 +6,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { bundle } from '@remotion/bundler';
-import { renderMedia, selectComposition } from '@remotion/renderer';
 import { db } from '@/lib/db';
 import { bulletins } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
@@ -72,7 +70,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     console.log('🎬 Iniciando renderizado del video final con Remotion...');
 
-    // 4. Preparar datos para Remotion
+    // 4. Importar Remotion dinámicamente (solo en runtime, no durante build)
+    console.log('🎬 Cargando módulos de Remotion...');
+    const [{bundle}, {renderMedia, selectComposition}] = await Promise.all([
+      import('@remotion/bundler'),
+      import('@remotion/renderer'),
+    ]);
+
+    // 5. Preparar datos para Remotion
     const bulletinDate = new Date(bulletin.date).toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
@@ -96,7 +101,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ),
     };
 
-    // 5. Bundle Remotion
+    // 6. Bundle Remotion
     console.log('📦 Bundling Remotion...');
     const bundled = await bundle({
       entryPoint: path.join(process.cwd(), 'remotion', 'index.ts'),
@@ -105,14 +110,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     console.log('✅ Bundling completado. Seleccionando composición...');
 
-    // 6. Seleccionar composición
+    // 7. Seleccionar composición
     const composition = await selectComposition({
       serveUrl: bundled,
       id: 'BulletinNews',
       inputProps,
     });
 
-    // 7. Crear carpeta temporal de salida
+    // 8. Crear carpeta temporal de salida
     const outputDir = path.join(process.cwd(), 'temp', 'videos');
     await mkdir(outputDir, { recursive: true });
 
@@ -120,7 +125,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     console.log('🎥 Renderizando video final...');
 
-    // 8. Renderizar video
+    // 9. Renderizar video
     await renderMedia({
       composition,
       serveUrl: bundled,
@@ -131,7 +136,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     console.log('✅ Video renderizado exitosamente');
 
-    // 9. Subir a MinIO
+    // 10. Subir a MinIO
     console.log('☁️ Subiendo video a MinIO...');
     const videoBuffer = await readFile(tempVideoPath);
 
@@ -140,11 +145,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     console.log(`✅ Video subido a MinIO: ${finalVideoUrl}`);
 
-    // 10. Limpiar archivo temporal
+    // 11. Limpiar archivo temporal
     await unlink(tempVideoPath).catch(() => {});
     tempVideoPath = null;
 
-    // 11. Actualizar BD con video final
+    // 12. Actualizar BD con video final
     await db
       .update(bulletins)
       .set({

@@ -1,6 +1,4 @@
 import {NextRequest, NextResponse} from 'next/server';
-import {bundle} from '@remotion/bundler';
-import {renderMedia, selectComposition} from '@remotion/renderer';
 import {db} from '@/lib/db';
 import {bulletins} from '@/lib/schema';
 import {eq} from 'drizzle-orm';
@@ -41,7 +39,14 @@ export async function POST(
     });
     const formattedDate = bulletinDate.toUpperCase();
 
-    // 4. Renderizar video con Remotion
+    // 4. Importar Remotion dinámicamente (solo en runtime, no durante build)
+    console.log('🎬 Cargando módulos de Remotion...');
+    const [{bundle}, {renderMedia, selectComposition}] = await Promise.all([
+      import('@remotion/bundler'),
+      import('@remotion/renderer'),
+    ]);
+
+    // 5. Renderizar video con Remotion
     console.log('🎬 Iniciando bundling de Remotion...');
     const bundled = await bundle({
       entryPoint: path.join(process.cwd(), 'remotion', 'index.ts'),
@@ -58,7 +63,7 @@ export async function POST(
       },
     });
 
-    // 5. Crear carpeta de salida si no existe
+    // 6. Crear carpeta de salida si no existe
     const outputDir = path.join(process.cwd(), 'public', 'videos');
     await mkdir(outputDir, {recursive: true});
 
@@ -75,7 +80,7 @@ export async function POST(
 
     console.log('✅ Video renderizado exitosamente');
 
-    // 6. Actualizar BD con video generado
+    // 7. Actualizar BD con video generado
     await db
       .update(bulletins)
       .set({
