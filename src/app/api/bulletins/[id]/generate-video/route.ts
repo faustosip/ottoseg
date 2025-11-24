@@ -5,6 +5,10 @@ import {eq} from 'drizzle-orm';
 import path from 'path';
 import {mkdir} from 'fs/promises';
 
+// Force dynamic rendering (no static optimization)
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(
   request: NextRequest,
   {params}: {params: Promise<{id: string}>}

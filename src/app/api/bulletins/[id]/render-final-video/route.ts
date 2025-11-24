@@ -14,6 +14,10 @@ import { mkdir } from 'fs/promises';
 import { uploadFile } from '@/lib/storage/minio';
 import { readFile, unlink } from 'fs/promises';
 
+// Force dynamic rendering (no static optimization)
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }

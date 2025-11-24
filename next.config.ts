@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Excluir Remotion del webpack bundle para evitar conflictos en build
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Marcar todos los paquetes de Remotion como externos (no incluir en bundle)
+      config.externals = [
+        ...(config.externals || []),
+        '@remotion/bundler',
+        '@remotion/renderer',
+        '@remotion/cli',
+        '@remotion/player',
+        'esbuild',
+      ];
+    }
+    return config;
+  },
   images: {
     remotePatterns: [
       {
