@@ -5,6 +5,10 @@ import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import { BulletinList } from "./components/bulletin-list";
 
+// Forzar renderizado dinámico sin caché
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * Página Lista de Boletines
  *
