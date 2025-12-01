@@ -245,7 +245,24 @@ export function EditableBulletin({
 
     setIsSaving(true);
     try {
-      await onSave(bulletinData);
+      // Convertir EditableBulletinData a ClassifiedNews
+      // Usar los títulos y resúmenes mejorados si existen
+      const dataToSave: ClassifiedNews = {} as ClassifiedNews;
+
+      Object.keys(bulletinData).forEach((category) => {
+        const key = category as keyof EditableBulletinData;
+        dataToSave[key] = bulletinData[key].map(article => ({
+          title: article.enhancedTitle || article.title,
+          content: article.enhancedSummary || article.content,
+          url: article.url,
+          source: article.source,
+          imageUrl: article.imageUrl,
+          // Solo incluir los campos que forman parte de ClassifiedArticle
+          // No agregar campos adicionales como originalTitle/originalContent
+        }));
+      });
+
+      await onSave(dataToSave);
       toast.success('Boletín guardado exitosamente');
       setHasChanges(false);
     } catch (error) {

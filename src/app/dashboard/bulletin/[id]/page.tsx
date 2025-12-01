@@ -6,6 +6,7 @@ import { ArrowLeft, Download, Send } from "lucide-react";
 import Link from "next/link";
 import { BulletinDetailTabs } from "./components/bulletin-detail-tabs";
 import { DeleteBulletinButton } from "@/components/bulletin/delete-bulletin-button";
+import { ShareButton } from "@/components/bulletin/share-button";
 
 /**
  * Props de la página
@@ -74,12 +75,17 @@ export default async function BulletinDetailPage({ params }: PageProps) {
         {/* Acciones */}
         <div className="flex items-center gap-3">
           {/* Publicar (solo si está ready) */}
-          {bulletin.status === "ready" && !bulletin.publishedAt && (
+          {bulletin.status === "ready" && !bulletin.publishedAt ? (
             <Button className="gap-2">
               <Send className="h-4 w-4" />
               Publicar
             </Button>
-          )}
+          ) : null}
+
+          {/* Compartir link público (solo si está ready o published y tiene classifiedNews) */}
+          {(bulletin.status === "ready" || bulletin.status === "published") && bulletin.classifiedNews ? (
+            <ShareButton bulletinId={id} />
+          ) : null}
 
           {/* Exportar JSON */}
           <Button variant="outline" className="gap-2">
