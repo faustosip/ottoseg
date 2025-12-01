@@ -3,10 +3,12 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BulletinRenderer } from "@/components/bulletin/bulletin-renderer";
 import { DesignSwitcher, useDesignPreference } from "@/components/bulletin/design-switcher";
+import { EditableBulletin } from "@/components/bulletin/editable-bulletin";
 import type { Bulletin } from "@/lib/schema";
 import type { BulletinData } from "@/components/bulletin/classic-bulletin-layout";
-import { CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Clock, Edit } from "lucide-react";
 import type { ClassifiedNews } from "@/lib/news/classifier";
+import { toast } from "sonner";
 
 /**
  * Log entry type
@@ -97,10 +99,38 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
       : undefined,
   };
 
+  // Función para guardar cambios del boletín editado
+  const handleSaveBulletin = async (editedData: ClassifiedNews) => {
+    try {
+      const response = await fetch(`/api/bulletins/${bulletin.id}/update-classified`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classifiedNews: editedData })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al guardar cambios');
+      }
+
+      toast.success('Boletín actualizado exitosamente');
+
+      // Recargar la página para ver los cambios
+      window.location.reload();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error al guardar los cambios');
+      throw error;
+    }
+  };
+
   return (
     <Tabs defaultValue="resumes" className="w-full">
-      <TabsList className="grid w-full grid-cols-5">
+      <TabsList className="grid w-full grid-cols-6">
         <TabsTrigger value="resumes">Resúmenes</TabsTrigger>
+        <TabsTrigger value="edit" className="flex items-center gap-1">
+          <Edit className="h-3 w-3" />
+          Editar
+        </TabsTrigger>
         <TabsTrigger value="raw">Noticias Raw</TabsTrigger>
         <TabsTrigger value="classified">Clasificadas</TabsTrigger>
         <TabsTrigger value="logs">Logs</TabsTrigger>
@@ -186,7 +216,25 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
         </div>
       </TabsContent>
 
-      {/* Tab 2: Noticias Raw */}
+      {/* Tab 2: Editar */}
+      <TabsContent value="edit" className="mt-6">
+        {classifiedNews ? (
+          <EditableBulletin
+            bulletinId={bulletin.id}
+            date={bulletin.date}
+            initialData={classifiedNews}
+            onSave={handleSaveBulletin}
+          />
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-500">
+              No hay noticias clasificadas para editar.
+            </p>
+          </div>
+        )}
+      </TabsContent>
+
+      {/* Tab 3: Noticias Raw */}
       <TabsContent value="raw" className="mt-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-lg font-semibold mb-4">Noticias Scrapeadas</h3>
@@ -204,7 +252,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
         </div>
       </TabsContent>
 
-      {/* Tab 3: Noticias Clasificadas */}
+      {/* Tab 4: Noticias Clasificadas */}
       <TabsContent value="classified" className="mt-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-lg font-semibold mb-4">Noticias Clasificadas por Categoría</h3>
@@ -222,7 +270,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
         </div>
       </TabsContent>
 
-      {/* Tab 4: Logs */}
+      {/* Tab 5: Logs */}
       <TabsContent value="logs" className="mt-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-lg font-semibold mb-4">Timeline de Eventos</h3>
@@ -242,7 +290,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
         </div>
       </TabsContent>
 
-      {/* Tab 5: Video */}
+      {/* Tab 6: Video */}
       <TabsContent value="video" className="mt-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-lg font-semibold mb-4">Video del Boletín</h3>

@@ -226,24 +226,26 @@ export function ClassicBulletinV2({
                   marginRight: "31px",
                 }}
               >
-                {/* Imagen (derecha) */}
+                {/* Imagen arriba (layout vertical) */}
                 {article.imageUrl && (
                   <div
-                    className="absolute rounded-md overflow-hidden"
+                    className="rounded-lg overflow-hidden"
                     style={{
-                      right: 0,
-                      top: index === 0 ? "193px" : "234px",
-                      width: "418px",
-                      height: "258px",
+                      width: "100%",
+                      maxWidth: "962px",
+                      height: "400px",
+                      marginBottom: "30px",
+                      backgroundColor: "rgb(245, 245, 245)",
                     }}
                   >
                     <Image
                       src={article.imageUrl}
                       alt={article.title}
-                      fill
-                      className="object-cover"
+                      width={962}
+                      height={400}
+                      className="w-full h-full object-cover"
                       onError={(e) => {
-                        e.currentTarget.style.display = "none";
+                        e.currentTarget.parentElement!.style.display = "none";
                       }}
                     />
                   </div>
@@ -253,13 +255,13 @@ export function ClassicBulletinV2({
                 <div
                   style={{
                     maxWidth: "962px",
-                    marginBottom: "40px",
+                    marginBottom: "20px",
                   }}
                 >
                   <h3
                     style={{
-                      fontSize: "42.7px",
-                      lineHeight: "59px",
+                      fontSize: "38px",
+                      lineHeight: "48px",
                       fontWeight: 700,
                       color: "rgb(0, 74, 173)",
                       letterSpacing: "0em",
@@ -273,13 +275,13 @@ export function ClassicBulletinV2({
                 <div
                   style={{
                     maxWidth: "962px",
-                    marginTop: "40px",
+                    marginTop: "20px",
                   }}
                 >
                   <p
                     style={{
-                      fontSize: "37.3px",
-                      lineHeight: "52px",
+                      fontSize: "18px",
+                      lineHeight: "28px",
                       fontWeight: 400,
                       color: "rgb(0, 0, 0)",
                       letterSpacing: "0em",
@@ -297,15 +299,15 @@ export function ClassicBulletinV2({
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
-                          fontSize: "37.3px",
-                          lineHeight: "52px",
+                          fontSize: "18px",
+                          lineHeight: "24px",
                           fontWeight: 700,
                           color: "rgb(26, 98, 255)",
                           textDecoration: "underline",
                           textDecorationColor: "rgb(26, 98, 255)",
                         }}
                       >
-                        Leer más
+                        Leer más →
                       </a>
                     </p>
                   )}
