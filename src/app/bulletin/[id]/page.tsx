@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getBulletinById } from "@/lib/db/queries/bulletins";
 import { PublicBulletinView } from "@/components/bulletin/public-bulletin-view";
 import type { Metadata } from "next";
@@ -45,34 +45,45 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /**
- * Página pública del Boletín
+ * Página pública del Boletín (compatibilidad con UUID)
  *
  * Vista sin autenticación para compartir boletines
- * Solo muestra el contenido del boletín sin menús de la aplicación
+ * Redirige al formato de fecha amigable cuando es posible
  */
 export default async function PublicBulletinPage({ params }: PageProps) {
   const { id } = await params;
 
-  // Cargar boletín
-  const bulletin = await getBulletinById(id);
+  // Si el ID parece ser un UUID (contiene guiones y es largo)
+  const isUuid = id.includes('-') && id.length > 20;
 
-  // 404 si no existe o no está listo/publicado
-  if (!bulletin || (bulletin.status !== "published" && bulletin.status !== "ready")) {
-    notFound();
+  if (isUuid) {
+    // Cargar boletín
+    const bulletin = await getBulletinById(id);
+
+    // 404 si no existe o no está listo/publicado
+    if (!bulletin || (bulletin.status !== "published" && bulletin.status !== "ready")) {
+      notFound();
+    }
+
+    // Solo mostrar si tiene noticias clasificadas
+    if (!bulletin.classifiedNews) {
+      notFound();
+    }
+
+    // Generar URL con formato de fecha y redirigir
+    const formatDateForUrl = (date: Date) => {
+      const day = date.getDate().toString().padStart(2, '0');
+      const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                      'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+      const month = months[date.getMonth()];
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+
+    const dateUrl = formatDateForUrl(bulletin.date);
+    redirect(`/bulletin/${dateUrl}`);
   }
 
-  // Solo mostrar si tiene noticias clasificadas
-  if (!bulletin.classifiedNews) {
-    notFound();
-  }
-
-  // Formatear fecha
-  const formattedDate = new Intl.DateTimeFormat("es-EC", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(bulletin.date);
-
-  return <PublicBulletinView bulletin={bulletin} formattedDate={formattedDate} />;
+  // Si no es UUID, asumimos que es formato de fecha y redirigimos a [date]
+  redirect(`/bulletin/${id}`);
 }

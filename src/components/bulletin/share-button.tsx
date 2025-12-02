@@ -6,16 +6,32 @@ import { useState } from "react";
 
 interface ShareButtonProps {
   bulletinId: string;
+  bulletinDate: Date;
 }
 
 /**
  * Botón para compartir el link público del boletín
  */
-export function ShareButton({ bulletinId }: ShareButtonProps) {
+export function ShareButton({ bulletinId, bulletinDate }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
 
+  // Formatear fecha para la URL (01-dic-2025)
+  const formatDateForUrl = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                    'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   const handleShare = async () => {
-    const publicUrl = `${window.location.origin}/bulletin/${bulletinId}`;
+    // Generar URL con formato de fecha amigable
+    const dateUrl = formatDateForUrl(bulletinDate);
+    const publicUrl = `${window.location.origin}/bulletin/${dateUrl}`;
+
+    // También incluir URL alternativa con ID como fallback
+    const fallbackUrl = `${window.location.origin}/bulletin/${bulletinId}`;
 
     try {
       // Intentar compartir usando la API nativa de compartir si está disponible

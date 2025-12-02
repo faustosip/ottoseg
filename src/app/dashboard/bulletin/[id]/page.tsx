@@ -84,7 +84,7 @@ export default async function BulletinDetailPage({ params }: PageProps) {
 
           {/* Compartir link público (solo si está ready o published y tiene classifiedNews) */}
           {(bulletin.status === "ready" || bulletin.status === "published") && bulletin.classifiedNews ? (
-            <ShareButton bulletinId={id} />
+            <ShareButton bulletinId={id} bulletinDate={bulletin.date} />
           ) : null}
 
           {/* Exportar JSON */}

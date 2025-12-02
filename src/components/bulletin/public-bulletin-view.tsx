@@ -57,8 +57,22 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
 
         <div className="relative container mx-auto px-6 py-12 max-w-6xl">
           <div className="text-center">
-            {/* Logo principal */}
-            <div className="mb-6 flex justify-center">
+            {/* Logo del búho y logo principal juntos */}
+            <div className="mb-6 flex justify-center items-center gap-8">
+              {/* Logo del búho */}
+              <Image
+                src="/logos/buho-seguridad.png"
+                alt="Otto Seguridad Búho"
+                width={100}
+                height={100}
+                className="h-24 w-auto"
+                priority
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+
+              {/* Logo principal de Otto */}
               <Image
                 src="/logos/otto-logo.png"
                 alt="OTTO Seguridad"
