@@ -1,6 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { getBulletinById } from "@/lib/db/queries/bulletins";
 import { PublicBulletinView } from "@/components/bulletin/public-bulletin-view";
+import { db } from "@/lib/db";
+import { bulletins } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 
 /**
@@ -8,8 +11,52 @@ import type { Metadata } from "next";
  */
 interface PageProps {
   params: Promise<{
-    id: string;
+    id: string; // puede ser UUID o formato de fecha
   }>;
+}
+
+/**
+ * Parsear fecha del formato URL a Date object
+ */
+function parseUrlDate(dateStr: string): Date | null {
+  // Formato esperado: 01-dic-2025
+  const months: Record<string, number> = {
+    'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3,
+    'may': 4, 'jun': 5, 'jul': 6, 'ago': 7,
+    'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+  };
+
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return null;
+
+  const day = parseInt(parts[0]);
+  const monthStr = parts[1].toLowerCase();
+  const year = parseInt(parts[2]);
+
+  if (!months.hasOwnProperty(monthStr)) return null;
+  if (isNaN(day) || isNaN(year)) return null;
+
+  return new Date(year, months[monthStr], day);
+}
+
+/**
+ * Formatear fecha para URL
+ */
+function formatDateForUrl(date: Date): string {
+  const day = date.getDate().toString().padStart(2, '0');
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                  'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+/**
+ * Detectar si es UUID
+ */
+function isUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
 }
 
 /**
@@ -17,7 +64,24 @@ interface PageProps {
  */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const bulletin = await getBulletinById(id);
+
+  let bulletin = null;
+
+  // Si es UUID, buscar por ID
+  if (isUUID(id)) {
+    bulletin = await getBulletinById(id);
+  } else {
+    // Si es formato de fecha, buscar por fecha
+    const parsedDate = parseUrlDate(id);
+    if (parsedDate) {
+      const [result] = await db
+        .select()
+        .from(bulletins)
+        .where(eq(bulletins.date, parsedDate))
+        .limit(1);
+      bulletin = result;
+    }
+  }
 
   if (!bulletin) {
     return {
@@ -34,10 +98,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: `Boletín - ${formattedDate}`,
-    description: "Boletín informativo de noticias de Ecuador",
+    description: "Boletín informativo de noticias de Ecuador - Otto Seguridad",
     openGraph: {
       title: `Boletín - ${formattedDate}`,
-      description: "Boletín informativo de noticias de Ecuador",
+      description: "Boletín informativo de noticias de Ecuador - Otto Seguridad",
       type: "article",
       publishedTime: bulletin.publishedAt?.toISOString(),
     },
@@ -45,45 +109,65 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /**
- * Página pública del Boletín (compatibilidad con UUID)
+ * Página pública del Boletín
  *
- * Vista sin autenticación para compartir boletines
- * Redirige al formato de fecha amigable cuando es posible
+ * Maneja tanto UUID como formato de fecha
+ * Redirige UUID a formato de fecha para mejor UX
  */
 export default async function PublicBulletinPage({ params }: PageProps) {
   const { id } = await params;
 
-  // Si el ID parece ser un UUID (contiene guiones y es largo)
-  const isUuid = id.includes('-') && id.length > 20;
+  let bulletin = null;
+  let shouldRedirect = false;
 
-  if (isUuid) {
-    // Cargar boletín
-    const bulletin = await getBulletinById(id);
+  // Detectar si es UUID
+  if (isUUID(id)) {
+    // Buscar por UUID
+    bulletin = await getBulletinById(id);
+    shouldRedirect = true; // Marcar para redirección
+  } else {
+    // Intentar parsear como fecha
+    const parsedDate = parseUrlDate(id);
 
-    // 404 si no existe o no está listo/publicado
-    if (!bulletin || (bulletin.status !== "published" && bulletin.status !== "ready")) {
-      notFound();
+    if (parsedDate) {
+      // Buscar por fecha
+      const [result] = await db
+        .select()
+        .from(bulletins)
+        .where(eq(bulletins.date, parsedDate))
+        .limit(1);
+      bulletin = result;
     }
+  }
 
-    // Solo mostrar si tiene noticias clasificadas
-    if (!bulletin.classifiedNews) {
-      notFound();
-    }
+  // 404 si no se encuentra
+  if (!bulletin) {
+    notFound();
+  }
 
-    // Generar URL con formato de fecha y redirigir
-    const formatDateForUrl = (date: Date) => {
-      const day = date.getDate().toString().padStart(2, '0');
-      const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
-                      'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-      const month = months[date.getMonth()];
-      const year = date.getFullYear();
-      return `${day}-${month}-${year}`;
-    };
+  // Verificar estado
+  if (bulletin.status !== "published" && bulletin.status !== "ready") {
+    notFound();
+  }
 
+  // Verificar que tenga contenido
+  if (!bulletin.classifiedNews) {
+    notFound();
+  }
+
+  // Si es UUID, redirigir a formato de fecha
+  if (shouldRedirect) {
     const dateUrl = formatDateForUrl(bulletin.date);
     redirect(`/bulletin/${dateUrl}`);
   }
 
-  // Si no es UUID, asumimos que es formato de fecha y redirigimos a [date]
-  redirect(`/bulletin/${id}`);
+  // Formatear fecha para mostrar
+  const formattedDate = new Intl.DateTimeFormat("es-EC", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(bulletin.date);
+
+  return <PublicBulletinView bulletin={bulletin} formattedDate={formattedDate} />;
 }
