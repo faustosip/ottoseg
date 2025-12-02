@@ -3,7 +3,7 @@ import { getBulletinById } from "@/lib/db/queries/bulletins";
 import { PublicBulletinView } from "@/components/bulletin/public-bulletin-view";
 import { db } from "@/lib/db";
 import { bulletins } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { and, gte, lt } from "drizzle-orm";
 import type { Metadata } from "next";
 
 /**
@@ -74,10 +74,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // Si es formato de fecha, buscar por fecha
     const parsedDate = parseUrlDate(id);
     if (parsedDate) {
+      // Crear rango de fecha para el día completo
+      const startOfDay = new Date(parsedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(parsedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
       const [result] = await db
         .select()
         .from(bulletins)
-        .where(eq(bulletins.date, parsedDate))
+        .where(
+          and(
+            gte(bulletins.date, startOfDay),
+            lt(bulletins.date, endOfDay)
+          )
+        )
         .limit(1);
       bulletin = result;
     }
@@ -130,11 +142,23 @@ export default async function PublicBulletinPage({ params }: PageProps) {
     const parsedDate = parseUrlDate(id);
 
     if (parsedDate) {
-      // Buscar por fecha
+      // Crear rango de fecha para el día completo
+      const startOfDay = new Date(parsedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(parsedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      // Buscar por fecha dentro del rango del día
       const [result] = await db
         .select()
         .from(bulletins)
-        .where(eq(bulletins.date, parsedDate))
+        .where(
+          and(
+            gte(bulletins.date, startOfDay),
+            lt(bulletins.date, endOfDay)
+          )
+        )
         .limit(1);
       bulletin = result;
     }
