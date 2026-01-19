@@ -8,7 +8,7 @@ services:
       - ottoseguridad_data:/app/data
 
     networks:
-      - OttoSeguridadNet
+      - Ottoseguridadnet
 
     environment:
       - NODE_ENV=production
@@ -94,9 +94,9 @@ services:
         - traefik.http.services.ottoseguridad.loadbalancer.passHostHeader=1
 
 networks:
-  OttoSeguridadNet:
+  Ottoseguridadnet:
     external: true
-    name: OttoSeguridadNet
+    name: Ottoseguridadnet
 
 volumes:
   ottoseguridad_data:
