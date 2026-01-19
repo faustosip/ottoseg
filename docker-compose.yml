@@ -1,9 +1,102 @@
+version: "3.7"
+
 services:
-  postgres:
-    image: pgvector/pgvector:pg18
+  ottoseguridad:
+    image: faustoai/ottoseguridadai:latest
+
+    volumes:
+      - ottoseguridad_data:/app/data
+
+    networks:
+      - OttoSeguridadNet
+
     environment:
-      POSTGRES_DB: postgres_dev
-      POSTGRES_USER: dev_user
-      POSTGRES_PASSWORD: dev_password
-    ports:
-      - "5432:5432"
+      - NODE_ENV=production
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+
+      # Database - Supabase
+      - POSTGRES_URL=${POSTGRES_URL}
+      - SUPABASE_HOST=${SUPABASE_HOST}
+      - SUPABASE_PORT=${SUPABASE_PORT}
+      - SUPABASE_DATABASE=${SUPABASE_DATABASE}
+      - SUPABASE_USER=${SUPABASE_USER}
+      - SUPABASE_PASSWORD=${SUPABASE_PASSWORD}
+
+      # Supabase API
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+
+      # Authentication
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+
+      # Google OAuth
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+
+      # AI Integration
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL}
+
+      # File storage
+      - BLOB_READ_WRITE_TOKEN=${BLOB_READ_WRITE_TOKEN}
+
+      # Firecrawl API
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
+      - FIRECRAWL_API_URL=${FIRECRAWL_API_URL}
+      - DISABLE_FIRECRAWL=${DISABLE_FIRECRAWL}
+
+      # Crawl4AI
+      - CRAWL4AI_API_URL=${CRAWL4AI_API_URL}
+      - CRAWL4AI_TIMEOUT=${CRAWL4AI_TIMEOUT}
+
+      # Cron Secret
+      - CRON_SECRET=${CRON_SECRET}
+
+      # MinIO Configuration
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_PORT=${MINIO_PORT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_USE_SSL=${MINIO_USE_SSL}
+      - MINIO_BUCKET=${MINIO_BUCKET}
+
+      # Simli API (Text-to-Video)
+      - SIMLI_API_KEY=${SIMLI_API_KEY}
+      - SIMLI_FACE_ID=${SIMLI_FACE_ID}
+
+      # ElevenLabs API (Text-to-Speech)
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID}
+
+      # Polar payment processing
+      - POLAR_WEBHOOK_SECRET=${POLAR_WEBHOOK_SECRET}
+      - POLAR_ACCESS_TOKEN=${POLAR_ACCESS_TOKEN}
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2048M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.ottoseguridad.rule=Host(`app.ottoseguridadai.com`)
+        - traefik.http.routers.ottoseguridad.entrypoints=websecure
+        - traefik.http.routers.ottoseguridad.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.ottoseguridad.service=ottoseguridad
+        - traefik.http.services.ottoseguridad.loadbalancer.server.port=3000
+        - traefik.http.services.ottoseguridad.loadbalancer.passHostHeader=1
+
+networks:
+  OttoSeguridadNet:
+    external: true
+    name: OttoSeguridadNet
+
+volumes:
+  ottoseguridad_data:

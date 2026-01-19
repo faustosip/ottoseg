@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "pnpm run db:migrate && next build",
+    "build:ci": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -69,6 +70,7 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "drizzle-kit": "^0.31.6",
+    "esbuild": "^0.27.2",
     "eslint": "^9.39.0",
     "eslint-config-next": "15.4.8",
     "shadcn": "^3.5.0",

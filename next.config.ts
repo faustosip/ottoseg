@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Output standalone para Docker
+  output: "standalone",
   // Deshabilitar ESLint y TypeScript checks durante build en producción
   // Esto permite que el build pase en Vercel mientras trabajamos en las features de video
   eslint: {

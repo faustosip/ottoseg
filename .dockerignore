@@ -1,0 +1,55 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Environment files (CRITICAL - never include in Docker build)
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Next.js
+.next
+out
+
+# Build artifacts
+build
+dist
+
+# Documentation (not needed in production)
+docs
+*.md
+!README.md
+
+# Test files
+coverage
+.playwright-mcp
+
+# Misc
+.DS_Store
+*.pem
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker files (avoid recursive issues)
+Dockerfile
+docker-compose*.yml
+
+# Python virtual environments
+.venv
+venv
+__pycache__
+
+# Remotion output
+output
