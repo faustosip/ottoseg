@@ -24,6 +24,7 @@ const UpdateBulletinSchema = z.object({
   internacional: z.string().optional(),
   vial: z.string().optional(),
   designVersion: z.string().optional(),
+  roadClosureMapUrl: z.string().url().optional().nullable(),
   status: z
     .enum([
       "draft",
@@ -31,6 +32,7 @@ const UpdateBulletinSchema = z.object({
       "classifying",
       "summarizing",
       "ready",
+      "authorized",
       "published",
       "failed",
     ])

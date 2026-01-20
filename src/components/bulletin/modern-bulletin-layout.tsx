@@ -54,6 +54,45 @@ const CATEGORIES = [
 ];
 
 /**
+ * Verifica si una URL parece ser de una imagen válida
+ */
+function isImageUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+
+  const allowedImageDomains = [
+    'supa.ottoseguridadai.com',
+    'minback.ottoseguridadai.com',
+    'images.unsplash.com',
+  ];
+
+  try {
+    const urlObj = new URL(url);
+    if (allowedImageDomains.some(domain => urlObj.hostname.includes(domain))) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+  const urlLower = url.toLowerCase();
+  if (imageExtensions.some(ext => urlLower.includes(ext))) {
+    return true;
+  }
+
+  if (url.includes('/storage/')) {
+    return true;
+  }
+
+  const blockedDomains = ['google.com/maps', 'maps.google', 'waze.com'];
+  if (blockedDomains.some(domain => url.includes(domain))) {
+    return false;
+  }
+
+  return false;
+}
+
+/**
  * Componente de Badge de Categoría
  */
 interface CategoryBadgeProps {
@@ -185,9 +224,10 @@ function NewsItemCard({ categoryName, newsItem }: NewsItemCardProps) {
 interface NewsCardProps {
   categoryName: string;
   data: CategoryData;
+  roadClosureMapUrl?: string | null;
 }
 
-function NewsCard({ categoryName, data }: NewsCardProps) {
+function NewsCard({ categoryName, data, roadClosureMapUrl }: NewsCardProps) {
   // Si hay noticias individuales, renderizar cada una
   if (data.news && data.news.length > 0) {
     return (
@@ -199,6 +239,29 @@ function NewsCard({ categoryName, data }: NewsCardProps) {
             newsItem={newsItem}
           />
         ))}
+        {/* Imagen del mapa de cierres viales */}
+        {roadClosureMapUrl && isImageUrl(roadClosureMapUrl) && (
+          <article className="modern-news-card bg-white rounded-xl shadow-sm overflow-hidden col-span-full">
+            <div className="p-6">
+              <h3
+                className="text-xl font-bold mb-4 text-center"
+                style={{ color: MODERN_DESIGN.colors.primary }}
+              >
+                Mapa de Cierres Viales
+              </h3>
+              <div className="flex justify-center">
+                <Image
+                  src={roadClosureMapUrl}
+                  alt="Mapa de Cierres Viales"
+                  width={600}
+                  height={400}
+                  className="w-full h-auto rounded-lg"
+                  style={{ maxWidth: "600px", objectFit: "contain" }}
+                />
+              </div>
+            </div>
+          </article>
+        )}
       </>
     );
   }
@@ -245,6 +308,28 @@ function NewsCard({ categoryName, data }: NewsCardProps) {
           >
             {data.summary}
           </p>
+        )}
+
+        {/* Imagen del mapa de cierres viales (cuando no hay noticias individuales) */}
+        {roadClosureMapUrl && isImageUrl(roadClosureMapUrl) && (
+          <div className="mt-4">
+            <h4
+              className="text-lg font-bold mb-3 text-center"
+              style={{ color: MODERN_DESIGN.colors.primary }}
+            >
+              Mapa de Cierres Viales
+            </h4>
+            <div className="flex justify-center">
+              <Image
+                src={roadClosureMapUrl}
+                alt="Mapa de Cierres Viales"
+                width={400}
+                height={300}
+                className="w-full h-auto rounded-lg"
+                style={{ maxWidth: "400px", objectFit: "contain" }}
+              />
+            </div>
+          </div>
         )}
       </div>
     </article>
@@ -384,6 +469,7 @@ export function ModernBulletinLayout({
                 key={category.key}
                 categoryName={category.name}
                 data={data}
+                roadClosureMapUrl={category.key === "vial" ? bulletin.roadClosureMapUrl : undefined}
               />
             );
           })}

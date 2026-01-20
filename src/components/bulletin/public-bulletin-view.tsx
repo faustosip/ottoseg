@@ -20,6 +20,54 @@ const categoryNames: Record<string, string> = {
 };
 
 /**
+ * Verifica si una URL parece ser de una imagen válida
+ * Filtra URLs de páginas web (como Google Maps) que no son imágenes
+ */
+function isImageUrl(url: string): boolean {
+  if (!url) return false;
+
+  // Lista de dominios de imágenes permitidos
+  const allowedImageDomains = [
+    'supa.ottoseguridadai.com',
+    'minback.ottoseguridadai.com',
+    'images.unsplash.com',
+    'imagenes.primicias.ec',
+    'multimedia.lahora.com.ec',
+    'multimedia.elcomercio.com',
+  ];
+
+  // Verificar si es un dominio de imagen conocido
+  try {
+    const urlObj = new URL(url);
+    if (allowedImageDomains.some(domain => urlObj.hostname.includes(domain))) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  // Verificar extensiones de imagen comunes
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+  const urlLower = url.toLowerCase();
+  if (imageExtensions.some(ext => urlLower.includes(ext))) {
+    return true;
+  }
+
+  // URLs de storage generalmente son imágenes (tienen /storage/ en la ruta)
+  if (url.includes('/storage/')) {
+    return true;
+  }
+
+  // Rechazar URLs de páginas web conocidas
+  const blockedDomains = ['google.com/maps', 'maps.google', 'waze.com'];
+  if (blockedDomains.some(domain => url.includes(domain))) {
+    return false;
+  }
+
+  return false;
+}
+
+/**
  * Vista pública del boletín - Diseño limpio sin menús
  * Incluye footer profesional con logos de la empresa
  */
@@ -180,6 +228,29 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
                   )}
                 </article>
               ))}
+
+              {/* Mapa de Cierres Viales - Solo para categoría Vial */}
+              {category === "vial" && bulletin.roadClosureMapUrl && isImageUrl(bulletin.roadClosureMapUrl) && (
+                <div className="mt-8 pt-8 border-t border-gray-200">
+                  <h4 className="text-xl font-bold text-blue-900 text-center mb-6">
+                    Mapa de Cierres Viales
+                  </h4>
+                  <div className="flex justify-center">
+                    <div className="w-full max-w-xl bg-gray-100 rounded-lg overflow-hidden">
+                      <Image
+                        src={bulletin.roadClosureMapUrl}
+                        alt="Mapa de Cierres Viales"
+                        width={600}
+                        height={400}
+                        className="w-full h-auto object-contain"
+                        onError={(e) => {
+                          e.currentTarget.parentElement!.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         ))}

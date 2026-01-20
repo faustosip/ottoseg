@@ -79,7 +79,7 @@ export const verification = pgTable("verification", {
 export const bulletins = pgTable("bulletins", {
   id: uuid("id").defaultRandom().primaryKey(),
   date: timestamp("date").notNull().defaultNow(),
-  status: text("status").notNull().default("draft"), // draft, scraping, classifying, summarizing, ready, video_processing, published, failed
+  status: text("status").notNull().default("draft"), // draft, scraping, classifying, summarizing, ready, authorized, video_processing, published, failed
   rawNews: jsonb("raw_news"), // Noticias scrapeadas sin procesar (Firecrawl - excerpts)
   fullArticles: jsonb("full_articles"), // Artículos completos (Crawl4AI - contenido full)
   classifiedNews: jsonb("classified_news"), // Noticias clasificadas por categoría
@@ -91,6 +91,9 @@ export const bulletins = pgTable("bulletins", {
   seguridad: text("seguridad"),
   internacional: text("internacional"),
   vial: text("vial"),
+
+  // URL del mapa de cierres viales
+  roadClosureMapUrl: text("road_closure_map_url"),
 
   // Estadísticas
   totalNews: integer("total_news").default(0),
@@ -222,6 +225,26 @@ export const bulletinDesigns = pgTable("bulletin_designs", {
 });
 
 // ============================================================================
+// SUBSCRIBERS TABLE
+// ============================================================================
+
+/**
+ * Tabla de Suscriptores
+ * Almacena los suscriptores para envío de boletines por email
+ */
+export const subscribers = pgTable("subscribers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
+// ============================================================================
 // BULLETIN NEWS TYPES
 // ============================================================================
 
@@ -292,3 +315,7 @@ export type BulletinLog = typeof bulletinLogs.$inferSelect;
 export type NewBulletinLog = typeof bulletinLogs.$inferInsert;
 export type BulletinDesign = typeof bulletinDesigns.$inferSelect;
 export type NewBulletinDesign = typeof bulletinDesigns.$inferInsert;
+
+// Subscribers table
+export type Subscriber = typeof subscribers.$inferSelect;
+export type NewSubscriber = typeof subscribers.$inferInsert;

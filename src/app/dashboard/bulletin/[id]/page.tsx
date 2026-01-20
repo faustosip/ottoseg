@@ -2,9 +2,10 @@ import { notFound } from "next/navigation";
 import { getBulletinById, getBulletinLogs } from "@/lib/db/queries/bulletins";
 import { StatusBadge } from "@/components/bulletin/status-badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Send } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import Link from "next/link";
 import { BulletinDetailTabs } from "./components/bulletin-detail-tabs";
+import { BulletinActions } from "./components/bulletin-actions";
 import { DeleteBulletinButton } from "@/components/bulletin/delete-bulletin-button";
 import { ShareButton } from "@/components/bulletin/share-button";
 
@@ -68,22 +69,21 @@ export default async function BulletinDetailPage({ params }: PageProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            <StatusBadge status={bulletin.status as "scraping" | "classifying" | "summarizing" | "ready" | "published" | "failed"} />
+            <StatusBadge status={bulletin.status as "scraping" | "classifying" | "summarizing" | "ready" | "authorized" | "published" | "failed"} />
           </div>
         </div>
 
         {/* Acciones */}
-        <div className="flex items-center gap-3">
-          {/* Publicar (solo si está ready) */}
-          {bulletin.status === "ready" && !bulletin.publishedAt ? (
-            <Button className="gap-2">
-              <Send className="h-4 w-4" />
-              Publicar
-            </Button>
-          ) : null}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Autorizar / Publicar */}
+          <BulletinActions
+            bulletinId={id}
+            status={bulletin.status}
+            hasClassifiedNews={!!bulletin.classifiedNews}
+          />
 
-          {/* Compartir link público (solo si está ready o published y tiene classifiedNews) */}
-          {(bulletin.status === "ready" || bulletin.status === "published") && bulletin.classifiedNews ? (
+          {/* Compartir link público (solo si está ready, authorized o published y tiene classifiedNews) */}
+          {(bulletin.status === "ready" || bulletin.status === "authorized" || bulletin.status === "published") && bulletin.classifiedNews ? (
             <ShareButton bulletinId={id} bulletinDate={bulletin.date} />
           ) : null}
 

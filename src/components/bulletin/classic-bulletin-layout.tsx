@@ -31,6 +31,7 @@ export interface BulletinData {
   seguridad?: CategoryData;
   internacional?: CategoryData;
   vial?: CategoryData;
+  roadClosureMapUrl?: string | null;
 }
 
 /**
@@ -91,6 +92,45 @@ const CATEGORIES = [
 ];
 
 /**
+ * Verifica si una URL parece ser de una imagen válida
+ */
+function isImageUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+
+  const allowedImageDomains = [
+    'supa.ottoseguridadai.com',
+    'minback.ottoseguridadai.com',
+    'images.unsplash.com',
+  ];
+
+  try {
+    const urlObj = new URL(url);
+    if (allowedImageDomains.some(domain => urlObj.hostname.includes(domain))) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+  const urlLower = url.toLowerCase();
+  if (imageExtensions.some(ext => urlLower.includes(ext))) {
+    return true;
+  }
+
+  if (url.includes('/storage/')) {
+    return true;
+  }
+
+  const blockedDomains = ['google.com/maps', 'maps.google', 'waze.com'];
+  if (blockedDomains.some(domain => url.includes(domain))) {
+    return false;
+  }
+
+  return false;
+}
+
+/**
  * Componente Separador Horizontal
  */
 function ClassicSeparator() {
@@ -109,9 +149,10 @@ interface CategorySectionProps {
   number: number;
   categoryName: string;
   data?: CategoryData;
+  roadClosureMapUrl?: string | null;
 }
 
-function CategorySection({ number, categoryName, data }: CategorySectionProps) {
+function CategorySection({ number, categoryName, data, roadClosureMapUrl }: CategorySectionProps) {
   // Si no hay datos, no mostrar la sección
   if (!data || !data.summary) {
     return null;
@@ -177,6 +218,34 @@ function CategorySection({ number, categoryName, data }: CategorySectionProps) {
       >
         {data.summary}
       </div>
+
+      {/* Imagen del mapa de cierres viales (solo para categoría Vial) */}
+      {roadClosureMapUrl && isImageUrl(roadClosureMapUrl) && (
+        <div className="my-6">
+          <h4
+            className="text-[18px] leading-[1.4] text-center mb-4"
+            style={{
+              fontWeight: 700,
+              color: "rgb(0, 74, 173)",
+            }}
+          >
+            Mapa de Cierres Viales
+          </h4>
+          <div className="classic-news-image-container flex justify-center">
+            <Image
+              src={roadClosureMapUrl}
+              alt="Mapa de Cierres Viales"
+              width={455}
+              height={400}
+              className="classic-news-image w-full h-auto rounded-lg"
+              style={{
+                maxWidth: "455px",
+                objectFit: "contain"
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Link "Leer más" */}
       {firstNewsUrl && (
@@ -292,6 +361,7 @@ export function ClassicBulletinLayout({
                 number={category.number}
                 categoryName={category.name}
                 data={categoryData}
+                roadClosureMapUrl={category.key === "vial" ? bulletin.roadClosureMapUrl : undefined}
               />
 
               {/* Separador entre secciones (excepto después de la última) */}

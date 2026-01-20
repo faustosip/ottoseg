@@ -97,11 +97,13 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
           imageUrl: getFirstImageUrl(classifiedNews?.vial),
         }
       : undefined,
+    roadClosureMapUrl: bulletin.roadClosureMapUrl,
   };
 
   // Función para guardar cambios del boletín editado
-  const handleSaveBulletin = async (editedData: ClassifiedNews) => {
+  const handleSaveBulletin = async (editedData: ClassifiedNews, roadClosureMapUrl?: string | null) => {
     try {
+      // Update classified news
       const response = await fetch(`/api/bulletins/${bulletin.id}/update-classified`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -110,6 +112,19 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
 
       if (!response.ok) {
         throw new Error('Error al guardar cambios');
+      }
+
+      // Update roadClosureMapUrl if provided
+      if (roadClosureMapUrl !== undefined) {
+        const mapResponse = await fetch(`/api/bulletins/${bulletin.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roadClosureMapUrl: roadClosureMapUrl || null })
+        });
+
+        if (!mapResponse.ok) {
+          console.error('Error updating roadClosureMapUrl');
+        }
       }
 
       toast.success('Boletín actualizado exitosamente');
@@ -223,6 +238,7 @@ export function BulletinDetailTabs({ bulletin, logs }: BulletinDetailTabsProps) 
             bulletinId={bulletin.id}
             date={bulletin.date}
             initialData={classifiedNews}
+            initialRoadClosureMapUrl={bulletin.roadClosureMapUrl}
             onSave={handleSaveBulletin}
           />
         ) : (

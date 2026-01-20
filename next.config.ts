@@ -119,6 +119,20 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
+      // MinIO storage for uploaded images (legacy)
+      {
+        protocol: "https",
+        hostname: "minback.ottoseguridadai.com",
+        port: "",
+        pathname: "/**",
+      },
+      // Supabase Storage for uploaded images
+      {
+        protocol: "https",
+        hostname: "supa.ottoseguridadai.com",
+        port: "",
+        pathname: "/storage/**",
+      },
     ],
   },
 };

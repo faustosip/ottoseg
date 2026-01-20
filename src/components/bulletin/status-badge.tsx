@@ -11,6 +11,7 @@ export type BulletinStatus =
   | "classifying"
   | "summarizing"
   | "ready"
+  | "authorized"
   | "video_processing"
   | "published"
   | "failed";
@@ -70,6 +71,12 @@ const STATUS_CONFIG: Record<
     label: "Listo",
     variant: "default",
     className: "bg-green-100 text-green-700 border-green-300",
+    showSpinner: false,
+  },
+  authorized: {
+    label: "Autorizado",
+    variant: "default",
+    className: "bg-amber-100 text-amber-700 border-amber-300",
     showSpinner: false,
   },
   video_processing: {
@@ -155,5 +162,5 @@ export function isProcessingStatus(status: BulletinStatus): boolean {
  * Verifica si un status es final (completado o fallido)
  */
 export function isFinalStatus(status: BulletinStatus): boolean {
-  return ["ready", "published", "failed"].includes(status);
+  return ["ready", "authorized", "published", "failed"].includes(status);
 }
