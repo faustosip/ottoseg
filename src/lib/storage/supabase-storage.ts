@@ -4,32 +4,49 @@
  * Maneja todas las operaciones de almacenamiento de archivos en Supabase Storage
  */
 
-import { createClient } from "@supabase/supabase-js";
-
-// Configuración de Supabase desde variables de entorno
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // Bucket para imágenes de boletines
 const BUCKET_NAME = "bulletin-images";
 
+// Cliente singleton (lazy initialization)
+let supabaseAdmin: SupabaseClient | null = null;
+
 /**
- * Cliente de Supabase con service role key para operaciones de storage
+ * Obtiene el cliente de Supabase (lazy initialization)
+ * Esto evita que el cliente se inicialice durante el build de Next.js
  */
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+function getSupabaseAdmin(): SupabaseClient {
+  if (!supabaseAdmin) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error(
+        "Supabase no está configurado. Configura NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY."
+      );
+    }
+
+    supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+
+  return supabaseAdmin;
+}
 
 /**
  * Inicializa el bucket si no existe
  */
 export async function initializeBucket(): Promise<void> {
   try {
+    const client = getSupabaseAdmin();
+
     // Verificar si el bucket existe
-    const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
+    const { data: buckets, error: listError } = await client.storage.listBuckets();
 
     if (listError) {
       console.error("Error listing buckets:", listError);
@@ -41,7 +58,7 @@ export async function initializeBucket(): Promise<void> {
     if (!bucketExists) {
       console.log(`📦 Creando bucket "${BUCKET_NAME}"...`);
 
-      const { error: createError } = await supabaseAdmin.storage.createBucket(
+      const { error: createError } = await client.storage.createBucket(
         BUCKET_NAME,
         {
           public: true, // Acceso público para las imágenes
@@ -84,8 +101,10 @@ export async function uploadFile(
   try {
     await initializeBucket();
 
+    const client = getSupabaseAdmin();
+
     // Subir archivo
-    const { data, error } = await supabaseAdmin.storage
+    const { data, error } = await client.storage
       .from(BUCKET_NAME)
       .upload(fileName, fileBuffer, {
         contentType,
@@ -97,7 +116,7 @@ export async function uploadFile(
     }
 
     // Obtener URL pública
-    const { data: urlData } = supabaseAdmin.storage
+    const { data: urlData } = client.storage
       .from(BUCKET_NAME)
       .getPublicUrl(data.path);
 
@@ -114,7 +133,9 @@ export async function uploadFile(
  */
 export async function deleteFile(fileName: string): Promise<void> {
   try {
-    const { error } = await supabaseAdmin.storage
+    const client = getSupabaseAdmin();
+
+    const { error } = await client.storage
       .from(BUCKET_NAME)
       .remove([fileName]);
 
@@ -133,7 +154,9 @@ export async function deleteFile(fileName: string): Promise<void> {
  * Genera URL pública de un archivo
  */
 export function getPublicUrl(fileName: string): string {
-  const { data } = supabaseAdmin.storage
+  const client = getSupabaseAdmin();
+
+  const { data } = client.storage
     .from(BUCKET_NAME)
     .getPublicUrl(fileName);
 
@@ -145,7 +168,9 @@ export function getPublicUrl(fileName: string): string {
  */
 export async function listFiles(prefix: string = ""): Promise<string[]> {
   try {
-    const { data, error } = await supabaseAdmin.storage
+    const client = getSupabaseAdmin();
+
+    const { data, error } = await client.storage
       .from(BUCKET_NAME)
       .list(prefix);
 
@@ -165,10 +190,12 @@ export async function listFiles(prefix: string = ""): Promise<string[]> {
  */
 export async function fileExists(fileName: string): Promise<boolean> {
   try {
+    const client = getSupabaseAdmin();
+
     const folder = fileName.split("/").slice(0, -1).join("/");
     const name = fileName.split("/").pop() || "";
 
-    const { data, error } = await supabaseAdmin.storage
+    const { data, error } = await client.storage
       .from(BUCKET_NAME)
       .list(folder);
 
