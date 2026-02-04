@@ -35,6 +35,12 @@ export function SiteHeader() {
               Fuentes
             </Link>
             <Link
+              href="/dashboard/subscribers"
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
+              Suscriptores
+            </Link>
+            <Link
               href="/dashboard"
               className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
             >

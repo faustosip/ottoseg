@@ -44,11 +44,12 @@ export async function getSubscribers(options?: {
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   // Build order clause
-  const orderColumn = {
+  const orderColumnMap = {
     email: subscribers.email,
     name: subscribers.name,
     createdAt: subscribers.createdAt,
-  }[orderBy];
+  };
+  const orderColumn = orderColumnMap[orderBy] || subscribers.createdAt;
 
   const orderFn = orderDir === "asc" ? asc : desc;
 

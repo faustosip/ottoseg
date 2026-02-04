@@ -18,12 +18,18 @@ let supabaseAdmin: SupabaseClient | null = null;
  */
 function getSupabaseAdmin(): SupabaseClient {
   if (!supabaseAdmin) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    // Buscar URL en múltiples variables (SUPABASE_URL para server-side, NEXT_PUBLIC_SUPABASE_URL como fallback)
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("❌ Variables de Supabase faltantes:", {
+        SUPABASE_URL: !!process.env.SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      });
       throw new Error(
-        "Supabase no está configurado. Configura NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY."
+        "Supabase no está configurado. Configura SUPABASE_URL (o NEXT_PUBLIC_SUPABASE_URL) y SUPABASE_SERVICE_ROLE_KEY."
       );
     }
 
