@@ -466,43 +466,16 @@ export async function extractCategoryArticles(
     console.log(`  ⏭️  Ignoring generic DB selector "${customSelector}", using config-based: "${config.schema.baseSelector}"`);
   }
 
-  // Try Crawl4AI first, then fallback to direct HTTP fetch
+  // For sources that DON'T need JS rendering, prefer direct HTTP fetch (faster & more reliable).
+  // Crawl4AI can strip CSS module classes from HTML, breaking selectors like div[class*="ItemCustomContent"].
+  // For JS-rendered sources (e.g. El Comercio), use Crawl4AI with its browser.
+  const useDirectFetchFirst = !needsJSRendering(source);
   let html: string | undefined;
 
-  try {
-    const client = getCrawl4AIClient();
-
-    const requestConfig: Crawl4AIRequestConfig = {
-      url,
-      formats: ['markdown', 'html'],
-      onlyMainContent: false,
-      removeBase64Images: true,
-      timeout: 30000,
-    };
-
-    if (needsVirtualScroll(source)) {
-      requestConfig.virtualScroll = createVirtualScrollConfig();
-    }
-
-    if (needsJSRendering(source)) {
-      requestConfig.waitTime = 3;
-    }
-
-    console.log(`  📋 Trying Crawl4AI for HTML...`);
-    const response = await client.scrape(requestConfig);
-
-    if (response.success && response.data?.html) {
-      html = response.data.html;
-      console.log(`  ✅ Crawl4AI returned HTML (${html.length} chars)`);
-    }
-  } catch (crawl4aiError) {
-    console.warn(`  ⚠️  Crawl4AI failed: ${(crawl4aiError as Error).message}`);
-  }
-
-  // Fallback: Direct HTTP fetch + Cheerio (no browser needed for most category pages)
-  if (!html) {
+  if (useDirectFetchFirst) {
+    // Strategy: Direct HTTP fetch first, Crawl4AI as fallback
     try {
-      console.log(`  🔄 Fallback: Direct HTTP fetch for ${url}`);
+      console.log(`  📋 Direct HTTP fetch for ${url} (non-JS source)...`);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -526,10 +499,86 @@ export async function extractCategoryArticles(
     } catch (fetchError) {
       console.error(`  ❌ Direct fetch error: ${(fetchError as Error).message}`);
     }
+
+    // Fallback to Crawl4AI if direct fetch failed
+    if (!html) {
+      try {
+        console.log(`  🔄 Fallback: Trying Crawl4AI for ${url}...`);
+        const client = getCrawl4AIClient();
+        const requestConfig: Crawl4AIRequestConfig = {
+          url,
+          formats: ['markdown', 'html'],
+          onlyMainContent: false,
+          removeBase64Images: true,
+          timeout: 30000,
+        };
+        if (needsVirtualScroll(source)) {
+          requestConfig.virtualScroll = createVirtualScrollConfig();
+        }
+        const response = await client.scrape(requestConfig);
+        if (response.success && response.data?.html) {
+          html = response.data.html;
+          console.log(`  ✅ Crawl4AI fallback returned HTML (${html.length} chars)`);
+        }
+      } catch (crawl4aiError) {
+        console.warn(`  ⚠️  Crawl4AI fallback failed: ${(crawl4aiError as Error).message}`);
+      }
+    }
+  } else {
+    // Strategy: Crawl4AI first (JS rendering needed), direct fetch as fallback
+    try {
+      const client = getCrawl4AIClient();
+      const requestConfig: Crawl4AIRequestConfig = {
+        url,
+        formats: ['markdown', 'html'],
+        onlyMainContent: false,
+        removeBase64Images: true,
+        timeout: 30000,
+      };
+      if (needsVirtualScroll(source)) {
+        requestConfig.virtualScroll = createVirtualScrollConfig();
+      }
+      requestConfig.waitTime = 3;
+
+      console.log(`  📋 Trying Crawl4AI for HTML (JS-rendered source)...`);
+      const response = await client.scrape(requestConfig);
+
+      if (response.success && response.data?.html) {
+        html = response.data.html;
+        console.log(`  ✅ Crawl4AI returned HTML (${html.length} chars)`);
+      }
+    } catch (crawl4aiError) {
+      console.warn(`  ⚠️  Crawl4AI failed: ${(crawl4aiError as Error).message}`);
+    }
+
+    if (!html) {
+      try {
+        console.log(`  🔄 Fallback: Direct HTTP fetch for ${url}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const fetchResponse = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (fetchResponse.ok) {
+          html = await fetchResponse.text();
+          console.log(`  ✅ Direct fetch returned HTML (${html.length} chars)`);
+        } else {
+          console.error(`  ❌ Direct fetch failed: HTTP ${fetchResponse.status}`);
+        }
+      } catch (fetchError) {
+        console.error(`  ❌ Direct fetch error: ${(fetchError as Error).message}`);
+      }
+    }
   }
 
   if (!html) {
-    console.error(`  ❌ No HTML obtained for ${url} (both Crawl4AI and direct fetch failed)`);
+    console.error(`  ❌ No HTML obtained for ${url} (all methods failed)`);
     return [];
   }
 
@@ -541,54 +590,12 @@ export async function extractCategoryArticles(
     metadata: { url, crawledAt: new Date().toISOString() },
   };
 
-  let articles = parseCategoryResponseWithConfig(
+  const articles = parseCategoryResponseWithConfig(
     fakeResponse as unknown as Crawl4AIResponse,
     url,
     source,
     config,
   );
-
-  // If Crawl4AI HTML yielded 0 articles and source doesn't need JS rendering,
-  // retry with direct HTTP fetch (Crawl4AI may return degraded/cleaned HTML missing CSS classes)
-  if (articles.length === 0 && !needsJSRendering(source)) {
-    console.warn(`  ⚠️  Crawl4AI HTML yielded 0 articles, retrying with direct HTTP fetch...`);
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-      const fetchResponse = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (fetchResponse.ok) {
-        const directHtml = await fetchResponse.text();
-        console.log(`  ✅ Direct fetch returned HTML (${directHtml.length} chars)`);
-
-        const retryResponse = {
-          success: true,
-          data: { html: directHtml, markdown: undefined, text: undefined, extracted: undefined },
-          metadata: { url, crawledAt: new Date().toISOString() },
-        };
-
-        articles = parseCategoryResponseWithConfig(
-          retryResponse as unknown as Crawl4AIResponse,
-          url,
-          source,
-          config,
-        );
-        console.log(`  ✅ Direct fetch retry extracted: ${articles.length} articles`);
-      }
-    } catch (retryError) {
-      console.error(`  ❌ Direct fetch retry failed: ${(retryError as Error).message}`);
-    }
-  }
 
   console.log(`  ✅ Total extracted: ${articles.length} articles from category page`);
   return articles;
