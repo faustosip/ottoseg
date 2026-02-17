@@ -117,13 +117,13 @@ export function detectCategoryFromUrl(url: string): NewsCategory | undefined {
   // Mapeo de patrones de URL a categorías
   const patterns: Array<{ pattern: RegExp; category: NewsCategory }> = [
     // Economía
-    { pattern: /\/(economia|economy|negocios|business)\//i, category: "economia" },
+    { pattern: /\/(economia|economy|negocios|business|finanzas)\//i, category: "economia" },
 
     // Política
     { pattern: /\/(politica|politics|gobierno|government)\//i, category: "politica" },
 
-    // Sociedad (incluye Quito para Primicias)
-    { pattern: /\/(sociedad|society|quito|comunidad|cultura|social)\//i, category: "sociedad" },
+    // Sociedad (incluye Quito, Ecuador, tendencias, tecnología, cultura)
+    { pattern: /\/(sociedad|society|quito|comunidad|cultura|social|ecuador|tendencias|tecnologia|deportes)\//i, category: "sociedad" },
 
     // Seguridad
     { pattern: /\/(seguridad|security|policia|judicial|justicia|crimen)\//i, category: "seguridad" },
@@ -132,7 +132,7 @@ export function detectCategoryFromUrl(url: string): NewsCategory | undefined {
     { pattern: /\/(internacional|international|mundo|world|global)\//i, category: "internacional" },
 
     // Vial
-    { pattern: /\/(vial|transito|traffic|via|carreteras)\//i, category: "vial" },
+    { pattern: /\/(vial|transito|traffic|via|carreteras|consulta-de-vias)\//i, category: "vial" },
   ];
 
   // Buscar la primera coincidencia
@@ -381,74 +381,84 @@ export async function enrichWithFullContent(
  * ```
  */
 export async function scrapeSource(source: NewsSource): Promise<ScrapedArticle[]> {
-  // Verificar si hay múltiples URLs en scrapeConfig
-  const scrapeConfig = source.scrapeConfig as ScrapeConfig | null;
-  const urls = scrapeConfig?.urls || [source.url];
+  // Timeout por fuente: 90 segundos máximo (reducido de 2 min, las URLs ahora van en paralelo)
+  const SOURCE_TIMEOUT_MS = 90 * 1000;
 
-  // Obtener el selector personalizado de la base de datos
-  const customSelector = source.selector || undefined;
-  if (customSelector) {
-    console.log(`  📌 ${source.name}: Usando selector de BD: "${customSelector}"`);
-  }
+  const scrapeWithTimeout = async (): Promise<ScrapedArticle[]> => {
+    // Verificar si hay múltiples URLs en scrapeConfig
+    const scrapeConfig = source.scrapeConfig as ScrapeConfig | null;
+    const urls = scrapeConfig?.urls || [source.url];
 
-  // Scrapear todas las URLs configuradas
-  const urlsToScrape = urls;
-  console.log(`  📋 ${source.name}: ${urlsToScrape.length} URL(s) a scrapear con Crawl4AI`);
+    // Obtener el selector personalizado de la base de datos
+    const customSelector = source.selector || undefined;
+    if (customSelector) {
+      console.log(`  📌 ${source.name}: Usando selector de BD: "${customSelector}"`);
+    }
 
-  const allArticles: ScrapedArticle[] = [];
-  const seenUrls = new Set<string>(); // Track URLs to avoid duplicates
+    // Scrapear todas las URLs configuradas
+    const urlsToScrape = urls;
+    console.log(`  📋 ${source.name}: ${urlsToScrape.length} URL(s) a scrapear con Crawl4AI (en paralelo)`);
 
-  // Scrapear cada URL con Crawl4AI
-  for (let urlIndex = 0; urlIndex < urlsToScrape.length; urlIndex++) {
-    const url = urlsToScrape[urlIndex];
-    const urlLabel = urlsToScrape.length > 1 ? `${urlIndex + 1}/${urlsToScrape.length}` : "";
+    const allArticles: ScrapedArticle[] = [];
+    const seenUrls = new Set<string>(); // Track URLs to avoid duplicates
 
-    console.log(`  🔗 ${source.name} ${urlLabel}: ${url}`);
+    // Scrapear todas las URLs EN PARALELO (antes era secuencial y causaba timeouts)
+    const urlResults = await Promise.all(
+      urlsToScrape.map(async (url, urlIndex) => {
+        const urlLabel = urlsToScrape.length > 1 ? `${urlIndex + 1}/${urlsToScrape.length}` : "";
+        console.log(`  🔗 ${source.name} ${urlLabel}: ${url}`);
 
-    try {
-      // Usar extractCategoryArticles para páginas de categoría
-      // Pasar el selector personalizado de la base de datos
-      const articles = await extractCategoryArticles(url, source.name, customSelector);
+        try {
+          const articles = await extractCategoryArticles(url, source.name, customSelector);
+          const categoryFromUrl = detectCategoryFromUrl(url);
 
-      // Detectar categoría de la URL de categoría y asignarla a todos los artículos
-      const categoryFromUrl = detectCategoryFromUrl(url);
+          const articlesWithCategory = articles.map(article => ({
+            ...article,
+            // Intentar detectar categoría de: 1) URL de la página, 2) URL del artículo individual
+            category: categoryFromUrl || detectCategoryFromUrl(article.url),
+          }));
 
-      // Asignar categoría a cada artículo
-      const articlesWithCategory = articles.map(article => ({
-        ...article,
-        category: categoryFromUrl, // Asignar categoría detectada de la URL
-      }));
+          if (categoryFromUrl) {
+            console.log(`  🏷️  Categoría detectada (página): ${categoryFromUrl}`);
+          } else {
+            console.log(`  🏷️  Categoría detectada por URL individual de cada artículo`);
+          }
 
-      if (categoryFromUrl) {
-        console.log(`  🏷️  Categoría detectada: ${categoryFromUrl}`);
-      }
+          console.log(`  ✓ ${source.name} ${urlLabel}: ${articles.length} artículos`);
+          return articlesWithCategory;
+        } catch (error) {
+          console.error(
+            `  ⚠️  ${source.name} ${urlLabel} falló con Crawl4AI:`,
+            (error as Error).message
+          );
+          return [];
+        }
+      })
+    );
 
-      // Deduplicate: Only add articles with unique URLs
-      let duplicateCount = 0;
-      for (const article of articlesWithCategory) {
+    // Deduplicate all results
+    for (const articles of urlResults) {
+      for (const article of articles) {
         if (!seenUrls.has(article.url)) {
           seenUrls.add(article.url);
           allArticles.push(article);
         } else {
-          duplicateCount++;
           console.log(`  🔁 Duplicado omitido: "${article.title.substring(0, 50)}..."`);
         }
       }
-
-      const uniqueCount = articles.length - duplicateCount;
-      console.log(`  ✓ ${source.name} ${urlLabel}: ${uniqueCount} artículos únicos (${duplicateCount} duplicados omitidos)`);
-    } catch (error) {
-      console.error(
-        `  ⚠️  ${source.name} ${urlLabel} falló con Crawl4AI:`,
-        (error as Error).message
-      );
-      // Continuar con la siguiente URL
     }
-  }
 
-  console.log(
-    `  ✅ ${source.name}: Total ${allArticles.length} artículos únicos de ${urls.length} URL(s)`
+    console.log(
+      `  ✅ ${source.name}: Total ${allArticles.length} artículos únicos de ${urls.length} URL(s)`
+    );
+
+    return allArticles;
+  };
+
+  // Ejecutar con timeout por fuente
+  const timeoutPromise = new Promise<ScrapedArticle[]>((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout: ${source.name} tardó más de ${SOURCE_TIMEOUT_MS / 1000}s`)), SOURCE_TIMEOUT_MS)
   );
 
-  return allArticles;
+  return Promise.race([scrapeWithTimeout(), timeoutPromise]);
 }

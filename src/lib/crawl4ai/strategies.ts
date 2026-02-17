@@ -250,64 +250,306 @@ export async function extractArticles(
  * Extract multiple articles from a category/listing page
  * Uses CSS selectors first, falls back to LLM if needed
  */
+/**
+ * Extract articles from El Comercio using WordPress REST API
+ * El Comercio is JS-rendered so normal scraping doesn't work, but it exposes a WP REST API
+ */
+async function extractElComercioViaAPI(url: string): Promise<ScrapedArticle[]> {
+  try {
+    // Map URL path to WP category slug
+    const urlObj = new URL(url);
+    const pathSegments = urlObj.pathname.split('/').filter(Boolean);
+    const slug = pathSegments[pathSegments.length - 1] || pathSegments[0] || '';
+
+    console.log(`  📡 El Comercio: Using WordPress REST API (category: ${slug})`);
+
+    // Get category ID from slug
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    let apiUrl = `https://www.elcomercio.com/wp-json/wp/v2/posts?per_page=5&_embed&_fields=title,link,excerpt,date,_links,_embedded`;
+
+    // Try to get category ID to filter posts
+    if (slug && slug !== 'ultima-hora') {
+      try {
+        const catResponse = await fetch(
+          `https://www.elcomercio.com/wp-json/wp/v2/categories?slug=${slug}&_fields=id`,
+          { signal: controller.signal }
+        );
+        if (catResponse.ok) {
+          const cats = await catResponse.json() as Array<{ id: number }>;
+          if (cats.length > 0) {
+            apiUrl += `&categories=${cats[0].id}`;
+          }
+        }
+      } catch {
+        // If category lookup fails, just get latest posts
+      }
+    }
+
+    const response = await fetch(apiUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error(`  ❌ El Comercio API failed: HTTP ${response.status}`);
+      return [];
+    }
+
+    const posts = await response.json() as Array<Record<string, unknown>>;
+    const articles: ScrapedArticle[] = [];
+
+    for (const post of posts) {
+      if (articles.length >= 3) break;
+
+      const titleObj = post.title as { rendered?: string } | undefined;
+      const title = (titleObj?.rendered || '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&#8220;|&#8221;/g, '"')
+        .replace(/&#8216;|&#8217;/g, "'")
+        .replace(/&#038;/g, '&')
+        .replace(/&amp;/g, '&')
+        .replace(/&nbsp;/g, ' ')
+        .trim();
+      const link = post.link as string || '';
+      const date = post.date as string || '';
+      const excerptObj = post.excerpt as { rendered?: string } | undefined;
+      const excerpt = (excerptObj?.rendered || '').replace(/<[^>]+>/g, '').trim();
+
+      // Get featured image from _embedded
+      const embedded = post._embedded as Record<string, unknown[]> | undefined;
+      const featuredMedia = embedded?.['wp:featuredmedia'] as Array<Record<string, unknown>> | undefined;
+      let imageUrl: string | undefined;
+
+      if (featuredMedia && featuredMedia.length > 0) {
+        const media = featuredMedia[0];
+        imageUrl = media.source_url as string;
+        if (!imageUrl) {
+          const sizes = (media.media_details as Record<string, unknown> | undefined)?.sizes as Record<string, { source_url?: string }> | undefined;
+          imageUrl = sizes?.medium_large?.source_url || sizes?.large?.source_url || sizes?.full?.source_url;
+        }
+      }
+
+      if (!title || title.length < 10 || !link) continue;
+
+      articles.push({
+        id: randomUUID(),
+        title,
+        content: excerpt || title,
+        url: link,
+        imageUrl,
+        source: 'El Comercio',
+        publishedDate: date,
+        selected: true,
+        scrapedAt: new Date().toISOString(),
+      });
+    }
+
+    console.log(`  ✅ El Comercio API: ${articles.length} articles extracted`);
+    return articles;
+  } catch (error) {
+    console.error(`  ❌ El Comercio API error: ${(error as Error).message}`);
+    return [];
+  }
+}
+
+/**
+ * Extract articles from ECU911 using WordPress REST API
+ * ECU911 is a WordPress site - the configured URL (/consulta-de-vias/) is not a news page,
+ * so we use the REST API to get the latest news posts directly.
+ */
+async function extractEcu911ViaAPI(): Promise<ScrapedArticle[]> {
+  try {
+    console.log(`  📡 ECU911: Using WordPress REST API`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    // Fetch latest 15 posts to find at least 3 with images
+    const apiUrl = `https://www.ecu911.gob.ec/wp-json/wp/v2/posts?per_page=15&_embed&_fields=title,link,excerpt,date,_links,_embedded`;
+
+    const response = await fetch(apiUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error(`  ❌ ECU911 API failed: HTTP ${response.status}`);
+      return [];
+    }
+
+    const posts = await response.json() as Array<Record<string, unknown>>;
+    const articles: ScrapedArticle[] = [];
+
+    for (const post of posts) {
+      if (articles.length >= 3) break;
+
+      const titleObj = post.title as { rendered?: string } | undefined;
+      const title = (titleObj?.rendered || '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&#8220;|&#8221;/g, '"')
+        .replace(/&#8216;|&#8217;/g, "'")
+        .replace(/&#038;/g, '&')
+        .replace(/&amp;/g, '&')
+        .replace(/&nbsp;/g, ' ')
+        .trim();
+      const link = post.link as string || '';
+      const date = post.date as string || '';
+      const excerptObj = post.excerpt as { rendered?: string } | undefined;
+      const excerpt = (excerptObj?.rendered || '').replace(/<[^>]+>/g, '').trim();
+
+      // Get featured image from _embedded
+      const embedded = post._embedded as Record<string, unknown[]> | undefined;
+      const featuredMedia = embedded?.['wp:featuredmedia'] as Array<Record<string, unknown>> | undefined;
+      let imageUrl: string | undefined;
+
+      if (featuredMedia && featuredMedia.length > 0) {
+        const media = featuredMedia[0];
+        imageUrl = media.source_url as string;
+        if (!imageUrl) {
+          const sizes = (media.media_details as Record<string, unknown> | undefined)?.sizes as Record<string, { source_url?: string }> | undefined;
+          imageUrl = sizes?.medium_large?.source_url || sizes?.large?.source_url || sizes?.full?.source_url;
+        }
+      }
+
+      if (!title || title.length < 10 || !link) continue;
+
+      // Skip posts without images (we have enough posts to be selective)
+      if (!imageUrl) continue;
+
+      articles.push({
+        id: randomUUID(),
+        title,
+        content: excerpt || title,
+        url: link,
+        imageUrl,
+        source: 'ECU911',
+        publishedDate: date,
+        selected: true,
+        scrapedAt: new Date().toISOString(),
+      });
+    }
+
+    console.log(`  ✅ ECU911 API: ${articles.length} articles extracted`);
+    return articles;
+  } catch (error) {
+    console.error(`  ❌ ECU911 API error: ${(error as Error).message}`);
+    return [];
+  }
+}
+
 export async function extractCategoryArticles(
   url: string,
   source: string,
   customSelector?: string
 ): Promise<ScrapedArticle[]> {
+  console.log(`  🔍 Extracting articles from category page: ${url}`);
+
+  const normalizedSource = source.toLowerCase().replace(/\s+/g, '');
+
+  // El Comercio special case: use WordPress REST API (site is JS-rendered)
+  if (normalizedSource === 'elcomercio') {
+    return extractElComercioViaAPI(url);
+  }
+
+  // ECU911 special case: use WordPress REST API (configured URL is not a news page)
+  if (normalizedSource === 'ecu911') {
+    return extractEcu911ViaAPI();
+  }
+
+  const config = getCategoryExtractionConfig(source);
+
+  // Override baseSelector if custom selector is provided from database
+  // Skip generic selectors like "article" that would override better site-specific ones
+  const genericSelectors = ['article', 'div', '.post', '.article'];
+  if (customSelector && customSelector.trim() !== '' && !genericSelectors.includes(customSelector.trim())) {
+    console.log(`  📌 Using custom selector from database: "${customSelector}"`);
+    config.schema.baseSelector = customSelector;
+  } else if (customSelector && genericSelectors.includes(customSelector.trim())) {
+    console.log(`  ⏭️  Ignoring generic DB selector "${customSelector}", using config-based: "${config.schema.baseSelector}"`);
+  }
+
+  // Try Crawl4AI first, then fallback to direct HTTP fetch
+  let html: string | undefined;
+
   try {
-    console.log(`  🔍 Extracting articles from category page: ${url}`);
-
-    const config = getCategoryExtractionConfig(source);
-
-    // Override baseSelector if custom selector is provided from database
-    if (customSelector && customSelector.trim() !== '') {
-      console.log(`  📌 Using custom selector from database: "${customSelector}"`);
-      config.schema.baseSelector = customSelector;
-    }
-
     const client = getCrawl4AIClient();
 
-    // Build the request configuration with CSS extraction strategy
     const requestConfig: Crawl4AIRequestConfig = {
       url,
       formats: ['markdown', 'html'],
-      onlyMainContent: false, // Category pages need full content including sidebars
+      onlyMainContent: false,
       removeBase64Images: true,
-      timeout: 30000, // 30 seconds per URL (reduced for speed)
+      timeout: 30000,
     };
 
-    // Add virtual scrolling if needed (e.g., ECU911)
     if (needsVirtualScroll(source)) {
       requestConfig.virtualScroll = createVirtualScrollConfig();
     }
 
-    // Add JS rendering wait time if needed
     if (needsJSRendering(source)) {
-      requestConfig.waitTime = 3; // Wait 3 seconds for JS to load
+      requestConfig.waitTime = 3;
     }
 
-    // Note: Crawl4AI v0.5.1-d1 doesn't support extraction_strategy in REST API
-    // So we get HTML and parse with Cheerio in parseCategoryResponse
-    console.log(`  📋 Scraping HTML for Cheerio parsing with baseSelector: "${config.schema.baseSelector}"`);
-
-    // Scrape the category page (just HTML)
+    console.log(`  📋 Trying Crawl4AI for HTML...`);
     const response = await client.scrape(requestConfig);
 
-    if (!response.success || !response.data) {
-      console.error(`  ❌ Failed to scrape category page from ${url}`);
-      return [];
+    if (response.success && response.data?.html) {
+      html = response.data.html;
+      console.log(`  ✅ Crawl4AI returned HTML (${html.length} chars)`);
     }
+  } catch (crawl4aiError) {
+    console.warn(`  ⚠️  Crawl4AI failed: ${(crawl4aiError as Error).message}`);
+  }
 
-    // Parse with Cheerio using the modified config (with custom selector)
-    const articles = parseCategoryResponseWithConfig(response, url, source, config);
+  // Fallback: Direct HTTP fetch + Cheerio (no browser needed for most category pages)
+  if (!html) {
+    try {
+      console.log(`  🔄 Fallback: Direct HTTP fetch for ${url}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    console.log(`  ✅ Total extracted: ${articles.length} articles from category page`);
-    return articles;
-  } catch (error) {
-    console.error(`  ❌ Error extracting category articles from ${url}:`, error);
+      const fetchResponse = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (fetchResponse.ok) {
+        html = await fetchResponse.text();
+        console.log(`  ✅ Direct fetch returned HTML (${html.length} chars)`);
+      } else {
+        console.error(`  ❌ Direct fetch failed: HTTP ${fetchResponse.status}`);
+      }
+    } catch (fetchError) {
+      console.error(`  ❌ Direct fetch error: ${(fetchError as Error).message}`);
+    }
+  }
+
+  if (!html) {
+    console.error(`  ❌ No HTML obtained for ${url} (both Crawl4AI and direct fetch failed)`);
     return [];
   }
+
+  // Parse with Cheerio
+  console.log(`  📋 Parsing HTML with Cheerio (baseSelector: "${config.schema.baseSelector}")`);
+  const fakeResponse = {
+    success: true,
+    data: { html, markdown: undefined, text: undefined, extracted: undefined },
+    metadata: { url, crawledAt: new Date().toISOString() },
+  };
+
+  const articles = parseCategoryResponseWithConfig(
+    fakeResponse as unknown as Crawl4AIResponse,
+    url,
+    source,
+    config,
+  );
+
+  console.log(`  ✅ Total extracted: ${articles.length} articles from category page`);
+  return articles;
 }
 
 // ============================================================================
@@ -477,7 +719,9 @@ function parseHTMLWithCheerioAndConfig(
     }
 
     // Validate required fields
-    const title = String(extracted.title || '').trim();
+    // Clean title: remove category prefixes like "Ecuador •", "Política •", etc.
+    let title = String(extracted.title || '').trim().replace(/^[^•]+•\s*/, '');
+    if (!title) title = String(extracted.title || '').trim(); // fallback to original
     let url = String(extracted.url || '').trim();
     const imageUrl = extracted.imageUrl ? String(extracted.imageUrl).trim() : undefined;
 

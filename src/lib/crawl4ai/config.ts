@@ -12,9 +12,9 @@ import type { Crawl4AIArticleExtractionConfig, CategoryExtractionConfig } from '
 
 export const crawl4aiConfig = {
   apiUrl: process.env.CRAWL4AI_API_URL || 'http://crawl4ai_api:11235',
-  timeout: parseInt(process.env.CRAWL4AI_TIMEOUT || '300000', 10), // 5 minutes
-  maxRetries: 2,
-  retryDelay: 3000, // 3 seconds
+  timeout: parseInt(process.env.CRAWL4AI_TIMEOUT || '30000', 10), // 30 seconds default (reduced from 60s)
+  maxRetries: 0, // Sin reintentos para evitar timeouts largos (antes era 1)
+  retryDelay: 1000, // 1 second
   maxConcurrency: 5,
 } as const;
 
@@ -26,6 +26,16 @@ export const crawl4aiConfig = {
  * Extraction configurations for each news source
  * These are optimized based on each site's structure
  */
+// Mapping from normalized source names to config keys
+// normalizeSource("La Hora") → "lahora", normalizeSource("El Comercio") → "elcomercio"
+const sourceNameMapping: Record<string, string> = {
+  lahora: 'lahora',
+  elcomercio: 'elcomercio',
+  primicias: 'primicias',
+  teleamazonas: 'teleamazonas',
+  ecu911: 'ecu911',
+};
+
 export const siteExtractionConfigs: Record<string, Crawl4AIArticleExtractionConfig> = {
   // Primicias - Modern news site
   primicias: {
@@ -38,7 +48,7 @@ export const siteExtractionConfigs: Record<string, Crawl4AIArticleExtractionConf
   },
 
   // La Hora - Traditional news site
-  laHora: {
+  lahora: {
     titleSelector: 'h1, .article-title, .post-title',
     contentSelector: '.article-content, .post-content, .entry-content',
     authorSelector: '.author, .byline, .writer-name',
@@ -48,7 +58,7 @@ export const siteExtractionConfigs: Record<string, Crawl4AIArticleExtractionConf
   },
 
   // El Comercio - Complex layout
-  elComercio: {
+  elcomercio: {
     titleSelector: 'h1.headline, h1[itemprop="headline"], h1.article-title',
     contentSelector: 'div[itemprop="articleBody"], .article-body, .story-content',
     authorSelector: 'span[itemprop="author"], .author-name, .byline',
@@ -99,33 +109,33 @@ export const categoryExtractionConfigs: Record<string, CategoryExtractionConfig>
   primicias: {
     schema: {
       name: 'Primicias Articles Listing',
-      baseSelector: 'article.post, article, .post, .article-item, .entry, .c-card',
+      baseSelector: 'article.c-article',
       fields: [
         {
           name: 'title',
-          selector: 'h2 a, h3 a, .entry-title a, .post-title a, h2, h3',
+          selector: 'h2.c-article__title a, h2 a, h3 a',
           type: 'text',
         },
         {
           name: 'url',
-          selector: 'h2 a, h3 a, .entry-title a, .post-title a, a[rel="bookmark"]',
+          selector: 'h2.c-article__title a, h2 a, h3 a, figure a',
           type: 'attribute',
           attribute: 'href',
         },
         {
           name: 'excerpt',
-          selector: '.entry-excerpt, .excerpt, .post-excerpt, p, .description',
+          selector: 'p.c-article__excerpt, p',
           type: 'text',
         },
         {
           name: 'imageUrl',
-          selector: 'picture img, img.wp-post-image, .featured-image img, img, .entry-image img',
+          selector: 'picture img, img',
           type: 'attribute',
           attribute: 'src',
         },
         {
           name: 'publishedDate',
-          selector: 'time, .entry-date, .post-date, .published',
+          selector: 'time, .c-article__date',
           type: 'attribute',
           attribute: 'datetime',
         },
@@ -144,36 +154,36 @@ Return an array of article objects. Ignore navigation, ads, and other non-articl
   },
 
   // La Hora - Category pages
-  laHora: {
+  lahora: {
     schema: {
       name: 'La Hora Articles Listing',
-      baseSelector: 'section.styles_content__Pe1Q_, div[class*="ItemCustomContent"]',
+      baseSelector: 'div[class*="ItemCustomContent"]',
       fields: [
         {
           name: 'title',
-          selector: 'h2 a, a.styles_linkStyled__pYJA9',
+          selector: 'h2 a',
           type: 'text',
         },
         {
           name: 'url',
-          selector: 'a[href$=".html"]',
+          selector: 'h2 a',
           type: 'attribute',
           attribute: 'href',
         },
         {
           name: 'excerpt',
-          selector: '.styles_correspondent__Q3Mer',
+          selector: 'p',
           type: 'text',
         },
         {
           name: 'imageUrl',
-          selector: 'picture img, img.styles_imageStyled__kKZxw, img',
+          selector: 'picture img, img',
           type: 'attribute',
           attribute: 'src',
         },
         {
           name: 'publishedDate',
-          selector: '.styles_correspondent__Q3Mer',
+          selector: 'time',
           type: 'text',
         },
       ],
@@ -182,8 +192,8 @@ Return an array of article objects. Ignore navigation, ads, and other non-articl
     minArticles: 5,
   },
 
-  // El Comercio - Category pages
-  elComercio: {
+  // El Comercio - Category pages (JS-rendered, needs Crawl4AI browser)
+  elcomercio: {
     schema: {
       name: 'El Comercio Articles Listing',
       baseSelector: 'a.feed__item',
@@ -201,12 +211,12 @@ Return an array of article objects. Ignore navigation, ads, and other non-articl
         },
         {
           name: 'excerpt',
-          selector: '.feed__title',
+          selector: '.feed__excerpt',
           type: 'text',
         },
         {
           name: 'imageUrl',
-          selector: 'picture img, img',
+          selector: 'x-img img, picture img, img',
           type: 'attribute',
           attribute: 'src',
         },
@@ -221,26 +231,26 @@ Return an array of article objects. Ignore navigation, ads, and other non-articl
     minArticles: 5,
   },
 
-  // Teleamazonas - Category pages (complex, may need LLM)
+  // Teleamazonas - Category pages (uses same CMS as Primicias: c-article structure)
   teleamazonas: {
     schema: {
       name: 'Teleamazonas Articles Listing',
-      baseSelector: 'article, .news-card, .video-card, .story-item',
+      baseSelector: 'article.c-article',
       fields: [
         {
           name: 'title',
-          selector: 'h2, h3, .title',
+          selector: 'h2.c-article__title a, h2 a, h3 a',
           type: 'text',
         },
         {
           name: 'url',
-          selector: 'a',
+          selector: 'h2.c-article__title a, h2 a, h3 a, figure a',
           type: 'attribute',
           attribute: 'href',
         },
         {
           name: 'excerpt',
-          selector: '.summary, p',
+          selector: 'p.c-article__excerpt, p',
           type: 'text',
         },
         {
@@ -251,8 +261,9 @@ Return an array of article objects. Ignore navigation, ads, and other non-articl
         },
         {
           name: 'publishedDate',
-          selector: 'time, .date',
-          type: 'text',
+          selector: 'time, .c-article__date',
+          type: 'attribute',
+          attribute: 'datetime',
         },
       ],
     },
@@ -343,12 +354,12 @@ Focus on extracting only the main article content, not sidebars, headers, footer
 /**
  * Sites that need virtual scrolling (infinite scroll, lazy loading)
  */
-export const virtualScrollSites = new Set(['ecu911']);
+export const virtualScrollSites = new Set<string>([]);
 
 /**
  * Sites that require JavaScript rendering
  */
-export const jsRenderingSites = new Set(['ecu911', 'teleamazonas']);
+export const jsRenderingSites = new Set(['elcomercio']);
 
 /**
  * Sites that work better with LLM extraction

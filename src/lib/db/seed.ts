@@ -5,7 +5,8 @@
  */
 
 import { db } from "@/lib/db";
-import { bulletinDesigns } from "@/lib/schema";
+import { bulletinDesigns, bulletinCategories, user } from "@/lib/schema";
+import { auth } from "@/lib/auth";
 import {
   createSource,
   getSourceByName,
@@ -31,7 +32,7 @@ async function seedSources() {
       name: "Primicias",
       url: "https://www.primicias.ec", // URL principal (no se usa, ver scrapeConfig.urls)
       baseUrl: "https://www.primicias.ec",
-      selector: "article",
+      selector: null,
       scrapeConfig: {
         onlyMainContent: true,
         waitFor: 0,
@@ -48,7 +49,7 @@ async function seedSources() {
       name: "La Hora",
       url: "https://www.lahora.com.ec",
       baseUrl: "https://www.lahora.com.ec",
-      selector: "article",
+      selector: null,
       scrapeConfig: {
         onlyMainContent: true,
         waitFor: 0,
@@ -66,7 +67,7 @@ async function seedSources() {
       name: "El Comercio",
       url: "https://www.elcomercio.com",
       baseUrl: "https://www.elcomercio.com",
-      selector: "article",
+      selector: null,
       scrapeConfig: {
         onlyMainContent: true,
         waitFor: 0,
@@ -85,7 +86,7 @@ async function seedSources() {
       name: "Teleamazonas",
       url: "https://www.teleamazonas.com",
       baseUrl: "https://www.teleamazonas.com",
-      selector: "article",
+      selector: null,
       scrapeConfig: {
         onlyMainContent: true,
         waitFor: 0,
@@ -104,7 +105,7 @@ async function seedSources() {
       name: "ECU911",
       url: "https://www.ecu911.gob.ec",
       baseUrl: "https://www.ecu911.gob.ec",
-      selector: "article",
+      selector: null,
       scrapeConfig: {
         onlyMainContent: true,
         waitFor: 0,
@@ -317,6 +318,82 @@ async function seedDesigns() {
 }
 
 /**
+ * Seed de categorías de boletín
+ */
+async function seedCategories() {
+  console.log("\n📂 Seeding categorías de boletín...");
+
+  const categories = [
+    { name: "economia", displayName: "Economía", displayOrder: 1, isDefault: true },
+    { name: "politica", displayName: "Política", displayOrder: 2, isDefault: true },
+    { name: "sociedad", displayName: "Sociedad", displayOrder: 3, isDefault: true },
+    { name: "seguridad", displayName: "Seguridad", displayOrder: 4, isDefault: true },
+    { name: "internacional", displayName: "Internacional", displayOrder: 5, isDefault: true },
+    { name: "vial", displayName: "Vial", displayOrder: 6, isDefault: true },
+    { name: "ultima_hora", displayName: "Última Hora", displayOrder: 7, isDefault: true },
+  ];
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const categoryData of categories) {
+    try {
+      const [existing] = await db
+        .select()
+        .from(bulletinCategories)
+        .where(eq(bulletinCategories.name, categoryData.name))
+        .limit(1);
+
+      if (existing) {
+        console.log(`  ⏭️  Categoría ${categoryData.name} ya existe, omitiendo...`);
+        skipped++;
+        continue;
+      }
+
+      await db.insert(bulletinCategories).values(categoryData);
+      console.log(`  ✅ Categoría ${categoryData.displayName} creada`);
+      created++;
+    } catch (error) {
+      console.error(`  ❌ Error creando categoría ${categoryData.name}:`, error);
+    }
+  }
+
+  console.log(`\n📊 Categorías: ${created} creadas, ${skipped} omitidas`);
+}
+
+/**
+ * Seed admin user - Crea el usuario administrador inicial
+ */
+async function seedAdminUser() {
+  console.log("👤 Creando usuario administrador...");
+
+  const adminEmail = "admin@ottoseguridad.com";
+  const adminPassword = "Admin1234";
+  const adminName = "Administrador";
+
+  // Verificar si ya existe
+  const existing = await db.select({ id: user.id }).from(user).where(eq(user.email, adminEmail));
+  if (existing.length > 0) {
+    console.log("  ⏭️  Usuario admin ya existe, saltando...");
+    return;
+  }
+
+  try {
+    await auth.api.signUpEmail({
+      body: {
+        name: adminName,
+        email: adminEmail,
+        password: adminPassword,
+      },
+    });
+    console.log(`  ✅ Usuario admin creado: ${adminEmail} / ${adminPassword}`);
+    console.log("  ⚠️  ¡Cambia la contraseña después del primer login!");
+  } catch (error) {
+    console.error("  ❌ Error creando admin:", error);
+  }
+}
+
+/**
  * Main seed function
  */
 async function seed() {
@@ -326,6 +403,8 @@ async function seed() {
     await seedSources();
     await seedTemplates();
     await seedDesigns();
+    await seedCategories();
+    await seedAdminUser();
 
     console.log("\n✅ Seed completado exitosamente!\n");
     process.exit(0);

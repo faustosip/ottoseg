@@ -1,0 +1,1 @@
+ALTER TABLE "bulletins" ADD COLUMN "manual_video_url" text;

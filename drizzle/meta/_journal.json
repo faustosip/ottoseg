@@ -36,6 +36,27 @@
       "when": 1768904773561,
       "tag": "0004_giant_meltdown",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770694582406,
+      "tag": "0005_thin_firedrake",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1770695421884,
+      "tag": "0006_harsh_obadiah_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1770724481075,
+      "tag": "0007_curvy_vermin",
+      "breakpoints": true
     }
   ]
 }

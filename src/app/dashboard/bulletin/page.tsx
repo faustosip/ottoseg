@@ -40,16 +40,19 @@ export default async function BulletinListPage() {
         </div>
 
         {/* Botón Generar Nuevo */}
-        <Link href="/dashboard/bulletin/generate">
-          <Button
-            size="lg"
-            disabled={hasTodayBulletin && todayBulletin?.status !== "failed"}
-            className="gap-2"
-          >
+        {hasTodayBulletin && todayBulletin?.status !== "failed" ? (
+          <Button size="lg" disabled className="gap-2">
             <Plus className="h-5 w-5" />
             Generar Nuevo Boletín
           </Button>
-        </Link>
+        ) : (
+          <Link href="/dashboard/bulletin/generate">
+            <Button size="lg" className="gap-2">
+              <Plus className="h-5 w-5" />
+              Generar Nuevo Boletín
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Mensaje si ya existe boletín de hoy */}

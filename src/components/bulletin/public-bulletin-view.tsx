@@ -1,78 +1,45 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import type { Bulletin } from "@/lib/schema";
-import type { ClassifiedNews, ClassifiedArticle } from "@/lib/news/classifier";
+import type { ClassifiedArticle } from "@/lib/news/classifier";
 
 interface PublicBulletinViewProps {
   bulletin: Bulletin;
   formattedDate: string;
 }
 
-// Mapeo de categorías a español
-const categoryNames: Record<string, string> = {
-  economia: "Economía",
-  politica: "Política",
-  sociedad: "Sociedad",
-  seguridad: "Seguridad",
-  internacional: "Internacional",
-  vial: "Vial",
-};
-
 /**
- * Verifica si una URL parece ser de una imagen válida
- * Filtra URLs de páginas web (como Google Maps) que no son imágenes
- */
-function isImageUrl(url: string): boolean {
-  if (!url) return false;
-
-  // Lista de dominios de imágenes permitidos
-  const allowedImageDomains = [
-    'supa.ottoseguridadai.com',
-    'minback.ottoseguridadai.com',
-    'images.unsplash.com',
-    'imagenes.primicias.ec',
-    'multimedia.lahora.com.ec',
-    'multimedia.elcomercio.com',
-  ];
-
-  // Verificar si es un dominio de imagen conocido
-  try {
-    const urlObj = new URL(url);
-    if (allowedImageDomains.some(domain => urlObj.hostname.includes(domain))) {
-      return true;
-    }
-  } catch {
-    return false;
-  }
-
-  // Verificar extensiones de imagen comunes
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
-  const urlLower = url.toLowerCase();
-  if (imageExtensions.some(ext => urlLower.includes(ext))) {
-    return true;
-  }
-
-  // URLs de storage generalmente son imágenes (tienen /storage/ en la ruta)
-  if (url.includes('/storage/')) {
-    return true;
-  }
-
-  // Rechazar URLs de páginas web conocidas
-  const blockedDomains = ['google.com/maps', 'maps.google', 'waze.com'];
-  if (blockedDomains.some(domain => url.includes(domain))) {
-    return false;
-  }
-
-  return false;
-}
-
-/**
- * Vista pública del boletín - Diseño limpio sin menús
- * Incluye footer profesional con logos de la empresa
+ * Vista pública del boletín - Layout de 3 columnas
+ * Columna izquierda: Video | Centro: Noticias | Derecha: Última Hora
  */
 export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinViewProps) {
-  const classifiedNews = bulletin.classifiedNews as ClassifiedNews | null;
+  const classifiedNews = bulletin.classifiedNews as Record<string, ClassifiedArticle[]> | null;
+  const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
+  const [categoryOrders, setCategoryOrders] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const response = await fetch("/api/bulletins/categories");
+        if (response.ok) {
+          const data = await response.json();
+          const nameMap: Record<string, string> = {};
+          const orderMap: Record<string, number> = {};
+          for (const c of data.categories || []) {
+            nameMap[c.name] = c.displayName;
+            orderMap[c.name] = c.displayOrder ?? 0;
+          }
+          setCategoryNames(nameMap);
+          setCategoryOrders(orderMap);
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    }
+    fetchCategories();
+  }, []);
 
   if (!classifiedNews) {
     return (
@@ -82,10 +49,18 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
     );
   }
 
-  // Obtener categorías con noticias
-  const categoriesWithNews = Object.entries(classifiedNews).filter(
-    ([, news]) => news && news.length > 0
-  );
+  // Separar "ultima_hora" del resto de categorías
+  const ultimaHoraNews = classifiedNews.ultima_hora || [];
+  const hasUltimaHora = ultimaHoraNews.length > 0;
+
+  // Categorías principales (excluyendo ultima_hora), ordenadas por displayOrder
+  const categoriesWithNews = Object.entries(classifiedNews)
+    .filter(
+      ([category, news]) => category !== "ultima_hora" && news && news.length > 0
+    )
+    .sort(([a], [b]) => (categoryOrders[a] ?? 999) - (categoryOrders[b] ?? 999));
+
+  const hasVideo = !!bulletin.manualVideoUrl;
 
   return (
     <div className="min-h-screen bg-white">
@@ -107,7 +82,6 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
           <div className="text-center">
             {/* Logo del búho y logo principal juntos */}
             <div className="mb-6 flex justify-center items-center gap-8">
-              {/* Logo del búho */}
               <Image
                 src="/logos/buho-seguridad.png"
                 alt="Otto Seguridad Búho"
@@ -119,8 +93,6 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
                   e.currentTarget.style.display = "none";
                 }}
               />
-
-              {/* Logo principal de Otto */}
               <Image
                 src="/logos/otto-logo.png"
                 alt="OTTO Seguridad"
@@ -145,38 +117,232 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
         </div>
       </header>
 
-      {/* Contenido del boletín */}
-      <main className="container mx-auto px-6 py-12 max-w-4xl">
-        {categoriesWithNews.map(([category, news], categoryIndex) => (
-          <section key={category} className="mb-16">
-            {/* Título de categoría con diseño elegante */}
-            <div className="flex items-center mb-8">
-              <div className="flex-shrink-0 w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
-                {categoryIndex + 1}
-              </div>
-              <div className="flex-grow ml-4">
-                <h2 className="text-3xl font-bold text-gray-900">
-                  {categoryNames[category]}
-                </h2>
-                <div className="h-1 bg-gray-200 mt-2"></div>
-              </div>
-            </div>
+      {/* Link móvil a Última Hora - solo visible en mobile/tablet */}
+      {hasUltimaHora && (
+        <div className="lg:hidden sticky top-0 z-40 bg-red-600 text-white py-3 px-4 text-center">
+          <a
+            href="#ultima-hora"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById("ultima-hora")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="font-bold text-sm flex items-center justify-center gap-2"
+          >
+            Ir a Última Hora
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </a>
+        </div>
+      )}
 
-            {/* Noticias de la categoría */}
-            <div className="space-y-12">
-              {news.map((article: ClassifiedArticle, index: number) => (
-                <article
-                  key={`${category}-${index}`}
-                  className="bg-white rounded-lg overflow-hidden"
+      {/* Video en mobile/tablet (arriba del contenido, oculto en desktop) */}
+      {hasVideo && (
+        <div className="lg:hidden px-6 py-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <span className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center text-sm">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+            VIDEO
+          </h2>
+          <div className="rounded-lg overflow-hidden bg-black">
+            <video
+              src={bulletin.manualVideoUrl!}
+              controls
+              className="w-full"
+              style={{ maxHeight: "300px" }}
+            >
+              Tu navegador no soporta el elemento de video.
+            </video>
+          </div>
+        </div>
+      )}
+
+      {/* Layout principal de 3 columnas */}
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_280px] gap-8 max-w-[1400px] mx-auto px-6 py-12">
+        {/* Columna izquierda: Video (solo desktop) */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center text-sm">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+              VIDEO
+            </h2>
+            {hasVideo ? (
+              <div className="rounded-lg overflow-hidden bg-black shadow-lg">
+                <video
+                  src={bulletin.manualVideoUrl!}
+                  controls
+                  className="w-full"
                 >
-                  {/* Imagen de la noticia */}
+                  Tu navegador no soporta el elemento de video.
+                </video>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 p-8 text-center">
+                <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <p className="text-sm text-gray-500">Sin video disponible</p>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Columna centro: Noticias principales */}
+        <main>
+          {categoriesWithNews.map(([category, news], categoryIndex) => (
+            <section key={category} className="mb-16">
+              {/* Título de categoría con diseño elegante */}
+              <div className="flex items-center mb-8">
+                <div className="flex-shrink-0 w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
+                  {categoryIndex + 1}
+                </div>
+                <div className="flex-grow ml-4">
+                  <h2 className="text-3xl font-bold text-gray-900">
+                    {categoryNames[category] || category}
+                  </h2>
+                  <div className="h-1 bg-gray-200 mt-2"></div>
+                </div>
+              </div>
+
+              {/* Noticias de la categoría */}
+              <div className="space-y-12">
+                {news.map((article: ClassifiedArticle, index: number) => (
+                  <article
+                    key={`${category}-${index}`}
+                    className="bg-white rounded-lg overflow-hidden"
+                  >
+                    {/* Imagen de la noticia */}
+                    {article.imageUrl && (
+                      <div className="w-full h-80 bg-gray-100 mb-6 rounded-lg overflow-hidden">
+                        <Image
+                          src={article.imageUrl}
+                          alt={article.title}
+                          width={800}
+                          height={320}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.parentElement!.style.display = "none";
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Contenido de la noticia */}
+                    <div className="space-y-4">
+                      <h3 className="text-2xl font-bold text-blue-900 leading-tight">
+                        {article.title}
+                      </h3>
+
+                      <p className="text-gray-700 text-lg leading-relaxed">
+                        {article.content}
+                      </p>
+
+                      {article.url && (
+                        <div className="pt-4">
+                          <a
+                            href={article.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                          >
+                            Leer más
+                            <svg
+                              className="ml-2 w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Separador entre noticias */}
+                    {index < news.length - 1 && (
+                      <div className="mt-8 border-b border-gray-200"></div>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </main>
+
+        {/* Columna derecha: Última Hora (solo desktop) */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-8" id="ultima-hora">
+            <h2 className="text-xl font-bold text-white bg-red-600 rounded-t-lg px-4 py-3 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              ÚLTIMA HORA
+            </h2>
+            {hasUltimaHora ? (
+              <div className="border border-t-0 border-gray-200 rounded-b-lg divide-y divide-gray-100">
+                {ultimaHoraNews.map((article: ClassifiedArticle, index: number) => (
+                  <div key={`uh-${index}`} className="p-4">
+                    <h4 className="font-bold text-sm text-gray-900 leading-snug mb-2">
+                      {article.title}
+                    </h4>
+                    <p className="text-xs text-gray-600 leading-relaxed line-clamp-4">
+                      {article.content}
+                    </p>
+                    {article.url && (
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block mt-2 text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                      >
+                        Leer más
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border border-t-0 border-gray-200 rounded-b-lg p-6 text-center">
+                <p className="text-sm text-gray-500">No hay noticias de última hora</p>
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
+
+      {/* Última Hora en mobile/tablet (al final del contenido) */}
+      {hasUltimaHora && (
+        <div className="lg:hidden px-6 pb-12" id="ultima-hora-mobile">
+          <div id="ultima-hora">
+            <h2 className="text-2xl font-bold text-white bg-red-600 rounded-t-lg px-4 py-3 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              ÚLTIMA HORA
+            </h2>
+            <div className="border border-t-0 border-gray-200 rounded-b-lg divide-y divide-gray-100">
+              {ultimaHoraNews.map((article: ClassifiedArticle, index: number) => (
+                <div key={`uh-mobile-${index}`} className="p-4">
                   {article.imageUrl && (
-                    <div className="w-full h-80 bg-gray-100 mb-6 rounded-lg overflow-hidden">
+                    <div className="w-full h-48 bg-gray-100 mb-3 rounded-lg overflow-hidden">
                       <Image
                         src={article.imageUrl}
                         alt={article.title}
-                        width={800}
-                        height={320}
+                        width={600}
+                        height={192}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.currentTarget.parentElement!.style.display = "none";
@@ -184,77 +350,28 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
                       />
                     </div>
                   )}
-
-                  {/* Contenido de la noticia */}
-                  <div className="space-y-4">
-                    <h3 className="text-2xl font-bold text-blue-900 leading-tight">
-                      {article.title}
-                    </h3>
-
-                    <p className="text-gray-700 text-lg leading-relaxed">
-                      {article.content}
-                    </p>
-
-                    {article.url && (
-                      <div className="pt-4">
-                        <a
-                          href={article.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-blue-600 hover:text-blue-800 font-semibold transition-colors"
-                        >
-                          Leer más
-                          <svg
-                            className="ml-2 w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 5l7 7-7 7"
-                            />
-                          </svg>
-                        </a>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Separador entre noticias */}
-                  {index < news.length - 1 && (
-                    <div className="mt-8 border-b border-gray-200"></div>
-                  )}
-                </article>
-              ))}
-
-              {/* Mapa de Cierres Viales - Solo para categoría Vial */}
-              {category === "vial" && bulletin.roadClosureMapUrl && isImageUrl(bulletin.roadClosureMapUrl) && (
-                <div className="mt-8 pt-8 border-t border-gray-200">
-                  <h4 className="text-xl font-bold text-blue-900 text-center mb-6">
-                    Mapa de Cierres Viales
+                  <h4 className="font-bold text-lg text-gray-900 leading-snug mb-2">
+                    {article.title}
                   </h4>
-                  <div className="flex justify-center">
-                    <div className="w-full max-w-xl bg-gray-100 rounded-lg overflow-hidden">
-                      <Image
-                        src={bulletin.roadClosureMapUrl}
-                        alt="Mapa de Cierres Viales"
-                        width={600}
-                        height={400}
-                        className="w-full h-auto object-contain"
-                        onError={(e) => {
-                          e.currentTarget.parentElement!.style.display = "none";
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {article.content}
+                  </p>
+                  {article.url && (
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-2 text-sm text-blue-600 hover:text-blue-800 font-semibold"
+                    >
+                      Leer más
+                    </a>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          </section>
-        ))}
-      </main>
+          </div>
+        </div>
+      )}
 
       {/* Footer profesional con logos */}
       <footer className="bg-gradient-to-r from-gray-900 to-black text-white mt-20">

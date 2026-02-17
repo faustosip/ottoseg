@@ -59,7 +59,7 @@ const CATEGORY_COLORS: Record<
 
 interface NewsCardProps {
   article: BulletinNews;
-  onToggle: () => void;
+  onToggle?: () => void;
 }
 
 export function NewsCard({ article, onToggle }: NewsCardProps) {

@@ -164,7 +164,8 @@ export class Crawl4AIClient {
   async scrape(config: Crawl4AIRequestConfig): Promise<Crawl4AIResponse> {
     return retryWithBackoff(async () => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      const requestTimeout = config.timeout || this.timeout;
+      const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
 
       try {
         // Build Crawl4AI API payload in the correct format
@@ -211,38 +212,67 @@ export class Crawl4AIClient {
           );
         }
 
-        const data = await response.json();
+        // Parse JSON with control character sanitization
+        // Crawl4AI responses may contain unescaped control characters in HTML content
+        const rawText = await response.text();
+        const sanitizedText = rawText.replace(/[\x00-\x1F\x7F]/g, (ch) => {
+          // Preserve common whitespace characters
+          if (ch === '\n' || ch === '\r' || ch === '\t') return ch;
+          return '';
+        });
+
+        let data: Record<string, unknown>;
+        try {
+          data = JSON.parse(sanitizedText);
+        } catch (parseError) {
+          throw new Crawl4AIError(
+            `Failed to parse Crawl4AI JSON response: ${(parseError as Error).message}`,
+            undefined,
+            parseError
+          );
+        }
 
         // Crawl4AI returns { success, results: [...] }
         // Extract the first result since we only send one URL
-        const result = data.results?.[0];
+        const results = data.results as Array<Record<string, unknown>> | undefined;
+        const result = results?.[0];
 
         if (!result) {
           throw new Crawl4AIError('No results returned from Crawl4AI');
         }
 
+        // Handle markdown field: newer Crawl4AI versions return an object instead of string
+        const rawMarkdown = result.markdown;
+        let markdownStr: string | undefined;
+        if (typeof rawMarkdown === 'string') {
+          markdownStr = rawMarkdown;
+        } else if (rawMarkdown && typeof rawMarkdown === 'object') {
+          const mdObj = rawMarkdown as Record<string, unknown>;
+          markdownStr = (mdObj.raw_markdown || mdObj.fit_markdown || '') as string;
+        }
+
         return {
-          success: data.success,
+          success: data.success as boolean,
           data: {
-            markdown: result.markdown,
-            html: result.html,
-            text: result.text,
-            extracted: result.extracted,
-            screenshot: result.screenshot,
-            pdf: result.pdf,
-            links: result.links,
-            images: result.images,
-            title: result.title,
-            description: result.description,
-            author: result.author,
-            publishedDate: result.published_date,
-            keywords: result.keywords,
+            markdown: markdownStr,
+            html: result.html as string | undefined ?? result.cleaned_html as string | undefined,
+            text: result.text as string | undefined,
+            extracted: result.extracted_content ?? result.extracted,
+            screenshot: result.screenshot as string | undefined,
+            pdf: result.pdf as string | undefined,
+            links: result.links as { internal: string[]; external: string[] } | undefined,
+            images: (result.images ?? (result.media as Record<string, unknown> | undefined)?.images) as string[] | undefined,
+            title: ((result.metadata as Record<string, unknown> | undefined)?.title ?? result.title) as string | undefined,
+            description: ((result.metadata as Record<string, unknown> | undefined)?.description ?? result.description) as string | undefined,
+            author: result.author as string | undefined,
+            publishedDate: result.published_date as string | undefined,
+            keywords: result.keywords as string[] | undefined,
           },
           metadata: {
-            url: result.url || config.url,
+            url: (result.url as string) || config.url,
             crawledAt: new Date().toISOString(),
-            statusCode: result.status_code,
-            duration: result.crawl_time,
+            statusCode: result.status_code as number | undefined,
+            duration: result.crawl_time as number | undefined,
           },
         };
       } catch (error) {
@@ -254,7 +284,7 @@ export class Crawl4AIClient {
 
         if ((error as Error).name === 'AbortError') {
           throw new Crawl4AIError(
-            `Request timeout after ${this.timeout}ms`,
+            `Request timeout after ${requestTimeout}ms`,
             408,
             error
           );

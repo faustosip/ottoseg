@@ -134,6 +134,85 @@ export async function uploadFile(
   }
 }
 
+// Bucket para videos de boletines
+const VIDEO_BUCKET_NAME = "bulletin-videos";
+
+/**
+ * Inicializa el bucket de videos si no existe
+ */
+async function initializeVideoBucket(): Promise<void> {
+  try {
+    const client = getSupabaseAdmin();
+    const { data: buckets, error: listError } = await client.storage.listBuckets();
+
+    if (listError) {
+      throw listError;
+    }
+
+    const bucketExists = buckets?.some((b) => b.name === VIDEO_BUCKET_NAME);
+
+    if (!bucketExists) {
+      console.log(`📦 Creando bucket "${VIDEO_BUCKET_NAME}"...`);
+
+      const { error: createError } = await client.storage.createBucket(
+        VIDEO_BUCKET_NAME,
+        {
+          public: true,
+          fileSizeLimit: 50 * 1024 * 1024, // 50MB max
+          allowedMimeTypes: ["video/mp4"],
+        }
+      );
+
+      if (createError) {
+        if (!createError.message?.includes("already exists")) {
+          throw createError;
+        }
+      }
+
+      console.log(`✅ Bucket "${VIDEO_BUCKET_NAME}" creado y configurado`);
+    }
+  } catch (error) {
+    console.error("❌ Error inicializando bucket de videos:", error);
+    throw error;
+  }
+}
+
+/**
+ * Sube un archivo de video al bucket de videos
+ */
+export async function uploadVideoFile(
+  fileName: string,
+  fileBuffer: Buffer,
+  contentType: string = "video/mp4"
+): Promise<string> {
+  try {
+    await initializeVideoBucket();
+
+    const client = getSupabaseAdmin();
+
+    const { data, error } = await client.storage
+      .from(VIDEO_BUCKET_NAME)
+      .upload(fileName, fileBuffer, {
+        contentType,
+        upsert: true,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    const { data: urlData } = client.storage
+      .from(VIDEO_BUCKET_NAME)
+      .getPublicUrl(data.path);
+
+    console.log(`✅ Video subido a Supabase Storage: ${fileName}`);
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error(`❌ Error subiendo video a Supabase: ${fileName}`, error);
+    throw error;
+  }
+}
+
 /**
  * Elimina un archivo
  */

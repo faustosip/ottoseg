@@ -19,6 +19,10 @@ import {
   updateBulletinClassification,
 } from "@/lib/db/queries/bulletins";
 import { scrapeAllSources, enrichWithFullContent, type ScrapedArticle } from "@/lib/news/scraper";
+import { checkCrawl4AIHealth } from "@/lib/crawl4ai";
+
+// Timeout máximo del servidor: 4 minutos (debe ser menor que el frontend de 5 min)
+export const maxDuration = 240;
 
 /**
  * Verifica si un proceso de boletín quedó atascado
@@ -56,6 +60,21 @@ export async function POST(request: NextRequest) {
 
     console.log(`🔐 Usuario autenticado: ${session.user.email}`);
 
+    // Verificar salud de Crawl4AI antes de iniciar
+    console.log("🏥 Verificando conexión con Crawl4AI...");
+    const isCrawl4AIHealthy = await checkCrawl4AIHealth();
+    if (!isCrawl4AIHealthy) {
+      console.error("❌ Crawl4AI no está disponible");
+      return NextResponse.json(
+        {
+          error: "El servicio de scraping (Crawl4AI) no está disponible. Verifica que el servicio esté corriendo.",
+          details: `URL configurada: ${process.env.CRAWL4AI_API_URL || 'http://crawl4ai_api:11235'}`,
+        },
+        { status: 503 }
+      );
+    }
+    console.log("✅ Crawl4AI disponible");
+
     // Verificar si ya existe boletín de hoy
     const todayBulletin = await getTodayBulletin();
 
@@ -63,27 +82,22 @@ export async function POST(request: NextRequest) {
       // Verificar si el boletín está "realmente" en proceso o solo quedó atascado
       const isStale = isStaleProcess(todayBulletin);
 
-      // Si existe y está en proceso (scraping, classifying, summarizing)
-      if (
-        (todayBulletin.status === "scraping" ||
-        todayBulletin.status === "classifying" ||
-        todayBulletin.status === "summarizing") &&
-        !isStale
-      ) {
+      // Solo permitir re-creación si el boletín falló o quedó atascado
+      if (todayBulletin.status === "failed") {
+        console.log(`⚠️  Boletín de hoy falló (${todayBulletin.status}), se creará uno nuevo`);
+      } else if (isStale) {
+        console.log(`⚠️  Boletín de hoy quedó atascado (${todayBulletin.status}), se creará uno nuevo`);
+      } else {
+        // Boletín existe y está en proceso o completado → bloquear
         return NextResponse.json(
           {
-            error: "Ya existe un boletín en proceso para hoy",
+            error: "Ya existe un boletín para hoy",
             bulletinId: todayBulletin.id,
             status: todayBulletin.status,
           },
           { status: 409 }
         );
       }
-
-      // Si existe pero falló, está listo, o quedó atascado, podemos crear uno nuevo
-      console.log(
-        `⚠️  Ya existe boletín de hoy (${todayBulletin.status}), se creará uno nuevo`
-      );
     }
 
     // Crear nuevo bulletin con status 'scraping'

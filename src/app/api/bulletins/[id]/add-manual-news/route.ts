@@ -12,22 +12,15 @@ import { db } from "@/lib/db";
 import { bulletins } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { getBulletinById } from "@/lib/db/queries/bulletins";
-import type { ClassifiedNews, ClassifiedArticle } from "@/lib/news/classifier";
+import type { ClassifiedArticle } from "@/lib/news/classifier";
 
 /**
- * Schema for manual news
+ * Schema for manual news - accepts any category string (dynamic categories)
  */
 const ManualNewsSchema = z.object({
   title: z.string().min(1, "El título es requerido"),
   content: z.string().min(1, "El contenido es requerido"),
-  category: z.enum([
-    "economia",
-    "politica",
-    "sociedad",
-    "seguridad",
-    "internacional",
-    "vial",
-  ]),
+  category: z.string().min(1, "La categoría es requerida"),
   source: z.string().optional().default("Manual"),
   url: z.string().url().optional().or(z.literal("")),
   imageUrl: z.string().url().optional().or(z.literal("")),
@@ -66,17 +59,6 @@ export async function POST(
       );
     }
 
-    // Validate bulletin status - can only add to drafts, ready, or authorized bulletins
-    if (bulletin.status === "published") {
-      return NextResponse.json(
-        {
-          error: "No se pueden agregar noticias a un boletín publicado",
-          currentStatus: bulletin.status,
-        },
-        { status: 400 }
-      );
-    }
-
     // Parse and validate body
     const body = await request.json();
     const validationResult = ManualNewsSchema.safeParse(body);
@@ -103,18 +85,11 @@ export async function POST(
     };
 
     // Get existing classified news or create new structure
-    const existingClassified = (bulletin.classifiedNews as ClassifiedNews | null) || {
-      economia: [],
-      politica: [],
-      sociedad: [],
-      seguridad: [],
-      internacional: [],
-      vial: [],
-    };
+    const existingClassified = (bulletin.classifiedNews as Record<string, ClassifiedArticle[]> | null) || {};
 
     // Add the new article to the appropriate category
-    const category = newsData.category as keyof ClassifiedNews;
-    const updatedClassified: ClassifiedNews = {
+    const category = newsData.category;
+    const updatedClassified: Record<string, ClassifiedArticle[]> = {
       ...existingClassified,
       [category]: [...(existingClassified[category] || []), newArticle],
     };

@@ -14,6 +14,9 @@ import {
 } from "@/lib/db/queries/bulletins";
 import { summarizeByCategory } from "@/lib/news/summarizer";
 
+// Allow up to 3 minutes for AI summarization (6 categories in parallel)
+export const maxDuration = 180;
+
 /**
  * Schema de validación para el body
  */

@@ -8,8 +8,8 @@ import { generateText } from "ai";
  * - 300 segundos (5 min) para operaciones complejas (clasificar)
  */
 const AI_TIMEOUT = 60000; // 60 segundos (por defecto)
-export const AI_TIMEOUT_SUMMARIZATION = 120000; // 2 minutos para resúmenes
-export const AI_TIMEOUT_CLASSIFICATION = 300000; // 5 minutos para clasificación
+export const AI_TIMEOUT_SUMMARIZATION = 90000; // 90 segundos para resúmenes (cada categoría individual)
+export const AI_TIMEOUT_CLASSIFICATION = 120000; // 2 minutos para clasificación (antes era 5 min)
 
 /**
  * Configuración de reintentos

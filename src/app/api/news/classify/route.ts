@@ -14,6 +14,9 @@ import {
 } from "@/lib/db/queries/bulletins";
 import { classifyNews } from "@/lib/news/classifier";
 
+// Allow up to 3 minutes for AI classification
+export const maxDuration = 180;
+
 /**
  * Schema de validación para el body
  */

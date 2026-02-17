@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "@/lib/auth-client";
-import { SignInButton } from "./sign-in-button";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -13,21 +13,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, LogOut } from "lucide-react";
+import { User, LogOut, LogIn } from "lucide-react";
 
 export function UserProfile() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
 
   if (isPending) {
-    return <div>Loading...</div>;
+    return <div className="h-8 w-8" />;
   }
 
   if (!session) {
     return (
-      <div className="flex flex-col items-center gap-4 p-6">
-        <SignInButton />
-      </div>
+      <Button variant="outline" size="sm" asChild>
+        <Link href="/login" className="gap-2">
+          <LogIn className="h-4 w-4" />
+          Iniciar Sesión
+        </Link>
+      </Button>
     );
   }
 

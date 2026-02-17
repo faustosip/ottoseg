@@ -18,13 +18,15 @@ import { toast } from "sonner";
 
 interface NewsEditorProps {
   bulletin: Bulletin;
+  readOnly?: boolean;
+  onRegenerated?: () => void;
 }
 
 interface NewsData {
   [source: string]: BulletinNews[];
 }
 
-export function NewsEditor({ bulletin }: NewsEditorProps) {
+export function NewsEditor({ bulletin, readOnly, onRegenerated }: NewsEditorProps) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -103,12 +105,12 @@ export function NewsEditor({ bulletin }: NewsEditorProps) {
     }
   };
 
-  // Guardar y procesar (clasificar + resumir)
+  // Guardar y procesar (clasificar + resumir en un solo request)
   const handleSaveAndProcess = async () => {
     setIsProcessing(true);
 
     try {
-      // Primero guardar
+      // Paso 1: Guardar selección
       const saveResponse = await fetch(
         `/api/bulletins/${bulletin.id}/update-news`,
         {
@@ -122,36 +124,32 @@ export function NewsEditor({ bulletin }: NewsEditorProps) {
         throw new Error("Error guardando selección");
       }
 
-      // Luego clasificar
-      const classifyResponse = await fetch("/api/news/classify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bulletinId: bulletin.id }),
-      });
+      // Paso 2: Clasificar + Resumir en un solo request (antes eran 2 requests separados)
+      const processResponse = await fetch(
+        `/api/bulletins/${bulletin.id}/process`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
-      if (!classifyResponse.ok) {
-        throw new Error("Error clasificando noticias");
+      if (!processResponse.ok) {
+        const errorData = await processResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || "Error procesando boletín");
       }
 
-      // Luego resumir
-      const summarizeResponse = await fetch("/api/news/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bulletinId: bulletin.id }),
+      toast.success("Boletín generado", {
+        description: "Los resúmenes se generan en segundo plano.",
       });
 
-      if (!summarizeResponse.ok) {
-        throw new Error("Error generando resúmenes");
-      }
+      setIsProcessing(false);
 
-      toast.success("Boletín procesado", {
-        description: "Redirigiendo a la vista del boletín...",
-      });
-
-      // Redirigir al boletín
-      setTimeout(() => {
+      if (onRegenerated) {
+        onRegenerated();
+      } else {
+        // Redirigir al boletín inmediatamente
         router.push(`/dashboard/bulletin/${bulletin.id}`);
-      }, 1000);
+      }
     } catch (error) {
       toast.error("Error", {
         description: (error as Error).message,
@@ -160,8 +158,17 @@ export function NewsEditor({ bulletin }: NewsEditorProps) {
     }
   };
 
-  // Fuentes disponibles
-  const sources = Object.keys(newsData);
+  // Fuentes disponibles, ordenadas poniendo las que tienen artículos primero
+  const sources = Object.keys(newsData).sort((a, b) => {
+    const aLen = newsData[a]?.length || 0;
+    const bLen = newsData[b]?.length || 0;
+    if (aLen > 0 && bLen === 0) return -1;
+    if (aLen === 0 && bLen > 0) return 1;
+    return 0;
+  });
+
+  // Default tab: primera fuente con artículos
+  const defaultSource = sources.find((s) => newsData[s]?.length > 0) || sources[0];
 
   if (sources.length === 0) {
     return (
@@ -202,49 +209,51 @@ export function NewsEditor({ bulletin }: NewsEditorProps) {
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <Button
-                onClick={handleSave}
-                disabled={isSaving || isProcessing}
-                variant="outline"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Guardar
-                  </>
-                )}
-              </Button>
+            {!readOnly && (
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving || isProcessing}
+                  variant="outline"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Guardar
+                    </>
+                  )}
+                </Button>
 
-              <Button
-                onClick={handleSaveAndProcess}
-                disabled={isSaving || isProcessing || selectedNews === 0}
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Guardar y Generar Boletín
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </div>
+                <Button
+                  onClick={handleSaveAndProcess}
+                  disabled={isSaving || isProcessing || selectedNews === 0}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Guardar y Generar Boletín
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Tabs por fuente */}
-      <Tabs defaultValue={sources[0]} className="w-full">
+      <Tabs defaultValue={defaultSource} className="w-full">
         <TabsList className="w-full justify-start">
           {sources.map((source) => {
             const articles = newsData[source];
@@ -272,24 +281,26 @@ export function NewsEditor({ bulletin }: NewsEditorProps) {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>{source}</CardTitle>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toggleAllSource(source, true)}
-                        disabled={allSelected}
-                      >
-                        Seleccionar Todas
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toggleAllSource(source, false)}
-                        disabled={noneSelected}
-                      >
-                        Deseleccionar Todas
-                      </Button>
-                    </div>
+                    {!readOnly && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleAllSource(source, true)}
+                          disabled={allSelected}
+                        >
+                          Seleccionar Todas
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleAllSource(source, false)}
+                          disabled={noneSelected}
+                        >
+                          Deseleccionar Todas
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -297,7 +308,7 @@ export function NewsEditor({ bulletin }: NewsEditorProps) {
                     <NewsCard
                       key={article.id}
                       article={article}
-                      onToggle={() => toggleNews(source, article.id)}
+                      onToggle={readOnly ? undefined : () => toggleNews(source, article.id)}
                     />
                   ))}
                 </CardContent>

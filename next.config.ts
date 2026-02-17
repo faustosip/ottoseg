@@ -67,6 +67,12 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "assets.lahora.com.ec",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "elcomercio.com",
         port: "",
         pathname: "/**",
@@ -80,6 +86,12 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "multimedia.elcomercio.com",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "media.elcomercio.com",
         port: "",
         pathname: "/**",
       },

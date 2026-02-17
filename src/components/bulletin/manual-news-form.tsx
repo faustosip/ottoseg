@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,19 +22,11 @@ import {
 } from "@/components/ui/select";
 import { Loader2, ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
-import Image from "next/image";
 
-// Available news categories
-const CATEGORIES = [
-  { value: "economia", label: "Economía" },
-  { value: "politica", label: "Política" },
-  { value: "sociedad", label: "Sociedad" },
-  { value: "seguridad", label: "Seguridad" },
-  { value: "internacional", label: "Internacional" },
-  { value: "vial", label: "Vial" },
-] as const;
-
-type Category = (typeof CATEGORIES)[number]["value"];
+interface CategoryOption {
+  value: string;
+  label: string;
+}
 
 interface ManualNewsFormProps {
   open: boolean;
@@ -51,15 +43,36 @@ export function ManualNewsFormDialog({
 }: ManualNewsFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
 
   const [formData, setFormData] = useState({
     title: "",
     content: "",
-    category: "" as Category | "",
+    category: "",
     source: "Manual",
     url: "",
     imageUrl: "",
   });
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const response = await fetch("/api/bulletins/categories");
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(
+            (data.categories || []).map((c: { name: string; displayName: string }) => ({
+              value: c.name,
+              label: c.displayName,
+            }))
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    }
+    fetchCategories();
+  }, []);
 
   const [errors, setErrors] = useState<{
     title?: string;
@@ -220,7 +233,7 @@ export function ManualNewsFormDialog({
               </Label>
               <Select
                 value={formData.category}
-                onValueChange={(value: Category) =>
+                onValueChange={(value: string) =>
                   setFormData((prev) => ({ ...prev, category: value }))
                 }
               >
@@ -228,7 +241,7 @@ export function ManualNewsFormDialog({
                   <SelectValue placeholder="Selecciona una categoría" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>
                       {cat.label}
                     </SelectItem>
@@ -292,11 +305,11 @@ export function ManualNewsFormDialog({
 
               {formData.imageUrl ? (
                 <div className="relative w-full h-40 rounded-lg overflow-hidden bg-gray-100 border">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={formData.imageUrl}
                     alt="Vista previa"
-                    fill
-                    className="object-cover"
+                    className="object-cover w-full h-full absolute inset-0"
                   />
                   <button
                     type="button"

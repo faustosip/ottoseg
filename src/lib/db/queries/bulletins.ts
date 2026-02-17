@@ -2,11 +2,14 @@ import { db } from "@/lib/db";
 import {
   bulletins,
   bulletinLogs,
+  bulletinCategories,
   type Bulletin,
   type NewBulletin,
   type BulletinLog,
+  type BulletinCategory,
+  type NewBulletinCategory,
 } from "@/lib/schema";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, asc } from "drizzle-orm";
 
 // ============================================================================
 // BULLETIN QUERIES
@@ -409,6 +412,112 @@ export async function getLatestBulletin(): Promise<Bulletin | null> {
   } catch (error) {
     console.error("Error fetching latest bulletin:", error);
     throw new Error("Failed to fetch latest bulletin");
+  }
+}
+
+// ============================================================================
+// BULLETIN CATEGORIES
+// ============================================================================
+
+/**
+ * Obtiene todas las categorías activas, ordenadas por displayOrder
+ */
+export async function getActiveCategories(): Promise<BulletinCategory[]> {
+  try {
+    return await db
+      .select()
+      .from(bulletinCategories)
+      .where(eq(bulletinCategories.isActive, true))
+      .orderBy(asc(bulletinCategories.displayOrder));
+  } catch (error) {
+    console.error("Error fetching active categories:", error);
+    throw new Error("Failed to fetch active categories");
+  }
+}
+
+/**
+ * Obtiene todas las categorías (activas e inactivas), ordenadas por displayOrder
+ */
+export async function getAllCategories(): Promise<BulletinCategory[]> {
+  try {
+    return await db
+      .select()
+      .from(bulletinCategories)
+      .orderBy(asc(bulletinCategories.displayOrder));
+  } catch (error) {
+    console.error("Error fetching all categories:", error);
+    throw new Error("Failed to fetch all categories");
+  }
+}
+
+/**
+ * Crea una nueva categoría
+ */
+export async function createCategory(
+  data: Pick<NewBulletinCategory, "name" | "displayName" | "displayOrder">
+): Promise<BulletinCategory> {
+  try {
+    const [category] = await db
+      .insert(bulletinCategories)
+      .values(data)
+      .returning();
+    return category;
+  } catch (error) {
+    console.error("Error creating category:", error);
+    throw new Error("Failed to create category");
+  }
+}
+
+/**
+ * Actualiza una categoría
+ */
+export async function updateCategory(
+  id: string,
+  data: Partial<Pick<NewBulletinCategory, "displayName" | "displayOrder" | "isActive">>
+): Promise<BulletinCategory> {
+  try {
+    const [category] = await db
+      .update(bulletinCategories)
+      .set(data)
+      .where(eq(bulletinCategories.id, id))
+      .returning();
+
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    return category;
+  } catch (error) {
+    console.error("Error updating category:", error);
+    throw new Error("Failed to update category");
+  }
+}
+
+/**
+ * Elimina una categoría (solo si no es default)
+ */
+export async function deleteCategory(id: string): Promise<void> {
+  try {
+    const [category] = await db
+      .select()
+      .from(bulletinCategories)
+      .where(eq(bulletinCategories.id, id))
+      .limit(1);
+
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    if (category.isDefault) {
+      throw new Error("Cannot delete a default category");
+    }
+
+    await db
+      .delete(bulletinCategories)
+      .where(eq(bulletinCategories.id, id));
+  } catch (error) {
+    console.error("Error deleting category:", error);
+    throw error;
   }
 }
 

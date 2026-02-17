@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { PipelineProgress } from "@/components/bulletin/pipeline-progress";
+import { toast } from "sonner";
 
 /**
  * Página de Generación de Boletín
@@ -17,6 +18,28 @@ export default function GenerateBulletinPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulletinId, setBulletinId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  // Check if today's bulletin already exists on page load
+  useEffect(() => {
+    async function checkExisting() {
+      try {
+        const res = await fetch("/api/bulletins/today");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.bulletin && data.bulletin.status !== "failed") {
+            toast.info("Ya existe un boletín para hoy");
+            router.replace(`/dashboard/bulletin/${data.bulletin.id}`);
+            return;
+          }
+        }
+      } catch {
+        // If the check fails, allow generation anyway (API will catch duplicates)
+      }
+      setChecking(false);
+    }
+    checkExisting();
+  }, [router]);
 
   /**
    * Ejecuta el pipeline completo
@@ -46,8 +69,23 @@ export default function GenerateBulletinPage() {
       console.log("✅ Respuesta recibida del servidor:", scrapeRes.status);
 
       if (!scrapeRes.ok) {
-        const error = await scrapeRes.json();
-        throw new Error(error.message || "Error en scraping");
+        const errorData = await scrapeRes.json();
+        if (scrapeRes.status === 409) {
+          // Duplicate bulletin - redirect to existing one
+          toast.info("Ya existe un boletín para hoy");
+          if (errorData.bulletinId) {
+            router.replace(`/dashboard/bulletin/${errorData.bulletinId}`);
+          } else {
+            router.replace("/dashboard/bulletin");
+          }
+          return;
+        }
+        if (scrapeRes.status === 503) {
+          throw new Error(
+            `🔌 ${errorData.error || "Servicio de scraping no disponible"}. ${errorData.details || ""}`
+          );
+        }
+        throw new Error(errorData.message || errorData.error || "Error en scraping");
       }
 
       const scrapeData = await scrapeRes.json();
@@ -116,8 +154,18 @@ export default function GenerateBulletinPage() {
         </p>
       </div>
 
+      {/* Loading while checking for existing bulletin */}
+      {checking && (
+        <div className="bg-card rounded-lg border p-8 text-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground">Verificando boletín del día...</p>
+          </div>
+        </div>
+      )}
+
       {/* Panel de generación */}
-      {!isGenerating && !bulletinId && (
+      {!checking && !isGenerating && !bulletinId && (
         <div className="bg-card rounded-lg border p-8 text-center">
           <h2 className="text-xl font-semibold mb-4">
             ¿Listo para scrapear las noticias?

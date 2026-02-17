@@ -1,53 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useState, useEffect } from "react";
 
-/**
- * Verifica si una URL parece ser una URL de imagen válida
- */
-function isValidImageUrl(url: string): boolean {
-  if (!url) return false;
-
-  try {
-    const parsedUrl = new URL(url);
-    const pathname = parsedUrl.pathname.toLowerCase();
-
-    // Rechazar URLs de Google Maps u otras páginas web conocidas
-    if (parsedUrl.hostname.includes('google.com') && pathname.includes('/maps')) {
-      return false;
-    }
-
-    // Verificar extensiones de imagen comunes
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'];
-    if (imageExtensions.some(ext => pathname.endsWith(ext))) {
-      return true;
-    }
-
-    // Permitir URLs de servicios de imagen conocidos
-    const knownImageHosts = [
-      'images.unsplash.com',
-      'i.imgur.com',
-      'imgur.com',
-      'cloudinary.com',
-      'res.cloudinary.com',
-      'minback.ottoseguridadai.com',
-      'supa.ottoseguridadai.com',
-    ];
-    if (knownImageHosts.some(host => parsedUrl.hostname.includes(host))) {
-      return true;
-    }
-
-    // Por defecto, si tiene /storage/ en la ruta (típico de Supabase) o parece una imagen
-    if (pathname.includes('/storage/') || pathname.includes('/image/')) {
-      return true;
-    }
-
-    return false;
-  } catch {
-    return false;
-  }
-}
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,7 +16,8 @@ import {
   AlertCircle,
   ImageIcon,
   Upload,
-  Plus
+  Plus,
+  Video
 } from "lucide-react";
 import { ManualNewsFormDialog } from "./manual-news-form";
 import { toast } from "sonner";
@@ -84,34 +39,18 @@ interface EditableArticle extends ClassifiedArticle {
 }
 
 /**
- * Datos editables del boletín
+ * Datos editables del boletín - ahora dinámico basado en categorías
  */
-interface EditableBulletinData {
-  economia: EditableArticle[];
-  politica: EditableArticle[];
-  sociedad: EditableArticle[];
-  seguridad: EditableArticle[];
-  internacional: EditableArticle[];
-  vial: EditableArticle[];
-}
+type EditableBulletinData = Record<string, EditableArticle[]>;
 
 interface EditableBulletinProps {
   bulletinId: string;
   date: Date;
   initialData: ClassifiedNews;
   initialRoadClosureMapUrl?: string | null;
-  onSave?: (data: EditableBulletinData, roadClosureMapUrl?: string | null) => Promise<void>;
+  initialManualVideoUrl?: string | null;
+  onSave?: (data: EditableBulletinData, roadClosureMapUrl?: string | null, manualVideoUrl?: string | null) => Promise<void>;
 }
-
-// Mapeo de categorías a español
-const categoryNames: Record<string, string> = {
-  economia: "Economía",
-  politica: "Política",
-  sociedad: "Sociedad",
-  seguridad: "Seguridad",
-  internacional: "Internacional",
-  vial: "Vial",
-};
 
 /**
  * Componente de Boletín Editable
@@ -127,16 +66,20 @@ export function EditableBulletin({
   date,
   initialData,
   initialRoadClosureMapUrl,
+  initialManualVideoUrl,
   onSave
 }: EditableBulletinProps) {
-  const [roadClosureMapUrl, setRoadClosureMapUrl] = useState(initialRoadClosureMapUrl || "");
+  // roadClosureMapUrl is kept from initialRoadClosureMapUrl but no longer editable in this UI
+  const roadClosureMapUrl = initialRoadClosureMapUrl || "";
+  const [manualVideoUrl, setManualVideoUrl] = useState(initialManualVideoUrl || "");
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [bulletinData, setBulletinData] = useState<EditableBulletinData>(() => {
     // Convertir initialData a EditableBulletinData
-    const editableData: EditableBulletinData = {} as EditableBulletinData;
+    const editableData: EditableBulletinData = {};
+    const data = initialData as unknown as Record<string, ClassifiedArticle[]>;
 
-    Object.keys(initialData).forEach((category) => {
-      const key = category as keyof ClassifiedNews;
-      editableData[key] = initialData[key].map((article, index) => ({
+    Object.keys(data).forEach((category) => {
+      editableData[category] = data[category].map((article, index) => ({
         ...article,
         id: `${category}-${index}`,
         enhancedTitle: article.title,
@@ -152,7 +95,30 @@ export function EditableBulletin({
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [showManualNewsDialog, setShowManualNewsDialog] = useState(false);
-  const [isUploadingMap, setIsUploadingMap] = useState(false);
+  const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
+  const [categoryOrders, setCategoryOrders] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const response = await fetch("/api/bulletins/categories");
+        if (response.ok) {
+          const data = await response.json();
+          const nameMap: Record<string, string> = {};
+          const orderMap: Record<string, number> = {};
+          for (const c of data.categories || []) {
+            nameMap[c.name] = c.displayName;
+            orderMap[c.name] = c.displayOrder ?? 0;
+          }
+          setCategoryNames(nameMap);
+          setCategoryOrders(orderMap);
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    }
+    fetchCategories();
+  }, []);
 
   // Formatear fecha
   const formattedDate = new Intl.DateTimeFormat("es-EC", {
@@ -168,7 +134,7 @@ export function EditableBulletin({
   /**
    * Mejorar noticia con IA
    */
-  const enhanceWithAI = async (category: keyof EditableBulletinData, articleId: string) => {
+  const enhanceWithAI = async (category: string, articleId: string) => {
     const articleIndex = bulletinData[category].findIndex(a => a.id === articleId);
     if (articleIndex === -1) return;
 
@@ -213,7 +179,7 @@ export function EditableBulletin({
   /**
    * Togglear modo edición de una noticia
    */
-  const toggleEdit = (category: keyof EditableBulletinData, articleId: string) => {
+  const toggleEdit = (category: string, articleId: string) => {
     const article = bulletinData[category].find(a => a.id === articleId);
     if (!article) return;
 
@@ -239,7 +205,7 @@ export function EditableBulletin({
   /**
    * Guardar cambios de edición manual
    */
-  const saveEdit = (category: keyof EditableBulletinData, articleId: string) => {
+  const saveEdit = (category: string, articleId: string) => {
     const article = bulletinData[category].find(a => a.id === articleId);
     if (!article) return;
 
@@ -261,7 +227,7 @@ export function EditableBulletin({
    * Actualizar un artículo específico
    */
   const updateArticle = (
-    category: keyof EditableBulletinData,
+    category: string,
     articleId: string,
     updates: Partial<EditableArticle>
   ) => {
@@ -285,7 +251,7 @@ export function EditableBulletin({
   /**
    * Eliminar una noticia
    */
-  const deleteArticle = (category: keyof EditableBulletinData, articleId: string) => {
+  const deleteArticle = (category: string, articleId: string) => {
     if (confirm('¿Estás seguro de eliminar esta noticia?')) {
       setBulletinData(prev => {
         const newData = { ...prev };
@@ -302,7 +268,7 @@ export function EditableBulletin({
    * Subir imagen a MinIO
    */
   const uploadImage = async (
-    category: keyof EditableBulletinData,
+    category: string,
     articleId: string,
     file: File
   ) => {
@@ -363,11 +329,10 @@ export function EditableBulletin({
     try {
       // Convertir EditableBulletinData a ClassifiedNews
       // Usar los títulos y resúmenes mejorados si existen
-      const dataToSave: ClassifiedNews = {} as ClassifiedNews;
+      const dataToSave: Record<string, ClassifiedArticle[]> = {};
 
       Object.keys(bulletinData).forEach((category) => {
-        const key = category as keyof EditableBulletinData;
-        dataToSave[key] = bulletinData[key].map(article => ({
+        dataToSave[category] = bulletinData[category].map(article => ({
           title: article.enhancedTitle || article.title,
           content: article.enhancedSummary || article.content,
           url: article.url,
@@ -378,7 +343,7 @@ export function EditableBulletin({
         }));
       });
 
-      await onSave(dataToSave, roadClosureMapUrl || null);
+      await onSave(dataToSave, roadClosureMapUrl || null, manualVideoUrl || null);
       toast.success('Boletín guardado exitosamente');
       setHasChanges(false);
     } catch (error) {
@@ -396,7 +361,7 @@ export function EditableBulletin({
     const allArticles: Array<{ category: string; article: EditableArticle }> = [];
 
     Object.keys(bulletinData).forEach((category) => {
-      const key = category as keyof EditableBulletinData;
+      const key = category as string;
       bulletinData[key].forEach(article => {
         allArticles.push({ category, article });
       });
@@ -433,7 +398,7 @@ export function EditableBulletin({
       let index = 0;
 
       Object.keys(newData).forEach((category) => {
-        const key = category as keyof EditableBulletinData;
+        const key = category as string;
         newData[key] = newData[key].map(article => ({
           ...article,
           enhancedTitle: result.articles[index].enhancedTitle,
@@ -451,10 +416,10 @@ export function EditableBulletin({
     }
   };
 
-  // Obtener categorías con noticias
-  const categoriesWithNews = Object.entries(bulletinData).filter(
-    ([, news]) => news.length > 0
-  );
+  // Obtener categorías con noticias, ordenadas por displayOrder
+  const categoriesWithNews = Object.entries(bulletinData)
+    .filter(([, news]) => news.length > 0)
+    .sort(([a], [b]) => (categoryOrders[a] ?? 999) - (categoryOrders[b] ?? 999));
 
   return (
     <div className="mx-auto bg-white" style={{ width: "1024px", minHeight: "100vh" }}>
@@ -495,166 +460,114 @@ export function EditableBulletin({
         </div>
       </div>
 
-      {/* Imagen del Mapa de Cierres Viales */}
-      <div className="p-8 border-b bg-blue-50">
+      {/* Video del Boletín (MP4) */}
+      <div className="p-8 border-b bg-purple-50">
         <div className="flex items-center gap-3 mb-3">
-          <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-          </svg>
-          <h3 className="text-lg font-semibold text-blue-900">Mapa de Cierres Viales (Imagen)</h3>
+          <Video className="w-5 h-5 text-purple-600" />
+          <h3 className="text-lg font-semibold text-purple-900">Video del Boletín</h3>
         </div>
-        <p className="text-sm text-blue-700 mb-3">
-          Sube una imagen o captura de pantalla del mapa de cierres viales. Esta imagen se mostrará en la sección Vial del boletín.
+        <p className="text-sm text-purple-700 mb-3">
+          Sube un video MP4 para mostrar en la columna izquierda del boletín público. Máximo 50MB.
         </p>
 
         {/* Upload button */}
-        <div className="flex gap-2 mb-3">
-          <label className="flex-1">
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+        {!manualVideoUrl && (
+          <div className="flex gap-2 mb-3">
+            <label className="flex-1">
+              <input
+                type="file"
+                accept="video/mp4"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
 
-                // Validar tipo
-                const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                if (!allowedTypes.includes(file.type)) {
-                  toast.error('Tipo de archivo no permitido. Use JPG, PNG, GIF o WebP.');
-                  return;
-                }
-
-                // Validar tamaño (5MB max)
-                if (file.size > 5 * 1024 * 1024) {
-                  toast.error('La imagen es demasiado grande. Máximo 5MB.');
-                  return;
-                }
-
-                setIsUploadingMap(true);
-                try {
-                  const formData = new FormData();
-                  formData.append('file', file);
-
-                  const response = await fetch('/api/upload/image', {
-                    method: 'POST',
-                    body: formData,
-                  });
-
-                  if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Error al subir imagen');
+                  if (file.type !== "video/mp4") {
+                    toast.error("Solo se aceptan archivos MP4.");
+                    return;
                   }
 
-                  const result = await response.json();
-                  setRoadClosureMapUrl(result.url);
-                  setHasChanges(true);
-                  toast.success('Imagen del mapa subida correctamente');
-                } catch (error) {
-                  console.error('Error uploading map image:', error);
-                  toast.error((error as Error).message || 'Error al subir la imagen');
-                } finally {
-                  setIsUploadingMap(false);
-                }
-                e.target.value = '';
-              }}
-              disabled={isUploadingMap}
-            />
-            <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-100 transition-colors bg-white">
-              {isUploadingMap ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                  <span className="text-sm text-blue-600">Subiendo imagen...</span>
-                </>
-              ) : (
-                <>
-                  <Upload className="h-5 w-5 text-blue-500" />
-                  <span className="text-sm text-blue-700 font-medium">
-                    Haz clic para subir imagen del mapa
-                  </span>
-                </>
-              )}
-            </div>
-          </label>
-        </div>
+                  if (file.size > 50 * 1024 * 1024) {
+                    toast.error("El video es demasiado grande. Máximo 50MB.");
+                    return;
+                  }
 
-        {/* Vista previa de imagen */}
-        {roadClosureMapUrl && (
-          <div className="relative mt-4">
-            {isValidImageUrl(roadClosureMapUrl) ? (
-              <>
-                <div className="relative w-full max-w-md h-48 rounded-lg overflow-hidden bg-gray-100 border mx-auto">
-                  <Image
-                    src={roadClosureMapUrl}
-                    alt="Vista previa del mapa de cierres viales"
-                    width={400}
-                    height={192}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      toast.error('La URL no es una imagen válida. Por favor sube una imagen o usa una URL de imagen directa.');
-                    }}
-                  />
-                </div>
-                {/* Botón para quitar imagen */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRoadClosureMapUrl('');
+                  setIsUploadingVideo(true);
+                  try {
+                    const formData = new FormData();
+                    formData.append("file", file);
+
+                    const response = await fetch("/api/upload/video", {
+                      method: "POST",
+                      body: formData,
+                    });
+
+                    if (!response.ok) {
+                      const error = await response.json();
+                      throw new Error(error.error || "Error al subir video");
+                    }
+
+                    const result = await response.json();
+                    setManualVideoUrl(result.url);
                     setHasChanges(true);
-                  }}
-                  className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                  title="Quitar imagen del mapa"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-                <p className="text-xs text-gray-500 text-center mt-2">Vista previa del mapa</p>
-              </>
-            ) : (
-              <div className="w-full max-w-md mx-auto p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-amber-800">URL no válida para imagen</p>
-                    <p className="text-xs text-amber-700 mt-1">
-                      La URL ingresada parece ser un enlace de Google Maps u otra página web, no una imagen directa.
-                      Por favor sube una imagen o usa una URL que termine en .jpg, .png, .webp, etc.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRoadClosureMapUrl('');
-                        setHasChanges(true);
-                      }}
-                      className="mt-2 text-xs text-amber-700 underline hover:text-amber-900"
-                    >
-                      Borrar URL e intentar de nuevo
-                    </button>
-                  </div>
-                </div>
+                    toast.success("Video subido correctamente");
+                  } catch (error) {
+                    console.error("Error uploading video:", error);
+                    toast.error((error as Error).message || "Error al subir el video");
+                  } finally {
+                    setIsUploadingVideo(false);
+                  }
+                  e.target.value = "";
+                }}
+                disabled={isUploadingVideo}
+              />
+              <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-purple-300 rounded-lg cursor-pointer hover:border-purple-500 hover:bg-purple-100 transition-colors bg-white">
+                {isUploadingVideo ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin text-purple-500" />
+                    <span className="text-sm text-purple-600">Subiendo video...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-5 w-5 text-purple-500" />
+                    <span className="text-sm text-purple-700 font-medium">
+                      Haz clic para subir video MP4
+                    </span>
+                  </>
+                )}
               </div>
-            )}
+            </label>
           </div>
         )}
 
-        {/* Input de URL alternativo */}
-        {!roadClosureMapUrl && (
-          <div className="mt-3">
-            <p className="text-xs text-blue-600 mb-1">O pega una URL de imagen directa:</p>
-            <Input
-              type="url"
-              placeholder="https://ejemplo.com/mapa-vial.jpg (debe ser URL de imagen)"
-              value={roadClosureMapUrl}
-              onChange={(e) => {
-                setRoadClosureMapUrl(e.target.value);
-                setHasChanges(true);
-              }}
-              className="bg-white text-sm"
-            />
-            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              Nota: Debe ser una URL de imagen (.jpg, .png, etc.), no un enlace de Google Maps.
-            </p>
+        {/* Video preview */}
+        {manualVideoUrl && (
+          <div className="relative mt-4">
+            <div className="relative w-full max-w-md mx-auto rounded-lg overflow-hidden bg-black border">
+              <video
+                src={manualVideoUrl}
+                controls
+                className="w-full"
+                style={{ maxHeight: "300px" }}
+              >
+                Tu navegador no soporta el elemento de video.
+              </video>
+            </div>
+            {/* Botón para quitar video */}
+            <div className="flex justify-center mt-3">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  setManualVideoUrl("");
+                  setHasChanges(true);
+                }}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Eliminar Video
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -665,7 +578,7 @@ export function EditableBulletin({
           <section key={category} className="mb-16">
             {/* Título de categoría */}
             <h2 className="text-3xl font-bold mb-8 underline">
-              {categoryIndex + 1}. {categoryNames[category]}
+              {categoryIndex + 1}. {categoryNames[category] || category}
             </h2>
 
             {/* Noticias de la categoría */}
@@ -677,7 +590,7 @@ export function EditableBulletin({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => enhanceWithAI(category as keyof EditableBulletinData, article.id!)}
+                      onClick={() => enhanceWithAI(category as string, article.id!)}
                       disabled={article.isEnhancing}
                       className="gap-1"
                     >
@@ -694,14 +607,14 @@ export function EditableBulletin({
                         <Button
                           size="sm"
                           variant="default"
-                          onClick={() => saveEdit(category as keyof EditableBulletinData, article.id!)}
+                          onClick={() => saveEdit(category as string, article.id!)}
                         >
                           <Save className="h-3 w-3" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => toggleEdit(category as keyof EditableBulletinData, article.id!)}
+                          onClick={() => toggleEdit(category as string, article.id!)}
                         >
                           <X className="h-3 w-3" />
                         </Button>
@@ -710,7 +623,7 @@ export function EditableBulletin({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => toggleEdit(category as keyof EditableBulletinData, article.id!)}
+                        onClick={() => toggleEdit(category as string, article.id!)}
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
@@ -719,7 +632,7 @@ export function EditableBulletin({
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => deleteArticle(category as keyof EditableBulletinData, article.id!)}
+                      onClick={() => deleteArticle(category as string, article.id!)}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -744,7 +657,7 @@ export function EditableBulletin({
                               const file = e.target.files?.[0];
                               if (file) {
                                 uploadImage(
-                                  category as keyof EditableBulletinData,
+                                  category as string,
                                   article.id!,
                                   file
                                 );
@@ -774,11 +687,10 @@ export function EditableBulletin({
                       {/* Vista previa de imagen */}
                       {article.editedImageUrl && (
                         <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100 border">
-                          <Image
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
                             src={article.editedImageUrl}
                             alt="Vista previa"
-                            width={960}
-                            height={192}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.currentTarget.style.display = "none";
@@ -788,7 +700,7 @@ export function EditableBulletin({
                           <button
                             type="button"
                             onClick={() => updateArticle(
-                              category as keyof EditableBulletinData,
+                              category as string,
                               article.id!,
                               { editedImageUrl: '' }
                             )}
@@ -807,7 +719,7 @@ export function EditableBulletin({
                           <Input
                             value=""
                             onChange={(e) => updateArticle(
-                              category as keyof EditableBulletinData,
+                              category as string,
                               article.id!,
                               { editedImageUrl: e.target.value }
                             )}
@@ -819,11 +731,10 @@ export function EditableBulletin({
                     </div>
                   ) : article.imageUrl ? (
                     <div className="w-full h-64 mb-4 rounded-lg overflow-hidden bg-gray-100">
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         src={article.imageUrl}
                         alt={article.title}
-                        width={960}
-                        height={256}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
@@ -838,7 +749,7 @@ export function EditableBulletin({
                       <Input
                         value={article.editedTitle || ''}
                         onChange={(e) => updateArticle(
-                          category as keyof EditableBulletinData,
+                          category as string,
                           article.id!,
                           { editedTitle: e.target.value }
                         )}
@@ -866,7 +777,7 @@ export function EditableBulletin({
                       <Textarea
                         value={article.editedSummary || ''}
                         onChange={(e) => updateArticle(
-                          category as keyof EditableBulletinData,
+                          category as string,
                           article.id!,
                           { editedSummary: e.target.value }
                         )}

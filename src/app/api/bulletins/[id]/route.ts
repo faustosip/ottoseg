@@ -25,6 +25,7 @@ const UpdateBulletinSchema = z.object({
   vial: z.string().optional(),
   designVersion: z.string().optional(),
   roadClosureMapUrl: z.string().url().optional().nullable(),
+  manualVideoUrl: z.string().url().optional().nullable(),
   status: z
     .enum([
       "draft",

@@ -15,7 +15,7 @@ import {
   updateBulletinStatus,
   createBulletinLog,
 } from "@/lib/db/queries/bulletins";
-import { getActiveTemplates, getTemplateByCategory } from "@/lib/db/queries/templates";
+import { getActiveTemplates } from "@/lib/db/queries/templates";
 import type { ClassifiedNews } from "./classifier";
 
 /**
@@ -90,9 +90,10 @@ export async function summarizeByCategory(
       vial: "",
     };
 
-    // Obtener templates activos (para futuras personalizaciones)
+    // Cargar todos los templates de una sola vez (1 query en lugar de 6)
     const templates = await getActiveTemplates();
     console.log(`  📋 Templates activos: ${templates.length}`);
+    const templateMap = new Map(templates.map(t => [t.category, t]));
 
     // Categorías a procesar
     const categories = [
@@ -107,92 +108,103 @@ export async function summarizeByCategory(
     let successCount = 0;
     let failCount = 0;
 
-    // Procesar cada categoría
-    for (const category of categories) {
-      try {
-        console.log(`\n  🔄 Procesando categoría: ${formatCategoryName(category)}`);
+    // Procesar TODAS las categorías EN PARALELO (antes era secuencial)
+    const categoryResults = await Promise.all(
+      categories.map(async (category) => {
+        try {
+          console.log(`\n  🔄 Procesando categoría: ${formatCategoryName(category)}`);
 
-        const newsInCategory = classifiedNews[category];
+          const newsInCategory = classifiedNews[category];
 
-        // Si no hay noticias, usar mensaje por defecto
-        if (!newsInCategory || newsInCategory.length === 0) {
-          summaries[category] =
-            "No hay información disponible para esta categoría en el día de hoy.";
-          console.log(`    ⚠️  Sin noticias, usando mensaje por defecto`);
-          continue;
-        }
+          // Si no hay noticias, usar mensaje por defecto
+          if (!newsInCategory || newsInCategory.length === 0) {
+            console.log(`    ⚠️  Sin noticias, usando mensaje por defecto`);
+            return {
+              category,
+              summary: "No hay información disponible para esta categoría en el día de hoy.",
+              success: true,
+            };
+          }
 
-        console.log(`    📰 ${newsInCategory.length} noticias en esta categoría`);
+          console.log(`    📰 ${newsInCategory.length} noticias en esta categoría`);
 
-        // Obtener template de la categoría (si existe)
-        const template = await getTemplateByCategory(category);
-        const maxWords = template?.maxWords || DEFAULT_MAX_WORDS;
+          // Usar template pre-cargado del mapa
+          const template = templateMap.get(category);
+          const maxWords = template?.maxWords || DEFAULT_MAX_WORDS;
 
-        console.log(`    📏 Máximo de palabras: ${maxWords}`);
+          console.log(`    📏 Máximo de palabras: ${maxWords}`);
 
-        // Preparar datos de noticias para el prompt
-        const newsData = JSON.stringify(newsInCategory, null, 2);
+          // Preparar datos de noticias para el prompt
+          const newsData = JSON.stringify(newsInCategory, null, 2);
 
-        // Preparar prompt
-        const userPrompt = replacePlaceholders(SUMMARIZATION_USER_PROMPT_TEMPLATE, {
-          CATEGORY: formatCategoryName(category),
-          CLASSIFIED_NEWS: newsData,
-          MAX_WORDS: maxWords.toString(),
-          EXAMPLE_OUTPUT: template?.exampleOutput || "",
-        });
+          // Preparar prompt
+          const userPrompt = replacePlaceholders(SUMMARIZATION_USER_PROMPT_TEMPLATE, {
+            CATEGORY: formatCategoryName(category),
+            CLASSIFIED_NEWS: newsData,
+            MAX_WORDS: maxWords.toString(),
+            EXAMPLE_OUTPUT: template?.exampleOutput || "",
+          });
 
-        console.log(`    🧠 Llamando a IA para generar resumen...`);
-        console.log(`    ⏱️  Timeout: ${AI_TIMEOUT_SUMMARIZATION / 1000}s (2 minutos)`);
+          console.log(`    🧠 Llamando a IA para generar resumen...`);
 
-        // Llamar a IA
-        const summary = await generateWithRetry(
-          SUMMARIZATION_SYSTEM_PROMPT,
-          userPrompt,
-          true, // usar fallback a GPT
-          AI_TIMEOUT_SUMMARIZATION // timeout de 2 minutos para resúmenes
-        );
-
-        console.log(`    ✓ Resumen recibido`);
-
-        // Limpiar resumen (remover posibles explicaciones antes/después)
-        const cleanSummary = summary.trim();
-
-        // Validar resumen
-        const validation = validateSummary(cleanSummary, maxWords);
-
-        if (!validation.valid) {
-          console.warn(
-            `    ⚠️  Resumen tiene advertencias: ${validation.error}`
+          // Llamar a IA
+          const summary = await generateWithRetry(
+            SUMMARIZATION_SYSTEM_PROMPT,
+            userPrompt,
+            true, // usar fallback a GPT
+            AI_TIMEOUT_SUMMARIZATION
           );
-          // Continuar de todas formas, solo es una advertencia
+
+          console.log(`    ✓ Resumen recibido`);
+
+          // Limpiar resumen
+          const cleanSummary = summary.trim();
+
+          // Validar resumen
+          const validation = validateSummary(cleanSummary, maxWords);
+
+          if (!validation.valid) {
+            console.warn(
+              `    ⚠️  Resumen tiene advertencias: ${validation.error}`
+            );
+          }
+
+          console.log(
+            `    ✅ ${formatCategoryName(category)}: ${validation.wordCount} palabras`
+          );
+
+          return { category, summary: cleanSummary, success: true };
+        } catch (error) {
+          console.error(
+            `    ❌ Error generando resumen para ${category}:`,
+            error
+          );
+
+          // Crear log de error para esta categoría
+          await createBulletinLog(
+            bulletinId,
+            `summarization_${category}`,
+            "failed",
+            `Error en ${formatCategoryName(category)}: ${(error as Error).message}`,
+            { category, error: (error as Error).message }
+          );
+
+          return {
+            category,
+            summary: "Error generando el resumen para esta categoría. Por favor, intente nuevamente.",
+            success: false,
+          };
         }
+      })
+    );
 
-        summaries[category] = cleanSummary;
-
-        console.log(
-          `    ✅ ${formatCategoryName(category)}: ${validation.wordCount} palabras`
-        );
-
+    // Combinar resultados
+    for (const result of categoryResults) {
+      summaries[result.category as keyof BulletinSummaries] = result.summary;
+      if (result.success) {
         successCount++;
-      } catch (error) {
-        console.error(
-          `    ❌ Error generando resumen para ${category}:`,
-          error
-        );
-
-        // No fallar todo el proceso si una categoría falla
-        summaries[category] =
-          "Error generando el resumen para esta categoría. Por favor, intente nuevamente.";
+      } else {
         failCount++;
-
-        // Crear log de error para esta categoría
-        await createBulletinLog(
-          bulletinId,
-          `summarization_${category}`,
-          "failed",
-          `Error en ${formatCategoryName(category)}: ${(error as Error).message}`,
-          { category, error: (error as Error).message }
-        );
       }
     }
 

@@ -14,6 +14,8 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  isActive: boolean("is_active").default(true).notNull(),
+  allowedMenus: jsonb("allowed_menus").$type<string[] | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -69,6 +71,28 @@ export const verification = pgTable("verification", {
 });
 
 // ============================================================================
+// BULLETIN CATEGORIES TABLE
+// ============================================================================
+
+/**
+ * Tabla de Categorías de Boletín
+ * Categorías dinámicas que reemplazan las 6 categorías hardcoded
+ */
+export const bulletinCategories = pgTable("bulletin_categories", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull().unique(), // slug: "economia", "ultima_hora"
+  displayName: text("display_name").notNull(), // "Economía", "Última Hora"
+  displayOrder: integer("display_order").notNull().default(0),
+  isDefault: boolean("is_default").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
+// ============================================================================
 // BULLETIN SYSTEM TABLES
 // ============================================================================
 
@@ -111,6 +135,9 @@ export const bulletins = pgTable("bulletins", {
   finalVideoUrl: text("final_video_url"), // URL del video final compuesto
   finalVideoStatus: text("final_video_status").default("pending"), // pending, generating_audio, generating_avatars, rendering, completed, failed
   finalVideoMetadata: jsonb("final_video_metadata"), // Metadata del video final
+
+  // Video manual (MP4 subido por el usuario)
+  manualVideoUrl: text("manual_video_url"),
 
   // Logs y errores
   errorLog: jsonb("error_log"),
@@ -303,6 +330,10 @@ export type Account = typeof account.$inferSelect;
 export type NewAccount = typeof account.$inferInsert;
 export type Verification = typeof verification.$inferSelect;
 export type NewVerification = typeof verification.$inferInsert;
+
+// Bulletin Categories table
+export type BulletinCategory = typeof bulletinCategories.$inferSelect;
+export type NewBulletinCategory = typeof bulletinCategories.$inferInsert;
 
 // Bulletin System tables
 export type Bulletin = typeof bulletins.$inferSelect;

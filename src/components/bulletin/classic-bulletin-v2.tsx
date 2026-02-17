@@ -67,117 +67,74 @@ export function ClassicBulletinV2({
     >
       {/* Header Section */}
       <section
-        className="relative"
         style={{
           width: "1024px",
-          height: "484.525px",
           backgroundColor: "rgb(255, 255, 255)",
         }}
       >
-        {/* Imagen de fondo del header */}
-        <div
-          className="absolute"
-          style={{
-            width: "1024px",
-            height: "233.736px",
-            top: 0,
-            left: 0,
-          }}
-        >
+        {/* Banner image */}
+        <div style={{ width: "1024px" }}>
           <Image
-            src="/bulletin-assets/header-bg.png"
-            alt="Header Background"
+            src="/banner.png"
+            alt="Resumen Diario de Noticias"
             width={1024}
-            height={234}
-            className="object-cover"
+            height={458}
+            className="w-full h-auto"
             priority
             onError={(e) => {
-              // Si falla, mostrar un gradiente rojo como fallback
               e.currentTarget.style.display = "none";
               e.currentTarget.parentElement!.style.background =
                 "linear-gradient(135deg, #8B0000 0%, #DC143C 100%)";
+              e.currentTarget.parentElement!.style.height = "200px";
             }}
           />
         </div>
 
-        {/* Logo/Imagen principal */}
-        <div
-          className="absolute"
-          style={{
-            top: "48px",
-            left: "48px",
-            width: "927px",
-            height: "388px",
-          }}
-        >
-          {/* Aquí iría el logo */}
-        </div>
-
-        {/* Líneas separadoras */}
-        <div
-          className="absolute"
-          style={{
-            width: "952px",
-            height: "2px",
-            top: "431px",
-            left: "35px",
-            backgroundColor: "rgb(201, 201, 201)",
-          }}
-        />
-        <div
-          className="absolute"
-          style={{
-            width: "962px",
-            height: "2px",
-            top: "457px",
-            left: "31px",
-            backgroundColor: "rgb(201, 201, 201)",
-          }}
-        />
-
-        {/* Título principal */}
-        <div
-          className="absolute text-center font-montserrat"
-          style={{
-            top: "256px",
-            left: "91px",
-            width: "852px",
-          }}
-        >
+        {/* Título y fecha */}
+        <div style={{ padding: "40px 80px 20px" }}>
           <h1
+            className="text-center font-montserrat"
             style={{
-              fontSize: "27.6px",
+              fontSize: "28px",
               lineHeight: "38px",
               fontWeight: 700,
               color: "rgb(0, 0, 0)",
-              letterSpacing: "0em",
             }}
           >
             RESUMEN DIARIO DE NOTICIAS
           </h1>
-        </div>
 
-        {/* Fecha */}
-        <div
-          className="absolute text-center"
-          style={{
-            top: "349px",
-            left: "35px",
-            width: "761px",
-          }}
-        >
           <p
+            className="text-center"
             style={{
-              fontSize: "22.8px",
-              lineHeight: "31px",
+              fontSize: "22px",
+              lineHeight: "32px",
               fontWeight: 400,
               color: "rgb(0, 0, 0)",
-              letterSpacing: "0em",
+              marginTop: "16px",
             }}
           >
             {capitalizedDate}
           </p>
         </div>
+
+        {/* Líneas separadoras */}
+        <div
+          style={{
+            width: "952px",
+            height: "2px",
+            margin: "12px auto 0",
+            backgroundColor: "rgb(201, 201, 201)",
+          }}
+        />
+        <div
+          style={{
+            width: "962px",
+            height: "2px",
+            margin: "24px auto 0",
+            backgroundColor: "rgb(201, 201, 201)",
+          }}
+        />
       </section>
 
       {/* News Sections */}
