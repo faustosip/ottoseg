@@ -15,13 +15,10 @@ interface PageProps {
   }>;
 }
 
-// Ecuador is UTC-5 (no DST)
-const EC_OFFSET_HOURS = 5;
-
 /**
- * Parsear fecha del formato URL a rango UTC que cubre el día en Ecuador
+ * Parsear fecha del formato URL a Date object
  */
-function parseUrlDate(dateStr: string): { start: Date; end: Date } | null {
+function parseUrlDate(dateStr: string): Date | null {
   // Formato esperado: 16-feb-2026
   const months: Record<string, number> = {
     'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3,
@@ -39,25 +36,18 @@ function parseUrlDate(dateStr: string): { start: Date; end: Date } | null {
   if (!months.hasOwnProperty(monthStr)) return null;
   if (isNaN(day) || isNaN(year)) return null;
 
-  // 00:00 Ecuador = 05:00 UTC
-  const start = new Date(Date.UTC(year, months[monthStr], day, EC_OFFSET_HOURS, 0, 0, 0));
-  // 00:00 next day Ecuador = 05:00 UTC next day
-  const end = new Date(Date.UTC(year, months[monthStr], day + 1, EC_OFFSET_HOURS, 0, 0, 0));
-
-  return { start, end };
+  return new Date(year, months[monthStr], day);
 }
 
 /**
- * Formatear fecha para URL (siempre en timezone Ecuador)
+ * Formatear fecha para URL
  */
 function formatDateForUrl(date: Date): string {
-  // Convert UTC to Ecuador time by subtracting offset
-  const ecTime = new Date(date.getTime() - EC_OFFSET_HOURS * 60 * 60 * 1000);
-  const day = ecTime.getUTCDate().toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
   const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
                   'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const month = months[ecTime.getUTCMonth()];
-  const year = ecTime.getUTCFullYear();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
   return `${day}-${month}-${year}`;
 }
 
@@ -82,15 +72,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     bulletin = await getBulletinById(id);
   } else {
     // Si es formato de fecha, buscar por fecha
-    const dateRange = parseUrlDate(id);
-    if (dateRange) {
+    const parsedDate = parseUrlDate(id);
+    if (parsedDate) {
+      const startOfDay = new Date(parsedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(parsedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
       const [result] = await db
         .select()
         .from(bulletins)
         .where(
           and(
-            gte(bulletins.date, dateRange.start),
-            lt(bulletins.date, dateRange.end)
+            gte(bulletins.date, startOfDay),
+            lt(bulletins.date, endOfDay)
           )
         )
         .limit(1);
@@ -109,7 +105,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: "America/Guayaquil",
   }).format(bulletin.date);
 
   return {
@@ -143,17 +138,22 @@ export default async function PublicBulletinPage({ params }: PageProps) {
     shouldRedirect = true; // Marcar para redirección
   } else {
     // Intentar parsear como fecha
-    const dateRange = parseUrlDate(id);
+    const parsedDate = parseUrlDate(id);
 
-    if (dateRange) {
-      // Buscar por fecha dentro del rango del día (timezone Ecuador)
+    if (parsedDate) {
+      const startOfDay = new Date(parsedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(parsedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
       const [result] = await db
         .select()
         .from(bulletins)
         .where(
           and(
-            gte(bulletins.date, dateRange.start),
-            lt(bulletins.date, dateRange.end)
+            gte(bulletins.date, startOfDay),
+            lt(bulletins.date, endOfDay)
           )
         )
         .limit(1);
@@ -182,13 +182,12 @@ export default async function PublicBulletinPage({ params }: PageProps) {
     redirect(`/bulletin/${dateUrl}`);
   }
 
-  // Formatear fecha para mostrar (siempre en timezone Ecuador)
+  // Formatear fecha para mostrar
   const formattedDate = new Intl.DateTimeFormat("es-EC", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: "America/Guayaquil",
   }).format(bulletin.date);
 
   return <PublicBulletinView bulletin={bulletin} formattedDate={formattedDate} />;
