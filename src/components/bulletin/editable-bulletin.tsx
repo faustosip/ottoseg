@@ -503,8 +503,10 @@ export function EditableBulletin({
                     });
 
                     if (!response.ok) {
-                      const error = await response.json();
-                      throw new Error(error.error || "Error al subir video");
+                      const errorData = await response.json().catch(() => null);
+                      throw new Error(
+                        errorData?.error || errorData?.details || `Error del servidor (HTTP ${response.status})`
+                      );
                     }
 
                     const result = await response.json();
@@ -513,7 +515,8 @@ export function EditableBulletin({
                     toast.success("Video subido correctamente");
                   } catch (error) {
                     console.error("Error uploading video:", error);
-                    toast.error((error as Error).message || "Error al subir el video");
+                    const msg = (error as Error).message || "Error desconocido";
+                    toast.error(`Error al subir el video: ${msg}`);
                   } finally {
                     setIsUploadingVideo(false);
                   }
