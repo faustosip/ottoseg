@@ -119,7 +119,8 @@ async function seedSources() {
   ];
 
   let created = 0;
-  let skipped = 0;
+  let updated = 0;
+  const skipped = 0;
 
   for (const sourceData of sources) {
     try {
@@ -127,8 +128,16 @@ async function seedSources() {
       const existing = await getSourceByName(sourceData.name);
 
       if (existing) {
-        console.log(`  ⏭️  ${sourceData.name} ya existe, omitiendo...`);
-        skipped++;
+        // Actualizar scrapeConfig y URLs de fuentes existentes
+        const { updateSource } = await import("@/lib/db/queries/sources");
+        await updateSource(existing.id, {
+          url: sourceData.url,
+          baseUrl: sourceData.baseUrl,
+          scrapeConfig: sourceData.scrapeConfig,
+          selector: sourceData.selector,
+        });
+        console.log(`  🔄 ${sourceData.name} actualizada (URLs y config)`);
+        updated++;
         continue;
       }
 
@@ -141,7 +150,7 @@ async function seedSources() {
     }
   }
 
-  console.log(`\n📊 Fuentes: ${created} creadas, ${skipped} omitidas`);
+  console.log(`\n📊 Fuentes: ${created} creadas, ${updated} actualizadas, ${skipped} omitidas`);
 }
 
 /**

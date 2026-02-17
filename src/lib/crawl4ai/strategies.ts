@@ -494,7 +494,10 @@ export async function extractCategoryArticles(
         html = await fetchResponse.text();
         console.log(`  ✅ Direct fetch returned HTML (${html.length} chars)`);
       } else {
-        console.error(`  ❌ Direct fetch failed: HTTP ${fetchResponse.status}`);
+        console.error(`  ❌ Direct fetch failed: HTTP ${fetchResponse.status} for ${url}`);
+        if (fetchResponse.status === 404) {
+          console.error(`  ⚠️  URL devuelve 404 - verificar que la URL es correcta en Fuentes (dashboard/settings/sources)`);
+        }
       }
     } catch (fetchError) {
       console.error(`  ❌ Direct fetch error: ${(fetchError as Error).message}`);
