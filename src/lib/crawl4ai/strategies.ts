@@ -541,12 +541,54 @@ export async function extractCategoryArticles(
     metadata: { url, crawledAt: new Date().toISOString() },
   };
 
-  const articles = parseCategoryResponseWithConfig(
+  let articles = parseCategoryResponseWithConfig(
     fakeResponse as unknown as Crawl4AIResponse,
     url,
     source,
     config,
   );
+
+  // If Crawl4AI HTML yielded 0 articles and source doesn't need JS rendering,
+  // retry with direct HTTP fetch (Crawl4AI may return degraded/cleaned HTML missing CSS classes)
+  if (articles.length === 0 && !needsJSRendering(source)) {
+    console.warn(`  ⚠️  Crawl4AI HTML yielded 0 articles, retrying with direct HTTP fetch...`);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const fetchResponse = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (fetchResponse.ok) {
+        const directHtml = await fetchResponse.text();
+        console.log(`  ✅ Direct fetch returned HTML (${directHtml.length} chars)`);
+
+        const retryResponse = {
+          success: true,
+          data: { html: directHtml, markdown: undefined, text: undefined, extracted: undefined },
+          metadata: { url, crawledAt: new Date().toISOString() },
+        };
+
+        articles = parseCategoryResponseWithConfig(
+          retryResponse as unknown as Crawl4AIResponse,
+          url,
+          source,
+          config,
+        );
+        console.log(`  ✅ Direct fetch retry extracted: ${articles.length} articles`);
+      }
+    } catch (retryError) {
+      console.error(`  ❌ Direct fetch retry failed: ${(retryError as Error).message}`);
+    }
+  }
 
   console.log(`  ✅ Total extracted: ${articles.length} articles from category page`);
   return articles;
