@@ -689,17 +689,25 @@ async function extractLaHoraArticles(sectionUrl: string): Promise<ScrapedArticle
 }
 
 /**
- * Fetch the og:image from a La Hora article page
- * Individual article pages are usually accessible even when section pages are blocked by WAF
+ * Fetch the featured image for a La Hora article.
+ * For Google News URLs: extracts og:image from Google's article page (Google proxies images on lh3.googleusercontent.com)
+ * For lahora.com.ec URLs: tries direct fetch with ?amp=1 to bypass WAF
  */
 async function fetchLaHoraArticleImage(articleUrl: string): Promise<string | null> {
   try {
+    // For Google News URLs, fetch Google's article page which has og:image on Google's CDN
+    if (articleUrl.includes('news.google.com')) {
+      return fetchImageFromGoogleNewsPage(articleUrl);
+    }
+
+    // For lahora.com.ec URLs, try with ?amp=1 to bypass WAF
     if (!articleUrl.includes('lahora.com.ec')) return null;
 
+    const ampUrl = articleUrl + (articleUrl.includes('?') ? '&' : '?') + 'amp=1';
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-    const response = await fetch(articleUrl, {
+    const response = await fetch(ampUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -712,39 +720,59 @@ async function fetchLaHoraArticleImage(articleUrl: string): Promise<string | nul
     if (!response.ok || response.status === 202) return null;
 
     const html = await response.text();
-    if (html.length < 5000) return null; // WAF challenge page
+    if (html.length < 5000) return null;
 
     const $ = cheerio.load(html);
-
-    // Try og:image first (most reliable for news sites)
     let imageUrl = $('meta[property="og:image"]').attr('content');
+    if (!imageUrl) imageUrl = $('meta[name="twitter:image"]').attr('content');
 
-    // Fallback: twitter:image
-    if (!imageUrl) {
-      imageUrl = $('meta[name="twitter:image"]').attr('content');
-    }
-
-    // Fallback: first large image in article
-    if (!imageUrl) {
-      $('article img, .article-content img, main img').each((_, img) => {
-        if (imageUrl) return false;
-        const src = $(img).attr('src') || $(img).attr('data-src');
-        if (src && !src.includes('logo') && !src.includes('icon') && !src.includes('avatar')) {
-          imageUrl = src;
-        }
-      });
-    }
-
-    // Normalize relative URLs
     if (imageUrl && !imageUrl.startsWith('http')) {
       imageUrl = `https://www.lahora.com.ec${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
     }
 
     if (imageUrl) {
-      console.log(`    🖼️  Image found for: ${articleUrl.substring(0, 60)}...`);
+      console.log(`    🖼️  Image from article page: ${imageUrl.substring(0, 60)}...`);
+    }
+    return imageUrl || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extract the og:image from a Google News article page.
+ * Google proxies article images on lh3.googleusercontent.com, accessible from any IP.
+ */
+async function fetchImageFromGoogleNewsPage(googleUrl: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(googleUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return null;
+
+    const html = await response.text();
+
+    // Extract og:image - Google News pages have the article image on Google's CDN
+    const match = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i)
+      || html.match(/content=["']([^"']+)["']\s+property=["']og:image["']/i);
+
+    if (match) {
+      let imageUrl = match[1];
+      // Increase resolution from default 300px to 800px
+      imageUrl = imageUrl.replace(/=s0-w\d+/, '=s0-w800');
+      console.log(`    🖼️  Image from Google News: ${imageUrl.substring(0, 70)}...`);
+      return imageUrl;
     }
 
-    return imageUrl || null;
+    return null;
   } catch {
     return null;
   }
