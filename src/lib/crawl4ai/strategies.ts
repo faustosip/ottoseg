@@ -491,8 +491,14 @@ export async function extractCategoryArticles(
       clearTimeout(timeoutId);
 
       if (fetchResponse.ok) {
-        html = await fetchResponse.text();
-        console.log(`  ✅ Direct fetch returned HTML (${html.length} chars)`);
+        const fetchedHtml = await fetchResponse.text();
+        // Detect CDN challenge pages: real news pages are > 10KB, challenge pages are ~2KB
+        if (fetchedHtml.length < 5000) {
+          console.warn(`  ⚠️  Direct fetch returned suspiciously small HTML (${fetchedHtml.length} chars) - likely CDN challenge page, skipping`);
+        } else {
+          html = fetchedHtml;
+          console.log(`  ✅ Direct fetch returned HTML (${html.length} chars)`);
+        }
       } else {
         console.error(`  ❌ Direct fetch failed: HTTP ${fetchResponse.status} for ${url}`);
         if (fetchResponse.status === 404) {
@@ -503,7 +509,7 @@ export async function extractCategoryArticles(
       console.error(`  ❌ Direct fetch error: ${(fetchError as Error).message}`);
     }
 
-    // Fallback to Crawl4AI if direct fetch failed
+    // Fallback to Crawl4AI if direct fetch failed or returned challenge page
     if (!html) {
       try {
         console.log(`  🔄 Fallback: Trying Crawl4AI for ${url}...`);
@@ -569,8 +575,13 @@ export async function extractCategoryArticles(
         });
         clearTimeout(timeoutId);
         if (fetchResponse.ok) {
-          html = await fetchResponse.text();
-          console.log(`  ✅ Direct fetch returned HTML (${html.length} chars)`);
+          const fetchedHtml = await fetchResponse.text();
+          if (fetchedHtml.length < 5000) {
+            console.warn(`  ⚠️  Direct fetch returned CDN challenge page (${fetchedHtml.length} chars), cannot bypass without browser`);
+          } else {
+            html = fetchedHtml;
+            console.log(`  ✅ Direct fetch returned HTML (${html.length} chars)`);
+          }
         } else {
           console.error(`  ❌ Direct fetch failed: HTTP ${fetchResponse.status}`);
         }
@@ -581,7 +592,7 @@ export async function extractCategoryArticles(
   }
 
   if (!html) {
-    console.error(`  ❌ No HTML obtained for ${url} (all methods failed)`);
+    console.error(`  ❌ No HTML obtained for ${url} (all methods failed - source may require browser to bypass CDN protection)`);
     return [];
   }
 
