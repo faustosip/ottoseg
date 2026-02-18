@@ -395,11 +395,21 @@ async function extractViaGoogleNewsRSS(
       // Remove source suffix (e.g. " - El Comercio", " - Diario La Hora")
       title = title.replace(/\s*-\s*(?:El Comercio|Diario La Hora|Teleamazonas)$/i, '').trim();
 
+      // Extract real article URL from <description> HTML (Google News RSS includes it as an <a> tag)
+      let articleUrl = link || categoryUrl;
+      const description = $(item).find('description').text().trim();
+      if (description) {
+        const urlMatch = description.match(/href=["'](https?:\/\/[^"']+)["']/);
+        if (urlMatch && urlMatch[1] && urlMatch[1].includes(siteDomain)) {
+          articleUrl = urlMatch[1];
+        }
+      }
+
       articles.push({
         id: randomUUID(),
         title,
         content: title,
-        url: link || categoryUrl,
+        url: articleUrl,
         source: sourceName,
         publishedDate: pubDate,
         selected: true,
@@ -407,19 +417,8 @@ async function extractViaGoogleNewsRSS(
       });
     });
 
-    // Enrich with images from Google News pages (parallel)
     if (articles.length > 0) {
-      await Promise.all(
-        articles.map(async (article) => {
-          if (article.url.includes('news.google.com')) {
-            const imageUrl = await fetchImageFromGoogleNewsPage(article.url);
-            if (imageUrl) article.imageUrl = imageUrl;
-          }
-        })
-      );
-
-      const withImages = articles.filter(a => a.imageUrl).length;
-      console.log(`  ✅ ${sourceName} Google News RSS: ${articles.length} articles (${withImages} with images)`);
+      console.log(`  ✅ ${sourceName} Google News RSS: ${articles.length} articles`);
     }
 
     return articles;
@@ -710,50 +709,63 @@ async function extractLaHoraArticles(sectionUrl: string): Promise<ScrapedArticle
 
 /**
  * Fetch the featured image for a La Hora article.
- * For Google News URLs: extracts og:image from Google's article page (Google proxies images on lh3.googleusercontent.com)
- * For lahora.com.ec URLs: tries direct fetch with ?amp=1 to bypass WAF
+ * Tries multiple approaches: direct fetch, ?amp=1 bypass, then Google News page as last resort.
  */
 async function fetchLaHoraArticleImage(articleUrl: string): Promise<string | null> {
   try {
-    // For Google News URLs, fetch Google's article page which has og:image on Google's CDN
+    if (!articleUrl.includes('lahora.com.ec') && !articleUrl.includes('news.google.com')) return null;
+
+    // For lahora.com.ec URLs, try fetching the article page directly and with ?amp=1
+    if (articleUrl.includes('lahora.com.ec')) {
+      const fetchHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+        'Referer': 'https://www.google.com/',
+      };
+
+      // Try both direct and ?amp=1 in parallel for speed
+      const ampUrl = articleUrl + (articleUrl.includes('?') ? '&' : '?') + 'amp=1';
+      const urls = [articleUrl, ampUrl];
+
+      const results = await Promise.allSettled(
+        urls.map(async (url) => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          try {
+            const response = await fetch(url, { headers: fetchHeaders, signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (!response.ok || response.status === 202) return null;
+            const html = await response.text();
+            if (html.length < 5000) return null;
+            const $ = cheerio.load(html);
+            let imageUrl = $('meta[property="og:image"]').attr('content');
+            if (!imageUrl) imageUrl = $('meta[name="twitter:image"]').attr('content');
+            if (imageUrl && !imageUrl.startsWith('http')) {
+              imageUrl = `https://www.lahora.com.ec${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+            }
+            return imageUrl || null;
+          } catch {
+            clearTimeout(timeoutId);
+            return null;
+          }
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          console.log(`    🖼️  Image from article page: ${result.value.substring(0, 60)}...`);
+          return result.value;
+        }
+      }
+    }
+
+    // Last resort: try Google News page (may return Google's icon — validate)
     if (articleUrl.includes('news.google.com')) {
       return fetchImageFromGoogleNewsPage(articleUrl);
     }
 
-    // For lahora.com.ec URLs, try with ?amp=1 to bypass WAF
-    if (!articleUrl.includes('lahora.com.ec')) return null;
-
-    const ampUrl = articleUrl + (articleUrl.includes('?') ? '&' : '?') + 'amp=1';
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(ampUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (!response.ok || response.status === 202) return null;
-
-    const html = await response.text();
-    if (html.length < 5000) return null;
-
-    const $ = cheerio.load(html);
-    let imageUrl = $('meta[property="og:image"]').attr('content');
-    if (!imageUrl) imageUrl = $('meta[name="twitter:image"]').attr('content');
-
-    if (imageUrl && !imageUrl.startsWith('http')) {
-      imageUrl = `https://www.lahora.com.ec${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
-    }
-
-    if (imageUrl) {
-      console.log(`    🖼️  Image from article page: ${imageUrl.substring(0, 60)}...`);
-    }
-    return imageUrl || null;
+    return null;
   } catch {
     return null;
   }
@@ -762,6 +774,7 @@ async function fetchLaHoraArticleImage(articleUrl: string): Promise<string | nul
 /**
  * Extract the og:image from a Google News article page.
  * Google proxies article images on lh3.googleusercontent.com, accessible from any IP.
+ * Validates that the image is an actual article image, not Google's own icon/logo.
  */
 async function fetchImageFromGoogleNewsPage(googleUrl: string): Promise<string | null> {
   try {
@@ -786,6 +799,22 @@ async function fetchImageFromGoogleNewsPage(googleUrl: string): Promise<string |
 
     if (match) {
       let imageUrl = match[1];
+
+      // Reject Google's own icons/logos (not actual article images)
+      // Google News icon URLs are typically short paths or contain known icon patterns
+      if (
+        imageUrl.includes('google.com/favicon') ||
+        imageUrl.includes('google.com/images/branding') ||
+        imageUrl.includes('gstatic.com/generate_204') ||
+        imageUrl.includes('/news/logo') ||
+        imageUrl.includes('news.google.com') ||
+        // Google News default icon on googleusercontent.com has a very short path
+        (imageUrl.includes('googleusercontent.com') && imageUrl.split('/').length < 5)
+      ) {
+        console.log(`    ⚠️  Rejected Google icon as og:image: ${imageUrl.substring(0, 70)}...`);
+        return null;
+      }
+
       // Increase resolution from default 300px to 800px
       imageUrl = imageUrl.replace(/=s0-w\d+/, '=s0-w800');
       console.log(`    🖼️  Image from Google News: ${imageUrl.substring(0, 70)}...`);
