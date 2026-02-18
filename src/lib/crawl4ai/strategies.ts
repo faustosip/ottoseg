@@ -451,212 +451,303 @@ async function extractLaHoraArticles(sectionUrl: string): Promise<ScrapedArticle
   console.log(`  📡 La Hora: Extracting articles for section "${sectionSlug}"`);
 
   const config = getCategoryExtractionConfig('La Hora');
+  let articles: ScrapedArticle[] = [];
 
   // Strategy 1: Direct fetch with ?amp=1
-  const ampUrl = sectionUrl + (sectionUrl.includes('?') ? '&' : '?') + 'amp=1';
-  try {
-    console.log(`  📋 Strategy 1: Direct fetch with ?amp=1 → ${ampUrl}`);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+  if (articles.length === 0) {
+    const ampUrl = sectionUrl + (sectionUrl.includes('?') ? '&' : '?') + 'amp=1';
+    try {
+      console.log(`  📋 Strategy 1: Direct fetch with ?amp=1 → ${ampUrl}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-    const response = await fetch(ampUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+      const response = await fetch(ampUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    if (response.ok) {
-      const html = await response.text();
-      if (html.length > 5000) {
-        const $ = cheerio.load(html);
-        const matches = $(config.schema.baseSelector).length;
-        console.log(`  ✅ Strategy 1: ${html.length} chars, ${matches} selector matches`);
+      if (response.ok) {
+        const html = await response.text();
+        if (html.length > 5000) {
+          const $ = cheerio.load(html);
+          const matches = $(config.schema.baseSelector).length;
+          console.log(`  ✅ Strategy 1: ${html.length} chars, ${matches} selector matches`);
 
-        if (matches > 0) {
-          const articles = parseHTMLWithCheerioAndConfig(html, sectionUrl, 'La Hora', config);
-          if (articles.length > 0) {
-            console.log(`  ✅ La Hora Strategy 1 success: ${articles.length} articles`);
-            return articles;
+          if (matches > 0) {
+            articles = parseHTMLWithCheerioAndConfig(html, sectionUrl, 'La Hora', config);
+            if (articles.length > 0) {
+              console.log(`  ✅ La Hora Strategy 1 success: ${articles.length} articles`);
+            }
           }
+        } else {
+          console.warn(`  ⚠️  Strategy 1: Small HTML (${html.length} chars) - likely WAF challenge`);
         }
       } else {
-        console.warn(`  ⚠️  Strategy 1: Small HTML (${html.length} chars) - likely WAF challenge`);
+        console.warn(`  ⚠️  Strategy 1: HTTP ${response.status}`);
       }
-    } else {
-      console.warn(`  ⚠️  Strategy 1: HTTP ${response.status}`);
+    } catch (error) {
+      console.warn(`  ⚠️  Strategy 1 failed: ${(error as Error).message}`);
     }
-  } catch (error) {
-    console.warn(`  ⚠️  Strategy 1 failed: ${(error as Error).message}`);
   }
 
   // Strategy 2: Scrape homepage and filter by section
-  try {
-    console.log(`  📋 Strategy 2: Homepage scraping (filter: /${sectionSlug}/)`);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+  if (articles.length === 0) {
+    try {
+      console.log(`  📋 Strategy 2: Homepage scraping (filter: /${sectionSlug}/)`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const response = await fetch('https://www.lahora.com.ec/', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-        'Referer': 'https://www.google.com/',
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+      const response = await fetch('https://www.lahora.com.ec/', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+          'Referer': 'https://www.google.com/',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    if (response.ok) {
-      const html = await response.text();
-      if (html.length > 10000) {
-        console.log(`  ✅ Strategy 2: Homepage HTML ${html.length} chars`);
+      if (response.ok) {
+        const html = await response.text();
+        if (html.length > 10000) {
+          console.log(`  ✅ Strategy 2: Homepage HTML ${html.length} chars`);
 
-        const $ = cheerio.load(html);
-        const articles: ScrapedArticle[] = [];
-        const seenUrls = new Set<string>();
+          const $ = cheerio.load(html);
+          const seenUrls = new Set<string>();
 
-        // Find article links matching the section in their URL path
-        // La Hora article URLs: /{section}/slug-YYYYMMDD-NNNN.html
-        $('a[href]').each((_, el) => {
+          // Find article links matching the section in their URL path
+          // La Hora article URLs: /{section}/slug-YYYYMMDD-NNNN.html
+          $('a[href]').each((_, el) => {
+            if (articles.length >= 3) return false;
+
+            const $a = $(el);
+            let href = $a.attr('href') || '';
+
+            if (!href || href === '#' || href.startsWith('javascript:')) return;
+
+            // Normalize to absolute URL
+            if (!href.startsWith('http')) {
+              href = `https://www.lahora.com.ec${href.startsWith('/') ? '' : '/'}${href}`;
+            }
+
+            // Check if URL belongs to the target section
+            try {
+              const articleUrl = new URL(href);
+              // Must match /{sectionSlug}/something.html (article page, not section index)
+              if (!articleUrl.pathname.startsWith(`/${sectionSlug}/`) || !articleUrl.pathname.endsWith('.html')) return;
+            } catch {
+              return;
+            }
+
+            if (seenUrls.has(href)) return;
+            seenUrls.add(href);
+
+            // Extract title from link text or parent heading
+            let title = $a.text().trim();
+            if (!title || title.length < 10) {
+              const $heading = $a.closest('h1, h2, h3, h4, h5');
+              if ($heading.length) title = $heading.text().trim();
+            }
+            if (!title || title.length < 10) return;
+
+            // Find image in parent container
+            let imageUrl: string | undefined;
+            const $container = $a.closest('[class*="Item"], article, div').filter((_, container) => {
+              return $(container).find('img').length > 0;
+            }).first();
+
+            if ($container.length) {
+              imageUrl = extractImageUrl($container, 'img', 'https://www.lahora.com.ec');
+            }
+
+            articles.push({
+              id: randomUUID(),
+              title,
+              content: title,
+              url: href,
+              imageUrl,
+              source: 'La Hora',
+              selected: true,
+              scrapedAt: new Date().toISOString(),
+            });
+          });
+
+          if (articles.length > 0) {
+            console.log(`  ✅ La Hora Strategy 2 success: ${articles.length} articles from homepage`);
+          } else {
+            console.warn(`  ⚠️  Strategy 2: No articles found for section "${sectionSlug}" on homepage`);
+          }
+        } else {
+          console.warn(`  ⚠️  Strategy 2: Small HTML (${html.length} chars) - blocked`);
+        }
+      } else {
+        console.warn(`  ⚠️  Strategy 2: HTTP ${response.status}`);
+      }
+    } catch (error) {
+      console.warn(`  ⚠️  Strategy 2 failed: ${(error as Error).message}`);
+    }
+  }
+
+  // Strategy 3: Google News RSS
+  if (articles.length === 0) {
+    try {
+      console.log(`  📋 Strategy 3: Google News RSS (site:lahora.com.ec/${sectionSlug})`);
+      const query = `site:lahora.com.ec/${sectionSlug} when:3d`;
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=es-419&gl=EC&ceid=EC:es-419`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(rssUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const rssXml = await response.text();
+        const $ = cheerio.load(rssXml, { xmlMode: true });
+
+        $('item').each((_, item) => {
           if (articles.length >= 3) return false;
 
-          const $a = $(el);
-          let href = $a.attr('href') || '';
+          const title = $(item).find('title').text().trim();
+          const pubDate = $(item).find('pubDate').text().trim();
 
-          if (!href || href === '#' || href.startsWith('javascript:')) return;
-
-          // Normalize to absolute URL
-          if (!href.startsWith('http')) {
-            href = `https://www.lahora.com.ec${href.startsWith('/') ? '' : '/'}${href}`;
-          }
-
-          // Check if URL belongs to the target section
-          try {
-            const articleUrl = new URL(href);
-            // Must match /{sectionSlug}/something.html (article page, not section index)
-            if (!articleUrl.pathname.startsWith(`/${sectionSlug}/`) || !articleUrl.pathname.endsWith('.html')) return;
-          } catch {
-            return;
-          }
-
-          if (seenUrls.has(href)) return;
-          seenUrls.add(href);
-
-          // Extract title from link text or parent heading
-          let title = $a.text().trim();
-          if (!title || title.length < 10) {
-            const $heading = $a.closest('h1, h2, h3, h4, h5');
-            if ($heading.length) title = $heading.text().trim();
-          }
           if (!title || title.length < 10) return;
 
-          // Find image in parent container
-          let imageUrl: string | undefined;
-          // Walk up to find a container that has both the link and an image
-          const $container = $a.closest('[class*="Item"], article, div').filter((_, container) => {
-            return $(container).find('img').length > 0;
-          }).first();
-
-          if ($container.length) {
-            imageUrl = extractImageUrl($container, 'img', 'https://www.lahora.com.ec');
-          }
+          // Google News RSS link element contains the URL as text content
+          const link = $(item).find('link').text().trim();
 
           articles.push({
             id: randomUUID(),
             title,
             content: title,
-            url: href,
-            imageUrl,
+            url: link || sectionUrl,
             source: 'La Hora',
+            publishedDate: pubDate,
             selected: true,
             scrapedAt: new Date().toISOString(),
           });
         });
 
-        if (articles.length > 0) {
-          console.log(`  ✅ La Hora Strategy 2 success: ${articles.length} articles from homepage`);
-          return articles;
-        }
-        console.warn(`  ⚠️  Strategy 2: No articles found for section "${sectionSlug}" on homepage`);
-      } else {
-        console.warn(`  ⚠️  Strategy 2: Small HTML (${html.length} chars) - blocked`);
-      }
-    } else {
-      console.warn(`  ⚠️  Strategy 2: HTTP ${response.status}`);
-    }
-  } catch (error) {
-    console.warn(`  ⚠️  Strategy 2 failed: ${(error as Error).message}`);
-  }
-
-  // Strategy 3: Google News RSS
-  try {
-    console.log(`  📋 Strategy 3: Google News RSS (site:lahora.com.ec/${sectionSlug})`);
-    const query = `site:lahora.com.ec/${sectionSlug} when:3d`;
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=es-419&gl=EC&ceid=EC:es-419`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    const response = await fetch(rssUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const rssXml = await response.text();
-      const $ = cheerio.load(rssXml, { xmlMode: true });
-      const articles: ScrapedArticle[] = [];
-
-      $('item').each((_, item) => {
-        if (articles.length >= 3) return false;
-
-        const title = $(item).find('title').text().trim();
-        const pubDate = $(item).find('pubDate').text().trim();
-
-        if (!title || title.length < 10) return;
-
-        // Google News RSS link element contains the URL as text content
-        const link = $(item).find('link').text().trim();
-
-        articles.push({
-          id: randomUUID(),
-          title,
-          content: title,
-          url: link || sectionUrl, // Fallback to section URL if link parsing fails
-          source: 'La Hora',
-          publishedDate: pubDate,
-          selected: true,
-          scrapedAt: new Date().toISOString(),
-        });
-      });
-
-      // Try to resolve Google News redirect URLs to actual article URLs
-      for (const article of articles) {
-        if (article.url.includes('news.google.com')) {
-          try {
-            const resolved = await resolveRedirectUrl(article.url);
-            if (resolved && resolved.includes('lahora.com.ec')) {
-              article.url = resolved;
+        // Try to resolve Google News redirect URLs to actual article URLs
+        for (const article of articles) {
+          if (article.url.includes('news.google.com')) {
+            try {
+              const resolved = await resolveRedirectUrl(article.url);
+              if (resolved && resolved.includes('lahora.com.ec')) {
+                article.url = resolved;
+              }
+            } catch {
+              // Keep original URL
             }
-          } catch {
-            // Keep original URL
           }
         }
-      }
 
-      if (articles.length > 0) {
-        console.log(`  ✅ La Hora Strategy 3 success: ${articles.length} articles from Google News`);
-        return articles;
+        if (articles.length > 0) {
+          console.log(`  ✅ La Hora Strategy 3 success: ${articles.length} articles from Google News`);
+        }
       }
+    } catch (error) {
+      console.warn(`  ⚠️  Strategy 3 failed: ${(error as Error).message}`);
     }
-  } catch (error) {
-    console.warn(`  ⚠️  Strategy 3 failed: ${(error as Error).message}`);
   }
 
-  console.error(`  ❌ La Hora: All strategies failed for section "${sectionSlug}"`);
-  return [];
+  if (articles.length === 0) {
+    console.error(`  ❌ La Hora: All strategies failed for section "${sectionSlug}"`);
+    return [];
+  }
+
+  // Post-processing: clean titles and enrich with images
+  for (const article of articles) {
+    // Remove " - Diario La Hora" suffix from Google News titles
+    article.title = article.title.replace(/\s*-\s*Diario La Hora$/i, '').trim();
+    article.content = article.title; // Content mirrors the cleaned title
+  }
+
+  // Fetch images for articles that don't have them (e.g., from Google News RSS)
+  const articlesNeedingImages = articles.filter(a => !a.imageUrl);
+  if (articlesNeedingImages.length > 0) {
+    console.log(`  🖼️  Fetching images for ${articlesNeedingImages.length} articles from article pages...`);
+    await Promise.all(
+      articlesNeedingImages.map(async (article) => {
+        const imageUrl = await fetchLaHoraArticleImage(article.url);
+        if (imageUrl) {
+          article.imageUrl = imageUrl;
+        }
+      })
+    );
+    const withImages = articles.filter(a => a.imageUrl).length;
+    console.log(`  🖼️  Images: ${withImages}/${articles.length} articles have images`);
+  }
+
+  return articles;
+}
+
+/**
+ * Fetch the og:image from a La Hora article page
+ * Individual article pages are usually accessible even when section pages are blocked by WAF
+ */
+async function fetchLaHoraArticleImage(articleUrl: string): Promise<string | null> {
+  try {
+    if (!articleUrl.includes('lahora.com.ec')) return null;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(articleUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok || response.status === 202) return null;
+
+    const html = await response.text();
+    if (html.length < 5000) return null; // WAF challenge page
+
+    const $ = cheerio.load(html);
+
+    // Try og:image first (most reliable for news sites)
+    let imageUrl = $('meta[property="og:image"]').attr('content');
+
+    // Fallback: twitter:image
+    if (!imageUrl) {
+      imageUrl = $('meta[name="twitter:image"]').attr('content');
+    }
+
+    // Fallback: first large image in article
+    if (!imageUrl) {
+      $('article img, .article-content img, main img').each((_, img) => {
+        if (imageUrl) return false;
+        const src = $(img).attr('src') || $(img).attr('data-src');
+        if (src && !src.includes('logo') && !src.includes('icon') && !src.includes('avatar')) {
+          imageUrl = src;
+        }
+      });
+    }
+
+    // Normalize relative URLs
+    if (imageUrl && !imageUrl.startsWith('http')) {
+      imageUrl = `https://www.lahora.com.ec${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+    }
+
+    if (imageUrl) {
+      console.log(`    🖼️  Image found for: ${articleUrl.substring(0, 60)}...`);
+    }
+
+    return imageUrl || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
