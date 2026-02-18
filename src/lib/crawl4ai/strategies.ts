@@ -255,21 +255,19 @@ export async function extractArticles(
  * El Comercio is JS-rendered so normal scraping doesn't work, but it exposes a WP REST API
  */
 async function extractElComercioViaAPI(url: string): Promise<ScrapedArticle[]> {
+  const urlObj = new URL(url);
+  const pathSegments = urlObj.pathname.split('/').filter(Boolean);
+  const slug = pathSegments[pathSegments.length - 1] || pathSegments[0] || '';
+
+  // Strategy 1: WordPress REST API
   try {
-    // Map URL path to WP category slug
-    const urlObj = new URL(url);
-    const pathSegments = urlObj.pathname.split('/').filter(Boolean);
-    const slug = pathSegments[pathSegments.length - 1] || pathSegments[0] || '';
+    console.log(`  📡 El Comercio: Trying WordPress REST API (category: ${slug})`);
 
-    console.log(`  📡 El Comercio: Using WordPress REST API (category: ${slug})`);
-
-    // Get category ID from slug
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     let apiUrl = `https://www.elcomercio.com/wp-json/wp/v2/posts?per_page=5&_embed&_fields=title,link,excerpt,date,_links,_embedded`;
 
-    // Try to get category ID to filter posts
     if (slug && slug !== 'ultima-hora') {
       try {
         const catResponse = await fetch(
@@ -291,63 +289,142 @@ async function extractElComercioViaAPI(url: string): Promise<ScrapedArticle[]> {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.error(`  ❌ El Comercio API failed: HTTP ${response.status}`);
+      console.warn(`  ⚠️  El Comercio API: HTTP ${response.status}, falling back to Google News RSS`);
+      // Fall through to Strategy 2
+    } else {
+      const posts = await response.json() as Array<Record<string, unknown>>;
+      const articles: ScrapedArticle[] = [];
+
+      for (const post of posts) {
+        if (articles.length >= 3) break;
+
+        const titleObj = post.title as { rendered?: string } | undefined;
+        const title = (titleObj?.rendered || '')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&#8220;|&#8221;/g, '"')
+          .replace(/&#8216;|&#8217;/g, "'")
+          .replace(/&#038;/g, '&')
+          .replace(/&amp;/g, '&')
+          .replace(/&nbsp;/g, ' ')
+          .trim();
+        const link = post.link as string || '';
+        const date = post.date as string || '';
+        const excerptObj = post.excerpt as { rendered?: string } | undefined;
+        const excerpt = (excerptObj?.rendered || '').replace(/<[^>]+>/g, '').trim();
+
+        const embedded = post._embedded as Record<string, unknown[]> | undefined;
+        const featuredMedia = embedded?.['wp:featuredmedia'] as Array<Record<string, unknown>> | undefined;
+        let imageUrl: string | undefined;
+
+        if (featuredMedia && featuredMedia.length > 0) {
+          const media = featuredMedia[0];
+          imageUrl = media.source_url as string;
+          if (!imageUrl) {
+            const sizes = (media.media_details as Record<string, unknown> | undefined)?.sizes as Record<string, { source_url?: string }> | undefined;
+            imageUrl = sizes?.medium_large?.source_url || sizes?.large?.source_url || sizes?.full?.source_url;
+          }
+        }
+
+        if (!title || title.length < 10 || !link) continue;
+
+        articles.push({
+          id: randomUUID(),
+          title,
+          content: excerpt || title,
+          url: link,
+          imageUrl,
+          source: 'El Comercio',
+          publishedDate: date,
+          selected: true,
+          scrapedAt: new Date().toISOString(),
+        });
+      }
+
+      if (articles.length > 0) {
+        console.log(`  ✅ El Comercio API: ${articles.length} articles extracted`);
+        return articles;
+      }
+    }
+  } catch (error) {
+    console.warn(`  ⚠️  El Comercio API error: ${(error as Error).message}, falling back to Google News RSS`);
+  }
+
+  // Strategy 2: Google News RSS (fallback when WP API is blocked by Cloudflare)
+  return extractViaGoogleNewsRSS(url, slug, 'El Comercio', 'elcomercio.com');
+}
+
+/**
+ * Generic Google News RSS extraction for any source.
+ * Fetches articles from Google News RSS and enriches with images from Google's CDN.
+ */
+async function extractViaGoogleNewsRSS(
+  categoryUrl: string,
+  sectionSlug: string,
+  sourceName: string,
+  siteDomain: string,
+): Promise<ScrapedArticle[]> {
+  try {
+    console.log(`  📡 ${sourceName}: Using Google News RSS (section: ${sectionSlug})`);
+    const query = `site:${siteDomain}/${sectionSlug} when:3d`;
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=es-419&gl=EC&ceid=EC:es-419`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(rssUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error(`  ❌ ${sourceName} Google News RSS: HTTP ${response.status}`);
       return [];
     }
 
-    const posts = await response.json() as Array<Record<string, unknown>>;
+    const rssXml = await response.text();
+    const $ = cheerio.load(rssXml, { xmlMode: true });
     const articles: ScrapedArticle[] = [];
 
-    for (const post of posts) {
-      if (articles.length >= 3) break;
+    $('item').each((_, item) => {
+      if (articles.length >= 3) return false;
 
-      const titleObj = post.title as { rendered?: string } | undefined;
-      const title = (titleObj?.rendered || '')
-        .replace(/<[^>]+>/g, '')
-        .replace(/&#8220;|&#8221;/g, '"')
-        .replace(/&#8216;|&#8217;/g, "'")
-        .replace(/&#038;/g, '&')
-        .replace(/&amp;/g, '&')
-        .replace(/&nbsp;/g, ' ')
-        .trim();
-      const link = post.link as string || '';
-      const date = post.date as string || '';
-      const excerptObj = post.excerpt as { rendered?: string } | undefined;
-      const excerpt = (excerptObj?.rendered || '').replace(/<[^>]+>/g, '').trim();
+      let title = $(item).find('title').text().trim();
+      const pubDate = $(item).find('pubDate').text().trim();
+      const link = $(item).find('link').text().trim();
 
-      // Get featured image from _embedded
-      const embedded = post._embedded as Record<string, unknown[]> | undefined;
-      const featuredMedia = embedded?.['wp:featuredmedia'] as Array<Record<string, unknown>> | undefined;
-      let imageUrl: string | undefined;
+      if (!title || title.length < 10) return;
 
-      if (featuredMedia && featuredMedia.length > 0) {
-        const media = featuredMedia[0];
-        imageUrl = media.source_url as string;
-        if (!imageUrl) {
-          const sizes = (media.media_details as Record<string, unknown> | undefined)?.sizes as Record<string, { source_url?: string }> | undefined;
-          imageUrl = sizes?.medium_large?.source_url || sizes?.large?.source_url || sizes?.full?.source_url;
-        }
-      }
-
-      if (!title || title.length < 10 || !link) continue;
+      // Remove source suffix (e.g. " - El Comercio", " - Diario La Hora")
+      title = title.replace(/\s*-\s*(?:El Comercio|Diario La Hora|Teleamazonas)$/i, '').trim();
 
       articles.push({
         id: randomUUID(),
         title,
-        content: excerpt || title,
-        url: link,
-        imageUrl,
-        source: 'El Comercio',
-        publishedDate: date,
+        content: title,
+        url: link || categoryUrl,
+        source: sourceName,
+        publishedDate: pubDate,
         selected: true,
         scrapedAt: new Date().toISOString(),
       });
+    });
+
+    // Enrich with images from Google News pages (parallel)
+    if (articles.length > 0) {
+      await Promise.all(
+        articles.map(async (article) => {
+          if (article.url.includes('news.google.com')) {
+            const imageUrl = await fetchImageFromGoogleNewsPage(article.url);
+            if (imageUrl) article.imageUrl = imageUrl;
+          }
+        })
+      );
+
+      const withImages = articles.filter(a => a.imageUrl).length;
+      console.log(`  ✅ ${sourceName} Google News RSS: ${articles.length} articles (${withImages} with images)`);
     }
 
-    console.log(`  ✅ El Comercio API: ${articles.length} articles extracted`);
     return articles;
   } catch (error) {
-    console.error(`  ❌ El Comercio API error: ${(error as Error).message}`);
+    console.error(`  ❌ ${sourceName} Google News RSS error: ${(error as Error).message}`);
     return [];
   }
 }
@@ -596,65 +673,8 @@ async function extractLaHoraArticles(sectionUrl: string): Promise<ScrapedArticle
 
   // Strategy 3: Google News RSS
   if (articles.length === 0) {
-    try {
-      console.log(`  📋 Strategy 3: Google News RSS (site:lahora.com.ec/${sectionSlug})`);
-      const query = `site:lahora.com.ec/${sectionSlug} when:3d`;
-      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=es-419&gl=EC&ceid=EC:es-419`;
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-      const response = await fetch(rssUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const rssXml = await response.text();
-        const $ = cheerio.load(rssXml, { xmlMode: true });
-
-        $('item').each((_, item) => {
-          if (articles.length >= 3) return false;
-
-          const title = $(item).find('title').text().trim();
-          const pubDate = $(item).find('pubDate').text().trim();
-
-          if (!title || title.length < 10) return;
-
-          // Google News RSS link element contains the URL as text content
-          const link = $(item).find('link').text().trim();
-
-          articles.push({
-            id: randomUUID(),
-            title,
-            content: title,
-            url: link || sectionUrl,
-            source: 'La Hora',
-            publishedDate: pubDate,
-            selected: true,
-            scrapedAt: new Date().toISOString(),
-          });
-        });
-
-        // Try to resolve Google News redirect URLs to actual article URLs
-        for (const article of articles) {
-          if (article.url.includes('news.google.com')) {
-            try {
-              const resolved = await resolveRedirectUrl(article.url);
-              if (resolved && resolved.includes('lahora.com.ec')) {
-                article.url = resolved;
-              }
-            } catch {
-              // Keep original URL
-            }
-          }
-        }
-
-        if (articles.length > 0) {
-          console.log(`  ✅ La Hora Strategy 3 success: ${articles.length} articles from Google News`);
-        }
-      }
-    } catch (error) {
-      console.warn(`  ⚠️  Strategy 3 failed: ${(error as Error).message}`);
-    }
+    console.log(`  📋 Strategy 3: Google News RSS`);
+    articles = await extractViaGoogleNewsRSS(sectionUrl, sectionSlug, 'La Hora', 'lahora.com.ec');
   }
 
   if (articles.length === 0) {
@@ -772,37 +792,6 @@ async function fetchImageFromGoogleNewsPage(googleUrl: string): Promise<string |
       return imageUrl;
     }
 
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Resolve a redirect URL by following the HTTP redirect chain
- */
-async function resolveRedirectUrl(url: string): Promise<string | null> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    const response = await fetch(url, {
-      redirect: 'manual',
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
-    clearTimeout(timeoutId);
-
-    const location = response.headers.get('location');
-    if (location) {
-      // Follow one more redirect if needed
-      if (location.includes('google.com')) {
-        return resolveRedirectUrl(location);
-      }
-      return location;
-    }
     return null;
   } catch {
     return null;

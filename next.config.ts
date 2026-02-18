@@ -131,6 +131,13 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
+      // Google CDN (used for La Hora article images via Google News)
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        port: "",
+        pathname: "/**",
+      },
       // MinIO storage for uploaded images (legacy)
       {
         protocol: "https",
