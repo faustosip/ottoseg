@@ -359,7 +359,7 @@ export const virtualScrollSites = new Set<string>([]);
 /**
  * Sites that require JavaScript rendering
  */
-export const jsRenderingSites = new Set(['elcomercio', 'lahora']);
+export const jsRenderingSites = new Set(['elcomercio']);
 
 /**
  * Sites that work better with LLM extraction

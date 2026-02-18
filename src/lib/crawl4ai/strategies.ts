@@ -444,6 +444,13 @@ export async function extractCategoryArticles(
 
   const normalizedSource = source.toLowerCase().replace(/\s+/g, '');
 
+  // La Hora: append ?amp=1 to bypass AWS WAF CDN challenge (returns 202 without it from datacenter IPs)
+  if (normalizedSource === 'lahora' && !url.includes('amp=1')) {
+    const separator = url.includes('?') ? '&' : '?';
+    url = `${url}${separator}amp=1`;
+    console.log(`  🔓 La Hora: Added ?amp=1 to bypass AWS WAF → ${url}`);
+  }
+
   // El Comercio special case: use WordPress REST API (site is JS-rendered)
   if (normalizedSource === 'elcomercio') {
     return extractElComercioViaAPI(url);
