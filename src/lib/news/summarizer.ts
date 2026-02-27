@@ -9,7 +9,7 @@ import {
   SUMMARIZATION_USER_PROMPT_TEMPLATE,
   replacePlaceholders,
 } from "@/lib/ai/prompts";
-import { generateWithRetry, AI_TIMEOUT_SUMMARIZATION } from "@/lib/ai/providers";
+import { generateSummaryFast } from "@/lib/ai/providers";
 import {
   updateBulletinSummaries,
   updateBulletinStatus,
@@ -45,6 +45,7 @@ export interface SummaryValidation {
 const DEFAULT_MAX_WORDS = 150;
 const MIN_WORDS = 20;
 const TOLERANCE_PERCENTAGE = 0.1; // 10% de tolerancia
+const MAX_CONTENT_CHARS = 500; // Truncar contenido de artículos para reducir tokens
 
 /**
  * Genera resúmenes para cada categoría de noticias
@@ -134,8 +135,15 @@ export async function summarizeByCategory(
 
           console.log(`    📏 Máximo de palabras: ${maxWords}`);
 
-          // Preparar datos de noticias para el prompt
-          const newsData = JSON.stringify(newsInCategory, null, 2);
+          // Preparar datos de noticias para el prompt (truncar contenido para reducir tokens)
+          const trimmedNews = newsInCategory.map((article) => ({
+            title: article.title,
+            content: article.content && article.content.length > MAX_CONTENT_CHARS
+              ? article.content.slice(0, MAX_CONTENT_CHARS) + "..."
+              : article.content,
+            source: article.source,
+          }));
+          const newsData = JSON.stringify(trimmedNews, null, 2);
 
           // Preparar prompt
           const userPrompt = replacePlaceholders(SUMMARIZATION_USER_PROMPT_TEMPLATE, {
@@ -147,12 +155,10 @@ export async function summarizeByCategory(
 
           console.log(`    🧠 Llamando a IA para generar resumen...`);
 
-          // Llamar a IA
-          const summary = await generateWithRetry(
+          // Llamar a IA (GPT-4o-mini primario, Claude fallback)
+          const summary = await generateSummaryFast(
             SUMMARIZATION_SYSTEM_PROMPT,
-            userPrompt,
-            true, // usar fallback a GPT
-            AI_TIMEOUT_SUMMARIZATION
+            userPrompt
           );
 
           console.log(`    ✓ Resumen recibido`);

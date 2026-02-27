@@ -93,6 +93,7 @@ export async function GET(
       stats,
       sources,
       isComplete:
+        bulletin.status === 'scraped' ||
         bulletin.status === 'ready' ||
         bulletin.status === 'published' ||
         bulletin.status === 'failed',
@@ -118,7 +119,7 @@ function determineCurrentPhase(
   logs: BulletinLog[]
 ): 'scraping' | 'enrichment' | 'classifying' | 'summarizing' | 'completed' | 'failed' {
   if (status === 'failed') return 'failed';
-  if (status === 'ready' || status === 'published') return 'completed';
+  if (status === 'scraped' || status === 'ready' || status === 'published') return 'completed';
   if (status === 'summarizing') return 'summarizing';
   if (status === 'classifying') return 'classifying';
 
@@ -175,7 +176,7 @@ function calculateProgress(logs: BulletinLog[], bulletin: BulletinData): number 
   if (status === 'classifying') {
     progress += weights.scraping + weights.enrichment;
     progress += weights.classifying * 0.5;
-  } else if (status === 'summarizing' || status === 'ready' || status === 'published') {
+  } else if (status === 'summarizing' || status === 'scraped' || status === 'ready' || status === 'published') {
     progress += weights.scraping + weights.enrichment + weights.classifying;
   }
 
@@ -184,6 +185,11 @@ function calculateProgress(logs: BulletinLog[], bulletin: BulletinData): number 
     progress += weights.summarizing * 0.5;
   } else if (status === 'ready' || status === 'published') {
     progress += weights.summarizing;
+  }
+
+  // Scraped = scraping done, no summarization yet - show 80%
+  if (status === 'scraped') {
+    progress = 100; // Scraping pipeline complete
   }
 
   return Math.min(100, Math.round(progress));

@@ -121,10 +121,10 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
       {hasUltimaHora && (
         <div className="lg:hidden sticky top-0 z-40 bg-red-600 text-white py-3 px-4 text-center">
           <a
-            href="#ultima-hora"
+            href="#ultima-hora-mobile"
             onClick={(e) => {
               e.preventDefault();
-              document.getElementById("ultima-hora")?.scrollIntoView({ behavior: "smooth" });
+              document.getElementById("ultima-hora-mobile")?.scrollIntoView({ behavior: "smooth" });
             }}
             className="font-bold text-sm flex items-center justify-center gap-2"
           >
@@ -326,7 +326,7 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
       {/* Última Hora en mobile/tablet (al final del contenido) */}
       {hasUltimaHora && (
         <div className="lg:hidden px-6 pb-12" id="ultima-hora-mobile">
-          <div id="ultima-hora">
+          <div>
             <h2 className="text-2xl font-bold text-white bg-red-600 rounded-t-lg px-4 py-3 flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />

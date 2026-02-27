@@ -326,8 +326,8 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Actualizar status a 'ready' (listo para edición)
-    await updateBulletinStatus(bulletin.id, "ready");
+    // Actualizar status a 'scraped' (listo para revisión, pendiente de generar resúmenes)
+    await updateBulletinStatus(bulletin.id, "scraped");
 
     // Calcular duración total
     const duration = Date.now() - startTime;

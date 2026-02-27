@@ -8,7 +8,7 @@ import { generateText } from "ai";
  * - 300 segundos (5 min) para operaciones complejas (clasificar)
  */
 const AI_TIMEOUT = 60000; // 60 segundos (por defecto)
-export const AI_TIMEOUT_SUMMARIZATION = 90000; // 90 segundos para resúmenes (cada categoría individual)
+export const AI_TIMEOUT_SUMMARIZATION = 45000; // 45 segundos para resúmenes (GPT-4o-mini es rápido)
 export const AI_TIMEOUT_CLASSIFICATION = 120000; // 2 minutos para clasificación (antes era 5 min)
 
 /**
@@ -144,6 +144,62 @@ export async function generateWithRetry(
   throw new Error(
     `Error generando texto después de ${MAX_RETRIES} intentos: ${finalErrorMessage}`
   );
+}
+
+/**
+ * Genera texto optimizado para resúmenes (usa GPT-4o-mini como primario por velocidad)
+ *
+ * GPT-4o-mini es ~3x más rápido que Claude Sonnet para tareas de resumen corto.
+ * Si falla, usa Claude como fallback.
+ */
+export async function generateSummaryFast(
+  systemPrompt: string,
+  userPrompt: string,
+  timeout = AI_TIMEOUT_SUMMARIZATION
+): Promise<string> {
+  // Intentar primero con GPT-4o-mini (más rápido para resúmenes)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    const result = await generateText({
+      model: getGPTModel(),
+      system: systemPrompt,
+      prompt: userPrompt,
+      abortSignal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    return result.text;
+  } catch (error) {
+    const err = error as Error;
+    const errorMessage = err.message.includes('aborted')
+      ? 'Timeout'
+      : err.message;
+    console.warn(`    ⚠️  GPT-4o-mini falló (${errorMessage}), intentando con Claude...`);
+  }
+
+  // Fallback a Claude
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    const result = await generateText({
+      model: getClaudeModel(),
+      system: systemPrompt,
+      prompt: userPrompt,
+      abortSignal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    console.log("    ✅ Claude respondió como fallback");
+    return result.text;
+  } catch (error) {
+    const err = error as Error;
+    throw new Error(
+      `Tanto GPT como Claude fallaron para resumen: ${err.message}`
+    );
+  }
 }
 
 /**

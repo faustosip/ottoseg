@@ -158,7 +158,7 @@ async function initializeVideoBucket(): Promise<void> {
         VIDEO_BUCKET_NAME,
         {
           public: true,
-          fileSizeLimit: 50 * 1024 * 1024, // 50MB max
+          fileSizeLimit: 150 * 1024 * 1024, // 150MB max
           allowedMimeTypes: ["video/mp4"],
         }
       );

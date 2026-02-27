@@ -152,6 +152,7 @@ export const bulletins = pgTable("bulletins", {
   // Timestamps
   createdAt: timestamp("created_at").defaultNow().notNull(),
   publishedAt: timestamp("published_at"),
+  emailSentAt: timestamp("email_sent_at"),
 });
 
 /**
@@ -228,6 +229,57 @@ export const bulletinLogs = pgTable("bulletin_logs", {
 });
 
 /**
+ * Tabla de Auditoría de Boletines
+ * Registra quién autorizó, publicó o eliminó cada boletín
+ */
+export const bulletinAuditLogs = pgTable("bulletin_audit_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  bulletinId: uuid("bulletin_id")
+    .notNull()
+    .references(() => bulletins.id, { onDelete: "cascade" }),
+  action: text("action").notNull(), // "authorized", "published", "deleted"
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  userEmail: text("user_email").notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/**
+ * Tabla de Envíos de Email
+ * Registra cada email individual enviado a cada suscriptor
+ */
+export const emailSends = pgTable("email_sends", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  bulletinId: uuid("bulletin_id")
+    .notNull()
+    .references(() => bulletins.id, { onDelete: "cascade" }),
+  subscriberId: uuid("subscriber_id")
+    .references(() => subscribers.id, { onDelete: "set null" }),
+  subscriberEmail: text("subscriber_email").notNull(),
+  status: text("status").notNull().default("sent"), // sent, failed, bounced
+  trackingId: text("tracking_id").notNull().unique(),
+  openedAt: timestamp("opened_at"),
+  openCount: integer("open_count").default(0),
+  clickCount: integer("click_count").default(0),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/**
+ * Tabla de Clics en Email
+ * Registra cada clic individual en links del email
+ */
+export const emailClicks = pgTable("email_clicks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  emailSendId: uuid("email_send_id")
+    .notNull()
+    .references(() => emailSends.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  clickedAt: timestamp("clicked_at").defaultNow().notNull(),
+});
+
+/**
  * Tabla de Diseños de Boletín
  * Configuración de diferentes diseños/layouts
  */
@@ -264,6 +316,7 @@ export const subscribers = pgTable("subscribers", {
   email: text("email").notNull().unique(),
   name: text("name"),
   isActive: boolean("is_active").default(true).notNull(),
+  unsubscribeToken: text("unsubscribe_token").unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -346,6 +399,16 @@ export type BulletinLog = typeof bulletinLogs.$inferSelect;
 export type NewBulletinLog = typeof bulletinLogs.$inferInsert;
 export type BulletinDesign = typeof bulletinDesigns.$inferSelect;
 export type NewBulletinDesign = typeof bulletinDesigns.$inferInsert;
+
+// Bulletin Audit Logs table
+export type BulletinAuditLog = typeof bulletinAuditLogs.$inferSelect;
+export type NewBulletinAuditLog = typeof bulletinAuditLogs.$inferInsert;
+
+// Email tracking tables
+export type EmailSend = typeof emailSends.$inferSelect;
+export type NewEmailSend = typeof emailSends.$inferInsert;
+export type EmailClick = typeof emailClicks.$inferSelect;
+export type NewEmailClick = typeof emailClicks.$inferInsert;
 
 // Subscribers table
 export type Subscriber = typeof subscribers.$inferSelect;

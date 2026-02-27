@@ -36,6 +36,8 @@ interface EditableArticle extends ClassifiedArticle {
   isUploading?: boolean;
   editedTitle?: string;
   editedSummary?: string;
+  editedUrl?: string;
+  editedSource?: string;
 }
 
 /**
@@ -189,7 +191,9 @@ export function EditableBulletin({
         isEditing: false,
         editedTitle: undefined,
         editedSummary: undefined,
-        editedImageUrl: undefined
+        editedImageUrl: undefined,
+        editedUrl: undefined,
+        editedSource: undefined,
       });
     } else {
       // Entrar en modo edición
@@ -197,7 +201,9 @@ export function EditableBulletin({
         isEditing: true,
         editedTitle: article.enhancedTitle || article.title,
         editedSummary: article.enhancedSummary || article.content,
-        editedImageUrl: article.imageUrl || ''
+        editedImageUrl: article.imageUrl || '',
+        editedUrl: article.url || '',
+        editedSource: article.source || '',
       });
     }
   };
@@ -213,10 +219,14 @@ export function EditableBulletin({
       enhancedTitle: article.editedTitle,
       enhancedSummary: article.editedSummary,
       imageUrl: article.editedImageUrl || article.imageUrl,
+      url: article.editedUrl || article.url,
+      source: article.editedSource || article.source,
       isEditing: false,
       editedTitle: undefined,
       editedSummary: undefined,
-      editedImageUrl: undefined
+      editedImageUrl: undefined,
+      editedUrl: undefined,
+      editedSource: undefined,
     });
 
     toast.success('Cambios guardados');
@@ -467,7 +477,7 @@ export function EditableBulletin({
           <h3 className="text-lg font-semibold text-purple-900">Video del Boletín</h3>
         </div>
         <p className="text-sm text-purple-700 mb-3">
-          Sube un video MP4 para mostrar en la columna izquierda del boletín público. Máximo 50MB.
+          Sube un video MP4 para mostrar en la columna izquierda del boletín público. Máximo 150MB.
         </p>
 
         {/* Upload button */}
@@ -487,8 +497,8 @@ export function EditableBulletin({
                     return;
                   }
 
-                  if (file.size > 50 * 1024 * 1024) {
-                    toast.error("El video es demasiado grande. Máximo 50MB.");
+                  if (file.size > 150 * 1024 * 1024) {
+                    toast.error("El video es demasiado grande. Máximo 150MB.");
                     return;
                   }
 
@@ -794,16 +804,48 @@ export function EditableBulletin({
                     )}
                   </div>
 
-                  {/* Link "Leer más" */}
-                  {article.url && (
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline font-semibold"
-                    >
-                      Leer más →
-                    </a>
+                  {/* URL y Fuente */}
+                  {article.isEditing ? (
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">URL (Leer más)</label>
+                        <Input
+                          type="url"
+                          value={article.editedUrl || ''}
+                          onChange={(e) => updateArticle(
+                            category as string,
+                            article.id!,
+                            { editedUrl: e.target.value }
+                          )}
+                          placeholder="https://..."
+                          className="text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Fuente</label>
+                        <Input
+                          value={article.editedSource || ''}
+                          onChange={(e) => updateArticle(
+                            category as string,
+                            article.id!,
+                            { editedSource: e.target.value }
+                          )}
+                          placeholder="Ej: Primicias, El Comercio..."
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    article.url && (
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline font-semibold"
+                      >
+                        Leer más →
+                      </a>
+                    )
                   )}
                 </Card>
               ))}

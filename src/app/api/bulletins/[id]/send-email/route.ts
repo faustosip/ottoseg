@@ -1,24 +1,33 @@
 /**
  * API Endpoint: /api/bulletins/[id]/send-email
  *
- * POST - Send bulletin email to all active subscribers
+ * POST - Send bulletin email individually to each active subscriber with tracking
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { db } from "@/lib/db";
+import { bulletins } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 import { getBulletinById } from "@/lib/db/queries/bulletins";
 import { getActiveSubscribers } from "@/lib/db/queries/subscribers";
-import { sendBulkEmail, isEmailConfigured } from "@/lib/email";
+import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { generateBulletinEmail } from "@/lib/email/templates/bulletin";
+import { createEmailSend } from "@/lib/db/queries/email-tracking";
+import { createAuditLog } from "@/lib/db/queries/audit";
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * POST /api/bulletins/[id]/send-email
  *
- * Send bulletin email to all active subscribers
+ * Send bulletin email individually to each subscriber with tracking
  */
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -56,11 +65,23 @@ export async function POST(
       );
     }
 
+    // Prevención de envío duplicado
+    if (bulletin.emailSentAt) {
+      return NextResponse.json(
+        {
+          error: "Este boletín ya fue enviado por email",
+          sentAt: bulletin.emailSentAt,
+        },
+        { status: 400 }
+      );
+    }
+
     // Validate bulletin status
     if (bulletin.status !== "published" && bulletin.status !== "authorized") {
       return NextResponse.json(
         {
-          error: "El boletín debe estar publicado o autorizado para enviar emails",
+          error:
+            "El boletín debe estar publicado o autorizado para enviar emails",
           currentStatus: bulletin.status,
         },
         { status: 400 }
@@ -68,9 +89,9 @@ export async function POST(
     }
 
     // Get active subscribers
-    const subscribers = await getActiveSubscribers();
+    const subscriberList = await getActiveSubscribers();
 
-    if (subscribers.length === 0) {
+    if (subscriberList.length === 0) {
       return NextResponse.json(
         {
           error: "No hay suscriptores activos",
@@ -80,34 +101,87 @@ export async function POST(
       );
     }
 
-    console.log(`  Found ${subscribers.length} active subscribers`);
+    console.log(`  Found ${subscriberList.length} active subscribers`);
 
-    // Generate email content
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const webViewUrl = `${appUrl}/bulletin/${bulletin.id}`;
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "https://ottoseguridadai.com";
+    let sentCount = 0;
+    let failedCount = 0;
 
-    const { html, text, subject } = generateBulletinEmail(bulletin, {
-      webViewUrl,
-      // unsubscribeUrl could be added later if needed
-    });
+    // Envío individual con tracking por suscriptor
+    for (const subscriber of subscriberList) {
+      try {
+        const trackingId = crypto.randomUUID();
+        const unsubscribeUrl = subscriber.unsubscribeToken
+          ? `${appUrl}/api/unsubscribe/${subscriber.unsubscribeToken}`
+          : undefined;
+        const trackingPixelUrl = `${appUrl}/api/track/open/${trackingId}`;
 
-    // Send emails
-    console.log(`  Sending emails...`);
-    const result = await sendBulkEmail(
-      subscribers.map((s) => ({ email: s.email, name: s.name })),
-      subject,
-      html,
-      text
+        // Crear registro en email_sends
+        await createEmailSend(
+          bulletin.id,
+          subscriber.id,
+          subscriber.email,
+          trackingId
+        );
+
+        // Generar HTML personalizado con tracking
+        const { html, text, subject } = generateBulletinEmail(bulletin, {
+          webViewUrl: `${appUrl}/bulletin/${bulletin.id}`,
+          unsubscribeUrl,
+          subscriberName: subscriber.name || undefined,
+          trackingPixelUrl,
+          trackingBaseUrl: `${appUrl}/api/track/click/${trackingId}`,
+          trackingId,
+        });
+
+        // Enviar email individual
+        const success = await sendEmail({
+          to: subscriber.email,
+          subject,
+          html,
+          text,
+        });
+
+        if (success) {
+          sentCount++;
+        } else {
+          failedCount++;
+        }
+
+        // Rate limiting
+        await delay(100);
+      } catch (error) {
+        console.error(
+          `Error sending to ${subscriber.email}:`,
+          error
+        );
+        failedCount++;
+      }
+    }
+
+    // Marcar boletín como enviado
+    await db
+      .update(bulletins)
+      .set({ emailSentAt: new Date() })
+      .where(eq(bulletins.id, id));
+
+    // Registrar auditoría
+    await createAuditLog(id, "email_sent", {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+    }, { subscriberCount: subscriberList.length, sentCount, failedCount });
+
+    console.log(
+      `✅ Email sending completed: ${sentCount} sent, ${failedCount} failed`
     );
-
-    console.log(`✅ Email sending completed: ${result.sent} sent, ${result.failed} failed`);
 
     return NextResponse.json({
       success: true,
-      sentCount: result.sent,
-      failedCount: result.failed,
-      totalSubscribers: subscribers.length,
-      errors: result.errors.length > 0 ? result.errors : undefined,
+      sentCount,
+      failedCount,
+      totalSubscribers: subscriberList.length,
     });
   } catch (error) {
     console.error("❌ Error sending bulletin email:", error);

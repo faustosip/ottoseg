@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 export type BulletinStatus =
   | "draft"
   | "scraping"
+  | "scraped"
   | "classifying"
   | "summarizing"
   | "ready"
@@ -50,10 +51,16 @@ const STATUS_CONFIG: Record<
     showSpinner: false,
   },
   scraping: {
-    label: "Scraping...",
+    label: "Recopilando...",
     variant: "default",
     className: "bg-blue-100 text-blue-700 border-blue-300",
     showSpinner: true,
+  },
+  scraped: {
+    label: "Pendiente",
+    variant: "default",
+    className: "bg-orange-100 text-orange-700 border-orange-300",
+    showSpinner: false,
   },
   classifying: {
     label: "Clasificando...",
@@ -162,5 +169,5 @@ export function isProcessingStatus(status: BulletinStatus): boolean {
  * Verifica si un status es final (completado o fallido)
  */
 export function isFinalStatus(status: BulletinStatus): boolean {
-  return ["ready", "authorized", "published", "failed"].includes(status);
+  return ["scraped", "ready", "authorized", "published", "failed"].includes(status);
 }

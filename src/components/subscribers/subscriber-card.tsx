@@ -94,7 +94,7 @@ export function SubscriberCard({
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(subscriber.createdAt);
+  }).format(new Date(subscriber.createdAt));
 
   return (
     <>

@@ -105,7 +105,7 @@ export function NewsEditor({ bulletin, readOnly, onRegenerated }: NewsEditorProp
     }
   };
 
-  // Guardar y procesar (clasificar + resumir en un solo request)
+  // Guardar y procesar (clasificar + resumir)
   const handleSaveAndProcess = async () => {
     setIsProcessing(true);
 
@@ -124,30 +124,20 @@ export function NewsEditor({ bulletin, readOnly, onRegenerated }: NewsEditorProp
         throw new Error("Error guardando selección");
       }
 
-      // Paso 2: Clasificar + Resumir en un solo request (antes eran 2 requests separados)
-      const processResponse = await fetch(
-        `/api/bulletins/${bulletin.id}/process`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-
-      if (!processResponse.ok) {
-        const errorData = await processResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || "Error procesando boletín");
-      }
-
-      toast.success("Boletín generado", {
+      toast.success("Generando boletín...", {
         description: "Los resúmenes se generan en segundo plano.",
       });
 
-      setIsProcessing(false);
+      // Paso 2: Disparar procesamiento sin esperar (fire-and-forget)
+      fetch(`/api/bulletins/${bulletin.id}/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }).catch((err) => console.error("Error en procesamiento:", err));
 
+      // Redirigir inmediatamente
       if (onRegenerated) {
         onRegenerated();
       } else {
-        // Redirigir al boletín inmediatamente
         router.push(`/dashboard/bulletin/${bulletin.id}`);
       }
     } catch (error) {

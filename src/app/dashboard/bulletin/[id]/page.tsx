@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import { getBulletinById, getBulletinLogs } from "@/lib/db/queries/bulletins";
+import { getAuditLogsByBulletin } from "@/lib/db/queries/audit";
 import { StatusBadge } from "@/components/bulletin/status-badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { BulletinDetailTabs } from "./components/bulletin-detail-tabs";
 import { BulletinActions } from "./components/bulletin-actions";
@@ -34,8 +35,9 @@ export default async function BulletinDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Cargar logs
+  // Cargar logs y auditoría
   const logs = await getBulletinLogs(id);
+  const auditLogs = await getAuditLogsByBulletin(id);
 
   // Formatear fecha
   const formattedDate = new Intl.DateTimeFormat("es-EC", {
@@ -69,7 +71,7 @@ export default async function BulletinDetailPage({ params }: PageProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            <StatusBadge status={bulletin.status as "scraping" | "classifying" | "summarizing" | "ready" | "authorized" | "published" | "failed"} />
+            <StatusBadge status={bulletin.status as "scraping" | "scraped" | "classifying" | "summarizing" | "ready" | "authorized" | "published" | "failed"} />
           </div>
         </div>
 
@@ -80,18 +82,13 @@ export default async function BulletinDetailPage({ params }: PageProps) {
             bulletinId={id}
             status={bulletin.status}
             hasClassifiedNews={!!bulletin.classifiedNews}
+            hasVideo={!!bulletin.manualVideoUrl}
           />
 
-          {/* Compartir link público (solo si está ready, authorized o published y tiene classifiedNews) */}
-          {(bulletin.status === "ready" || bulletin.status === "authorized" || bulletin.status === "published") && bulletin.classifiedNews ? (
+          {/* Compartir link público (solo cuando está publicado) */}
+          {bulletin.status === "published" && bulletin.classifiedNews ? (
             <ShareButton bulletinId={id} bulletinDate={bulletin.date} />
           ) : null}
-
-          {/* Exportar JSON */}
-          <Button variant="outline" className="gap-2">
-            <Download className="h-4 w-4" />
-            Exportar JSON
-          </Button>
 
           {/* Eliminar */}
           <DeleteBulletinButton
@@ -103,7 +100,7 @@ export default async function BulletinDetailPage({ params }: PageProps) {
       </div>
 
       {/* Tabs de contenido */}
-      <BulletinDetailTabs bulletin={bulletin} logs={logs as Parameters<typeof BulletinDetailTabs>[0]['logs']} />
+      <BulletinDetailTabs bulletin={bulletin} logs={logs as Parameters<typeof BulletinDetailTabs>[0]['logs']} auditLogs={auditLogs} />
     </div>
   );
 }

@@ -23,13 +23,15 @@ export function BulletinList({ bulletins }: BulletinListProps) {
   return (
     <div className="bulletin-list grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {bulletins.map((bulletin) => {
-        // Determinar estado del video
-        const videoStatus = bulletin.videoStatus as
-          | "not_started"
-          | "processing"
-          | "completed"
-          | "failed"
-          | undefined;
+        // Determinar estado del video: si tiene manualVideoUrl, está completado
+        const videoStatus = bulletin.manualVideoUrl
+          ? "completed" as const
+          : (bulletin.videoStatus as
+              | "not_started"
+              | "processing"
+              | "completed"
+              | "failed"
+              | undefined);
 
         // Determinar categorías con contenido
         const categories = {
@@ -46,7 +48,7 @@ export function BulletinList({ bulletins }: BulletinListProps) {
             key={bulletin.id}
             id={bulletin.id}
             date={bulletin.date}
-            status={bulletin.status as "scraping" | "classifying" | "summarizing" | "ready" | "published" | "failed"}
+            status={bulletin.status as "scraping" | "scraped" | "classifying" | "summarizing" | "ready" | "published" | "failed"}
             totalNews={bulletin.totalNews || 0}
             videoStatus={videoStatus || "not_started"}
             categories={categories}

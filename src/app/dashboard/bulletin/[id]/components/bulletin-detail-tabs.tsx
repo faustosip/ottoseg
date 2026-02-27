@@ -7,9 +7,9 @@ import { BulletinRenderer } from "@/components/bulletin/bulletin-renderer";
 import { DesignSwitcher, useDesignPreference } from "@/components/bulletin/design-switcher";
 import { EditableBulletin } from "@/components/bulletin/editable-bulletin";
 import { NewsEditor } from "@/app/dashboard/bulletin/[id]/edit/components/news-editor";
-import type { Bulletin } from "@/lib/schema";
+import type { Bulletin, BulletinAuditLog } from "@/lib/schema";
 import type { BulletinData } from "@/components/bulletin/classic-bulletin-layout";
-import { Loader2, Edit, Newspaper } from "lucide-react";
+import { Loader2, Edit, Newspaper, Shield, CheckCircle, Send, Trash2 } from "lucide-react";
 import type { ClassifiedNews } from "@/lib/news/classifier";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ import { toast } from "sonner";
 interface BulletinDetailTabsProps {
   bulletin: Bulletin;
   logs?: unknown[];
+  auditLogs?: BulletinAuditLog[];
 }
 
 /**
@@ -26,12 +27,16 @@ interface BulletinDetailTabsProps {
  *
  * Tabs con toda la información del boletín
  */
-export function BulletinDetailTabs({ bulletin }: BulletinDetailTabsProps) {
+export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailTabsProps) {
   const [design, setDesign] = useDesignPreference("classic");
   const router = useRouter();
   const isSummarizing = bulletin.status === "summarizing";
   const isReadOnly = bulletin.status === "authorized" || bulletin.status === "published";
   const hasRawNews = !!bulletin.rawNews && Object.keys(bulletin.rawNews as Record<string, unknown>).length > 0;
+  const isScraped = bulletin.status === "scraped";
+
+  // Default to "noticias" tab when scraped (user needs to review and generate)
+  const defaultTab = isScraped && hasRawNews ? "noticias" : "resumes";
 
   // Auto-refresh when summaries are being generated in background
   useEffect(() => {
@@ -139,8 +144,8 @@ export function BulletinDetailTabs({ bulletin }: BulletinDetailTabsProps) {
   };
 
   return (
-    <Tabs defaultValue="resumes" className="w-full">
-      <TabsList className={`grid w-full ${hasRawNews ? "grid-cols-3" : "grid-cols-2"}`}>
+    <Tabs defaultValue={defaultTab} className="w-full">
+      <TabsList className={`grid w-full ${hasRawNews ? "grid-cols-4" : "grid-cols-3"}`}>
         <TabsTrigger value="resumes">Resúmenes</TabsTrigger>
         {hasRawNews && (
           <TabsTrigger value="noticias" className="flex items-center gap-1">
@@ -151,6 +156,10 @@ export function BulletinDetailTabs({ bulletin }: BulletinDetailTabsProps) {
         <TabsTrigger value="edit" className="flex items-center gap-1">
           <Edit className="h-3 w-3" />
           Editar
+        </TabsTrigger>
+        <TabsTrigger value="audit" className="flex items-center gap-1">
+          <Shield className="h-3 w-3" />
+          Auditoría
         </TabsTrigger>
       </TabsList>
 
@@ -277,6 +286,66 @@ export function BulletinDetailTabs({ bulletin }: BulletinDetailTabsProps) {
             </p>
           </div>
         )}
+      </TabsContent>
+
+      {/* Tab 4: Auditoría */}
+      <TabsContent value="audit" className="mt-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Registro de Auditoría</h3>
+          {auditLogs.length > 0 ? (
+            <div className="space-y-3">
+              {auditLogs.map((log) => {
+                const actionConfig: Record<string, { icon: React.ReactNode; label: string; badgeClass: string }> = {
+                  authorized: {
+                    icon: <CheckCircle className="h-4 w-4 text-green-600" />,
+                    label: "Autorizado",
+                    badgeClass: "bg-green-100 text-green-800",
+                  },
+                  published: {
+                    icon: <Send className="h-4 w-4 text-blue-600" />,
+                    label: "Publicado",
+                    badgeClass: "bg-blue-100 text-blue-800",
+                  },
+                  deleted: {
+                    icon: <Trash2 className="h-4 w-4 text-red-600" />,
+                    label: "Eliminado",
+                    badgeClass: "bg-red-100 text-red-800",
+                  },
+                };
+                const config = actionConfig[log.action] || {
+                  icon: <Shield className="h-4 w-4 text-gray-600" />,
+                  label: log.action,
+                  badgeClass: "bg-gray-100 text-gray-800",
+                };
+                const formattedTime = new Intl.DateTimeFormat("es-EC", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }).format(new Date(log.createdAt));
+
+                return (
+                  <div key={log.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50">
+                    {config.icon}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${config.badgeClass}`}>
+                          {config.label}
+                        </span>
+                        <span className="text-sm font-medium text-gray-900 truncate">{log.userName}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{log.userEmail}</p>
+                    </div>
+                    <span className="text-xs text-gray-400 whitespace-nowrap">{formattedTime}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Shield className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">No hay registros de auditoría para este boletín.</p>
+            </div>
+          )}
+        </div>
       </TabsContent>
 
     </Tabs>

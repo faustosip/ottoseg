@@ -148,9 +148,9 @@ export default function GenerateBulletinPage() {
           Volver a boletines
         </Link>
 
-        <h1 className="text-3xl font-bold mb-2">Scrapear Noticias</h1>
+        <h1 className="text-3xl font-bold mb-2">Generar Boletín</h1>
         <p className="text-muted-foreground">
-          Este proceso scrapeará noticias de todas las fuentes configuradas usando el pipeline híbrido (Firecrawl + Crawl4AI).
+          Recopila automáticamente las noticias más relevantes del día desde todas las fuentes configuradas.
         </p>
       </div>
 
@@ -168,19 +168,19 @@ export default function GenerateBulletinPage() {
       {!checking && !isGenerating && !bulletinId && (
         <div className="bg-card rounded-lg border p-8 text-center">
           <h2 className="text-xl font-semibold mb-4">
-            ¿Listo para scrapear las noticias?
+            ¿Listo para generar el boletín de hoy?
           </h2>
           <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
             El proceso tomará aproximadamente 1-2 minutos:
             <br />
-            • Fuente: Primicias (Economía, Política, Quito/Sociedad, Seguridad, Internacional)
+            • Recopila noticias de las principales fuentes del país
             <br />
-            • Extrae 3 noticias por sección (clasificación automática por URL)
+            • Clasifica automáticamente por categoría (Economía, Política, Sociedad, etc.)
             <br />
-            • Total aproximado: 15 artículos pre-clasificados
+            • Genera un resumen listo para revisar y publicar
           </p>
           <Button onClick={generateBulletin} size="lg">
-            Iniciar Scraping
+            Iniciar Recopilación
           </Button>
         </div>
       )}
@@ -191,13 +191,13 @@ export default function GenerateBulletinPage() {
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             <h2 className="text-xl font-semibold">
-              Esperando respuesta del servidor...
+              Recopilando noticias...
             </h2>
             <p className="text-muted-foreground max-w-md">
-              La petición se envió correctamente. Esto tomará 1-2 minutos mientras se scrapean las noticias.
+              Estamos obteniendo las noticias más recientes. Esto tomará 1-2 minutos.
             </p>
             <p className="text-sm text-muted-foreground/60">
-              Extrayendo las primeras 3 noticias de cada sección...
+              Consultando fuentes y clasificando artículos...
             </p>
           </div>
         </div>
@@ -216,7 +216,7 @@ export default function GenerateBulletinPage() {
       {error && !bulletinId && (
         <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
           <p className="text-destructive font-medium mb-2">
-            ❌ Error al iniciar el scraping
+            Error al generar el boletín
           </p>
           <p className="text-destructive/80 text-sm">{error}</p>
           <div className="mt-4">

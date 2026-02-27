@@ -72,6 +72,14 @@ services:
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID}
 
+      # SMTP Email (SendGrid)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_SECURE=${SMTP_SECURE}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+
       # Polar payment processing
       - POLAR_WEBHOOK_SECRET=${POLAR_WEBHOOK_SECRET}
       - POLAR_ACCESS_TOKEN=${POLAR_ACCESS_TOKEN}

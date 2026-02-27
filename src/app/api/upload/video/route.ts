@@ -14,8 +14,8 @@ import { v4 as uuidv4 } from "uuid";
 // Allowed video types
 const ALLOWED_TYPES = ["video/mp4"];
 
-// Max file size: 50MB
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+// Max file size: 150MB
+const MAX_FILE_SIZE = 150 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: "El archivo es demasiado grande",
-          maxSize: "50MB",
+          maxSize: "150MB",
           receivedSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
         },
         { status: 400 }

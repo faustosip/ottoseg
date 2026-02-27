@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { bulletins } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { getBulletinById } from "@/lib/db/queries/bulletins";
+import { createAuditLog } from "@/lib/db/queries/audit";
 
 /**
  * Schema de validación para PATCH
@@ -30,6 +31,7 @@ const UpdateBulletinSchema = z.object({
     .enum([
       "draft",
       "scraping",
+      "scraped",
       "classifying",
       "summarizing",
       "ready",
@@ -141,14 +143,34 @@ export async function PATCH(
 
     const updates = validationResult.data;
 
-    console.log("  Actualizando campos:", Object.keys(updates));
+    // Si se reactiva (published -> authorized), limpiar emailSentAt para permitir re-envío
+    const isReactivation = updates.status === "authorized" && existingBulletin.status === "published";
+    const dbUpdates = isReactivation
+      ? { ...updates, emailSentAt: null }
+      : updates;
+
+    console.log("  Actualizando campos:", Object.keys(dbUpdates));
 
     // Actualizar bulletin
     const [updatedBulletin] = await db
       .update(bulletins)
-      .set(updates)
+      .set(dbUpdates)
       .where(eq(bulletins.id, id))
       .returning();
+
+    // Registrar auditoría para cambios de estado importantes
+    if (updates.status === "authorized" || updates.status === "published") {
+      // Detectar reactivación (published -> authorized)
+      const action = updates.status === "authorized" && existingBulletin.status === "published"
+        ? "reactivated"
+        : updates.status;
+
+      await createAuditLog(id, action, {
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+      }, action === "reactivated" ? { previousStatus: existingBulletin.status } : undefined);
+    }
 
     console.log(`✅ Boletín actualizado: ${updatedBulletin.id}`);
 
@@ -213,6 +235,13 @@ export async function DELETE(
         { status: 403 }
       );
     }
+
+    // Registrar auditoría antes de eliminar
+    await createAuditLog(id, "deleted", {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+    }, { previousStatus: existingBulletin.status });
 
     // Eliminar bulletin (cascade eliminará logs también)
     await db.delete(bulletins).where(eq(bulletins.id, id));
