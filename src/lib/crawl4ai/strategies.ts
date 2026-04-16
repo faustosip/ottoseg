@@ -296,7 +296,7 @@ async function extractElComercioViaAPI(url: string): Promise<ScrapedArticle[]> {
       const articles: ScrapedArticle[] = [];
 
       for (const post of posts) {
-        if (articles.length >= 3) break;
+        if (articles.length >= 5) break;
 
         const titleObj = post.title as { rendered?: string } | undefined;
         const title = (titleObj?.rendered || '')
@@ -384,7 +384,7 @@ async function extractViaGoogleNewsRSS(
     const articles: ScrapedArticle[] = [];
 
     $('item').each((_, item) => {
-      if (articles.length >= 3) return false;
+      if (articles.length >= 5) return false;
 
       let title = $(item).find('title').text().trim();
       const pubDate = $(item).find('pubDate').text().trim();
@@ -455,7 +455,7 @@ async function extractEcu911ViaAPI(): Promise<ScrapedArticle[]> {
     const articles: ScrapedArticle[] = [];
 
     for (const post of posts) {
-      if (articles.length >= 3) break;
+      if (articles.length >= 5) break;
 
       const titleObj = post.title as { rendered?: string } | undefined;
       const title = (titleObj?.rendered || '')
@@ -600,7 +600,7 @@ async function extractLaHoraArticles(sectionUrl: string): Promise<ScrapedArticle
           // Find article links matching the section in their URL path
           // La Hora article URLs: /{section}/slug-YYYYMMDD-NNNN.html
           $('a[href]').each((_, el) => {
-            if (articles.length >= 3) return false;
+            if (articles.length >= 5) return false;
 
             const $a = $(el);
             let href = $a.attr('href') || '';
@@ -1144,8 +1144,8 @@ function parseHTMLWithCheerioAndConfig(
   let validArticleIndex = 0;
 
   containers.each((index, element) => {
-    // Limit to maximum 3 VALID articles per category page
-    if (articles.length >= 3) {
+    // Limit to maximum 5 VALID articles per category page
+    if (articles.length >= 5) {
       return false; // Stop iteration
     }
 
@@ -1279,8 +1279,8 @@ function parseCategoryResponseWithConfig(
   const items = Array.isArray(extracted) ? extracted : [extracted];
 
   for (const item of items) {
-    // Limit to maximum 3 articles per category page
-    if (articles.length >= 3) {
+    // Limit to maximum 5 articles per category page
+    if (articles.length >= 5) {
       break;
     }
 

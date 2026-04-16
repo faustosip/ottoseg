@@ -21,6 +21,7 @@ const ManualNewsSchema = z.object({
   title: z.string().min(1, "El título es requerido"),
   content: z.string().min(1, "El contenido es requerido"),
   category: z.string().min(1, "La categoría es requerida"),
+  subcategory: z.string().optional(),
   source: z.string().optional().default("Manual"),
   url: z.string().url().optional().or(z.literal("")),
   imageUrl: z.string().url().optional().or(z.literal("")),
@@ -82,6 +83,9 @@ export async function POST(
       url: newsData.url || "",
       source: newsData.source || "Manual",
       imageUrl: newsData.imageUrl || undefined,
+      ...(newsData.category === "ultima_hora" && newsData.subcategory
+        ? { category: newsData.subcategory }
+        : {}),
     };
 
     // Get existing classified news or create new structure

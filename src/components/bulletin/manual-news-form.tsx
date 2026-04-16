@@ -49,6 +49,7 @@ export function ManualNewsFormDialog({
     title: "",
     content: "",
     category: "",
+    subcategory: "",
     source: "Manual",
     url: "",
     imageUrl: "",
@@ -85,6 +86,7 @@ export function ManualNewsFormDialog({
       title: "",
       content: "",
       category: "",
+      subcategory: "",
       source: "Manual",
       url: "",
       imageUrl: "",
@@ -167,6 +169,9 @@ export function ManualNewsFormDialog({
           title: formData.title,
           content: formData.content,
           category: formData.category,
+          subcategory: formData.category === "ultima_hora" && formData.subcategory
+            ? formData.subcategory
+            : undefined,
           source: formData.source || "Manual",
           url: formData.url || undefined,
           imageUrl: formData.imageUrl || undefined,
@@ -234,7 +239,7 @@ export function ManualNewsFormDialog({
               <Select
                 value={formData.category}
                 onValueChange={(value: string) =>
-                  setFormData((prev) => ({ ...prev, category: value }))
+                  setFormData((prev) => ({ ...prev, category: value, subcategory: "" }))
                 }
               >
                 <SelectTrigger className={errors.category ? "border-red-500" : ""}>
@@ -252,6 +257,37 @@ export function ManualNewsFormDialog({
                 <p className="text-sm text-red-500">{errors.category}</p>
               )}
             </div>
+
+            {/* Subcategory - only when ultima_hora is selected */}
+            {formData.category === "ultima_hora" && (
+              <div className="grid gap-2">
+                <Label htmlFor="subcategory">
+                  Subcategoría (opcional)
+                </Label>
+                <Select
+                  value={formData.subcategory}
+                  onValueChange={(value: string) =>
+                    setFormData((prev) => ({ ...prev, subcategory: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una subcategoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories
+                      .filter((cat) => cat.value !== "ultima_hora")
+                      .map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Agrupa esta noticia bajo una categoría temática en Última Hora
+                </p>
+              </div>
+            )}
 
             {/* Content */}
             <div className="grid gap-2">

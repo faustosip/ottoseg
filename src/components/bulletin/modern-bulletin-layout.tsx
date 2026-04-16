@@ -138,6 +138,7 @@ interface NewsItemCardProps {
   newsItem: {
     title: string;
     content: string;
+    fullContent?: string;
     url?: string;
     source?: string;
   };
@@ -185,7 +186,7 @@ function NewsItemCard({ categoryName, newsItem }: NewsItemCardProps) {
             color: "#1f2937",
           }}
         >
-          {newsItem.content}
+          {newsItem.fullContent || newsItem.content}
         </p>
 
         {/* Link "Leer más" */}

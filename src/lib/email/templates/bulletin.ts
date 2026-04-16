@@ -14,9 +14,11 @@ import type { Bulletin } from "@/lib/schema";
 interface ClassifiedNewsItem {
   title: string;
   content?: string;
+  fullContent?: string;
   imageUrl?: string;
   url?: string;
   source?: string;
+  category?: string;
 }
 
 // Category configuration - matches public view order
@@ -33,6 +35,32 @@ const APP_URL = "https://ottoseguridadai.com";
 const LOGO_BUHO = `${APP_URL}/logos/buho-seguridad.png`;
 const LOGO_OTTO = `${APP_URL}/logos/otto-logo.png`;
 const CONTACT_EMAIL = "informacion2@ottoseguridad.com.ec";
+
+/**
+ * Clean text of URLs, hashtags, and promotional content for email display
+ */
+function cleanEmailText(text: string): string {
+  return text
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/www\.\S+/g, "")
+    .replace(/#\w+/g, "")
+    .replace(/pic\.twitter\.com\/\S+/g, "")
+    .replace(/Más información:\s*/gi, "")
+    .replace(/Contenido Patrocinado\s*/gi, "")
+    .replace(/(?:siguiente\s+)?enlace:\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
+ * Truncate text to approximately N sentences
+ */
+function truncateEmailText(text: string, maxSentences: number = 5): string {
+  const cleaned = cleanEmailText(text);
+  const sentences = cleaned.match(/[^.!?]+[.!?]+/g);
+  if (!sentences || sentences.length <= maxSentences) return cleaned;
+  return sentences.slice(0, maxSentences).join(" ").trim();
+}
 
 /**
  * Format date for email display
@@ -74,21 +102,23 @@ function renderArticle(
               </tr>`
     : "";
 
+  const cleanTitle = cleanEmailText(article.title);
   const titleHtml = `
               <tr>
                 <td style="padding: 0 0 8px 0;">
                   <h3 style="color: #1e3a5f; font-size: 18px; margin: 0; font-weight: bold; line-height: 1.3;">
-                    ${article.title}
+                    ${cleanTitle}
                   </h3>
                 </td>
               </tr>`;
 
-  const contentHtml = article.content
+  const displayContent = article.content || article.fullContent;
+  const contentHtml = displayContent
     ? `
               <tr>
                 <td style="padding: 0 0 10px 0;">
                   <p style="color: #374151; font-size: 15px; line-height: 1.7; margin: 0;">
-                    ${article.content}
+                    ${truncateEmailText(displayContent, 5)}
                   </p>
                 </td>
               </tr>`
@@ -205,25 +235,29 @@ export function generateBulletinEmail(
     .filter(Boolean)
     .join("");
 
-  // Última Hora section
-  const ultimaHoraHtml = hasUltimaHora
-    ? `
-          <!-- &Uacute;ltima Hora -->
-          <tr>
-            <td style="padding: 30px 30px 0 30px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                <tr>
-                  <td style="background-color: #dc2626; border-radius: 8px 8px 0 0; padding: 14px 20px;">
-                    <h2 style="color: #ffffff; font-size: 20px; margin: 0; font-weight: bold;">
-                      &#9889; &Uacute;LTIMA HORA
-                    </h2>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 8px 8px; padding: 20px;">
-                    ${ultimaHoraNews
-                      .map(
-                        (article) => `
+  // Última Hora section - group by subcategory
+  let ultimaHoraContentHtml = "";
+  if (hasUltimaHora) {
+    // Build category name lookup from CATEGORIES array
+    const catNameMap: Record<string, string> = {};
+    for (const c of CATEGORIES) {
+      catNameMap[c.key] = c.name;
+    }
+
+    // Group articles by subcategory
+    const uhGrouped: Record<string, ClassifiedNewsItem[]> = {};
+    for (const article of ultimaHoraNews) {
+      const key = article.category || "";
+      if (!uhGrouped[key]) uhGrouped[key] = [];
+      uhGrouped[key].push(article);
+    }
+    const uhKeys = Object.keys(uhGrouped).sort((a, b) => {
+      if (a === "") return 1;
+      if (b === "") return -1;
+      return (catNameMap[a] || a).localeCompare(catNameMap[b] || b);
+    });
+
+    const renderUhArticle = (article: ClassifiedNewsItem) => `
                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px;">
                         ${
                           article.imageUrl
@@ -237,16 +271,16 @@ export function generateBulletinEmail(
                         <tr>
                           <td style="padding: 0 0 6px 0;">
                             <h4 style="color: #111827; font-size: 16px; margin: 0; font-weight: bold; line-height: 1.3;">
-                              ${article.title}
+                              ${cleanEmailText(article.title)}
                             </h4>
                           </td>
                         </tr>
                         ${
-                          article.content
+                          (article.content || article.fullContent)
                             ? `<tr>
                           <td style="padding: 0 0 8px 0;">
                             <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0;">
-                              ${article.content}
+                              ${truncateEmailText(article.content || article.fullContent || "", 4)}
                             </p>
                           </td>
                         </tr>`
@@ -263,11 +297,46 @@ export function generateBulletinEmail(
                         </tr>`
                             : ""
                         }
+                      </table>`;
+
+    const separator = '<table role="presentation" width="100%"><tr><td><hr style="border: none; border-top: 1px solid #f3f4f6; margin: 4px 0 16px 0;" /></td></tr></table>';
+
+    const groupsHtml = uhKeys.map((key) => {
+      const articles = uhGrouped[key];
+      const label = key ? (catNameMap[key] || key) : "";
+      const headerHtml = label
+        ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 12px;">
+                        <tr>
+                          <td style="padding: 8px 0 4px 0; border-bottom: 2px solid #dc2626;">
+                            <h3 style="color: #991b1b; font-size: 13px; margin: 0; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+                              ${label}
+                            </h3>
+                          </td>
+                        </tr>
                       </table>`
-                      )
-                      .join(
-                        '<table role="presentation" width="100%"><tr><td><hr style="border: none; border-top: 1px solid #f3f4f6; margin: 4px 0 16px 0;" /></td></tr></table>'
-                      )}
+        : "";
+      return headerHtml + articles.map(renderUhArticle).join(separator);
+    });
+
+    ultimaHoraContentHtml = groupsHtml.join(separator);
+  }
+
+  const ultimaHoraHtml = hasUltimaHora
+    ? `
+          <!-- &Uacute;ltima Hora -->
+          <tr>
+            <td style="padding: 30px 30px 0 30px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="background-color: #dc2626; border-radius: 8px 8px 0 0; padding: 14px 20px;">
+                    <h2 style="color: #ffffff; font-size: 20px; margin: 0; font-weight: bold;">
+                      &#9889; &Uacute;LTIMA HORA
+                    </h2>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 8px 8px; padding: 20px;">
+                    ${ultimaHoraContentHtml}
                   </td>
                 </tr>
               </table>
@@ -393,7 +462,7 @@ export function generateBulletinEmail(
           <tr>
             <td style="padding: 25px 30px 10px 30px;">
               <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0;">
-                ${greeting} Aqu&iacute; est&aacute; tu resumen de noticias del d&iacute;a.
+                ${greeting} Aqu&iacute; est&aacute; su resumen de noticias del d&iacute;a.
               </p>
             </td>
           </tr>
@@ -469,23 +538,43 @@ export function generateBulletinEmail(
     .filter(Boolean)
     .join("\n\n");
 
-  // Última Hora plain text
-  const ultimaHoraText = hasUltimaHora
-    ? `\n\nÚLTIMA HORA\n${"=".repeat(40)}${ultimaHoraNews
-        .map((a) => {
-          let t = `\n\n${a.title}`;
-          if (a.content) t += `\n${a.content}`;
-          if (a.url) t += `\nLeer más: ${a.url}`;
-          return t;
-        })
-        .join("")}`
-    : "";
+  // Última Hora plain text - grouped by subcategory
+  let ultimaHoraText = "";
+  if (hasUltimaHora) {
+    const catNameMap: Record<string, string> = {};
+    for (const c of CATEGORIES) {
+      catNameMap[c.key] = c.name;
+    }
+    const uhGrouped: Record<string, ClassifiedNewsItem[]> = {};
+    for (const a of ultimaHoraNews) {
+      const key = a.category || "";
+      if (!uhGrouped[key]) uhGrouped[key] = [];
+      uhGrouped[key].push(a);
+    }
+    const uhKeys = Object.keys(uhGrouped).sort((a, b) => {
+      if (a === "") return 1;
+      if (b === "") return -1;
+      return (catNameMap[a] || a).localeCompare(catNameMap[b] || b);
+    });
+
+    ultimaHoraText = `\n\nÚLTIMA HORA\n${"=".repeat(40)}`;
+    for (const key of uhKeys) {
+      if (key) {
+        ultimaHoraText += `\n\n--- ${(catNameMap[key] || key).toUpperCase()} ---`;
+      }
+      for (const a of uhGrouped[key]) {
+        ultimaHoraText += `\n\n${a.title}`;
+        if (a.content) ultimaHoraText += `\n${a.content}`;
+        if (a.url) ultimaHoraText += `\nLeer más: ${a.url}`;
+      }
+    }
+  }
 
   const text = `
 RESUMEN DIARIO DE NOTICIAS
 ${formattedDate}
 
-${options?.subscriberName ? `Buenos días, ${options.subscriberName}.` : "Buenos días."} Aquí está tu resumen de noticias del día.
+${options?.subscriberName ? `Buenos días, ${options.subscriberName}.` : "Buenos días."} Aquí está su resumen de noticias del día.
 
 ${textSections}
 ${ultimaHoraText}

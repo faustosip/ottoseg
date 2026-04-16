@@ -1,6 +1,9 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { user } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 import {
   getDashboardKPIs,
   getBulletinTrend,
@@ -16,6 +19,18 @@ import { FileText, Users, MailOpen, Newspaper } from "lucide-react";
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/");
+
+  // If user has restricted menus and no dashboard access, redirect to their first allowed page
+  const [userData] = await db
+    .select({ allowedMenus: user.allowedMenus })
+    .from(user)
+    .where(eq(user.id, session.user.id));
+
+  if (userData?.allowedMenus && !userData.allowedMenus.includes("dashboard")) {
+    if (userData.allowedMenus.includes("boletines")) {
+      redirect("/dashboard/bulletin");
+    }
+  }
 
   const [kpis, bulletinTrend, emailPerformance, newsByCategory, newsBySource, pipeline, recentActivity] =
     await Promise.all([

@@ -55,7 +55,7 @@ NOTICIAS A CLASIFICAR:
 Responde con un objeto JSON con esta estructura exacta:
 {
   "economia": [
-    { "title": "Título de la noticia", "content": "Contenido...", "url": "https://...", "source": "nombre_fuente", "imageUrl": "https://..." }
+    { "title": "Título profesional y conciso", "content": "Resumen de 4-5 líneas...", "url": "https://...", "source": "nombre_fuente", "imageUrl": "https://..." }
   ],
   "politica": [...],
   "sociedad": [...],
@@ -69,7 +69,21 @@ IMPORTANTE:
 - Cada noticia debe tener: title, content, url, source
 - Si la noticia tiene imageUrl, DEBES incluirla en la clasificación (es OBLIGATORIO preservar este campo)
 - NO agregues texto explicativo, solo el JSON
-- Clasifica TODAS las noticias proporcionadas`;
+- Clasifica TODAS las noticias proporcionadas
+
+REGLAS PARA TITLE (título):
+- Reescribe el título de forma PROFESIONAL y CONCISA (máximo 15 palabras)
+- Elimina caracteres especiales innecesarios como | o pipes
+- No incluyas el nombre de la fuente en el título
+- El título debe ser informativo y claro, estilo periódico profesional
+
+REGLAS PARA CONTENT (resumen):
+- Escribe un resumen de 4 a 5 líneas bien redactadas del texto original
+- El resumen debe capturar la esencia de la noticia sin perder contexto
+- NO incluyas URLs, enlaces, hashtags ni contenido promocional
+- NO incluyas texto como "Más información:", "Contenido Patrocinado", "pic.twitter.com" etc.
+- Redacta en tono profesional, objetivo e informativo
+- Usa oraciones completas y bien estructuradas`;
 
 // ============================================================================
 // GENERACIÓN DE RESÚMENES

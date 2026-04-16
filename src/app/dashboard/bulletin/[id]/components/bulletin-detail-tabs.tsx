@@ -9,8 +9,9 @@ import { EditableBulletin } from "@/components/bulletin/editable-bulletin";
 import { NewsEditor } from "@/app/dashboard/bulletin/[id]/edit/components/news-editor";
 import type { Bulletin, BulletinAuditLog } from "@/lib/schema";
 import type { BulletinData } from "@/components/bulletin/classic-bulletin-layout";
-import { Loader2, Edit, Newspaper, Shield, CheckCircle, Send, Trash2 } from "lucide-react";
-import type { ClassifiedNews } from "@/lib/news/classifier";
+import { Loader2, Edit, Newspaper, Shield, CheckCircle, Send, Trash2, Download } from "lucide-react";
+import type { ClassifiedNews, ClassifiedArticle } from "@/lib/news/classifier";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 /**
@@ -34,6 +35,8 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
   const isReadOnly = bulletin.status === "authorized" || bulletin.status === "published";
   const hasRawNews = !!bulletin.rawNews && Object.keys(bulletin.rawNews as Record<string, unknown>).length > 0;
   const isScraped = bulletin.status === "scraped";
+
+  const [isFetchingContent, setIsFetchingContent] = useState(false);
 
   // Default to "noticias" tab when scraped (user needs to review and generate)
   const defaultTab = isScraped && hasRawNews ? "noticias" : "resumes";
@@ -59,6 +62,14 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
 
   // Convertir Bulletin a BulletinData para los layouts
   const classifiedNews = bulletin.classifiedNews as ClassifiedNews | null;
+
+  // Check if articles are missing fullContent
+  const missingFullContent = (() => {
+    if (!classifiedNews) return false;
+    return Object.values(classifiedNews).some((articles: ClassifiedArticle[]) =>
+      articles.some((a) => !a.fullContent || a.fullContent.length < 200)
+    );
+  })();
 
   // Helper para obtener la primera imagen de una categoría
   const getFirstImageUrl = (newsArray: ClassifiedNews[keyof ClassifiedNews] | undefined): string | undefined => {
@@ -91,6 +102,29 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
     internacional: buildCategoryData("internacional", "Internacional", bulletin.internacional),
     vial: buildCategoryData("vial", "Vial", bulletin.vial),
     roadClosureMapUrl: bulletin.roadClosureMapUrl,
+  };
+
+  // Fetch full article content from source URLs
+  const handleFetchFullContent = async () => {
+    setIsFetchingContent(true);
+    try {
+      const response = await fetch(`/api/bulletins/${bulletin.id}/fetch-full-content`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al obtener contenido completo');
+      }
+
+      const result = await response.json();
+      toast.success(`Contenido obtenido: ${result.stats.enriched} artículos enriquecidos`);
+      window.location.reload();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error al obtener contenido completo de las noticias');
+    } finally {
+      setIsFetchingContent(false);
+    }
   };
 
   // Función para guardar cambios del boletín editado
@@ -270,6 +304,31 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
 
       {/* Tab 3: Editar */}
       <TabsContent value="edit" className="mt-6">
+        {classifiedNews && missingFullContent && (
+          <div className="mb-4 flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800">
+                Algunos artículos no tienen contenido completo
+              </p>
+              <p className="text-xs text-amber-600">
+                Haz clic para obtener el contenido completo de las noticias desde las fuentes originales.
+              </p>
+            </div>
+            <Button
+              onClick={handleFetchFullContent}
+              disabled={isFetchingContent}
+              variant="outline"
+              className="gap-2 border-amber-500 text-amber-700 hover:bg-amber-100"
+            >
+              {isFetchingContent ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {isFetchingContent ? "Obteniendo..." : "Obtener Contenido Completo"}
+            </Button>
+          </div>
+        )}
         {classifiedNews ? (
           <EditableBulletin
             bulletinId={bulletin.id}

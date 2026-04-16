@@ -35,9 +35,11 @@ export interface ClassifiedNews {
 export interface ClassifiedArticle {
   title: string;
   content: string;
+  fullContent?: string;
   url?: string;
   source?: string;
   imageUrl?: string;
+  category?: string;
 }
 
 /**

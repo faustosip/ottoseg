@@ -245,7 +245,7 @@ export function ClassicBulletinV2({
                       marginBottom: "20px",
                     }}
                   >
-                    {cleanContent(article.content)}
+                    {cleanContent(article.fullContent || article.content)}
                   </p>
 
                   {/* Link "Leer más" */}

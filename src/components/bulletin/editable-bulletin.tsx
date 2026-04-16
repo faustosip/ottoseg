@@ -7,6 +7,13 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Trash2,
   Edit,
   Save,
@@ -28,6 +35,7 @@ import type { ClassifiedNews, ClassifiedArticle } from "@/lib/news/classifier";
  */
 interface EditableArticle extends ClassifiedArticle {
   id?: string;
+  fullContent?: string;
   enhancedTitle?: string;
   enhancedSummary?: string;
   editedImageUrl?: string;
@@ -38,6 +46,8 @@ interface EditableArticle extends ClassifiedArticle {
   editedSummary?: string;
   editedUrl?: string;
   editedSource?: string;
+  editedCategory?: string;
+  editedSubcategory?: string;
 }
 
 /**
@@ -85,7 +95,7 @@ export function EditableBulletin({
         ...article,
         id: `${category}-${index}`,
         enhancedTitle: article.title,
-        enhancedSummary: article.content,
+        enhancedSummary: article.fullContent || article.content,
         isEditing: false,
         isEnhancing: false
       }));
@@ -194,6 +204,8 @@ export function EditableBulletin({
         editedImageUrl: undefined,
         editedUrl: undefined,
         editedSource: undefined,
+        editedCategory: undefined,
+        editedSubcategory: undefined,
       });
     } else {
       // Entrar en modo edición
@@ -204,6 +216,8 @@ export function EditableBulletin({
         editedImageUrl: article.imageUrl || '',
         editedUrl: article.url || '',
         editedSource: article.source || '',
+        editedCategory: category,
+        editedSubcategory: article.category || '',
       });
     }
   };
@@ -215,21 +229,75 @@ export function EditableBulletin({
     const article = bulletinData[category].find(a => a.id === articleId);
     if (!article) return;
 
-    updateArticle(category, articleId, {
+    const newCategory = article.editedCategory || category;
+    const categoryChanged = newCategory !== category;
+
+    // Determine subcategory: only set when target category is ultima_hora
+    const targetCategory = newCategory;
+    const subcategoryValue = targetCategory === "ultima_hora"
+      ? (article.editedSubcategory || undefined)
+      : undefined;
+
+    const updatedArticle: EditableArticle = {
+      ...article,
       enhancedTitle: article.editedTitle,
       enhancedSummary: article.editedSummary,
       imageUrl: article.editedImageUrl || article.imageUrl,
       url: article.editedUrl || article.url,
       source: article.editedSource || article.source,
+      category: subcategoryValue,
       isEditing: false,
       editedTitle: undefined,
       editedSummary: undefined,
       editedImageUrl: undefined,
       editedUrl: undefined,
       editedSource: undefined,
-    });
+      editedCategory: undefined,
+      editedSubcategory: undefined,
+    };
 
-    toast.success('Cambios guardados');
+    if (categoryChanged) {
+      // Move article from old category to new category
+      setBulletinData(prev => {
+        const newData = { ...prev };
+
+        // Remove from old category
+        newData[category] = newData[category].filter(a => a.id !== articleId);
+        // Recompute IDs for old category
+        newData[category] = newData[category].map((a, idx) => ({
+          ...a,
+          id: `${category}-${idx}`,
+        }));
+
+        // Add to new category (create array if it doesn't exist)
+        const targetArticles = [...(newData[newCategory] || [])];
+        updatedArticle.id = `${newCategory}-${targetArticles.length}`;
+        targetArticles.push(updatedArticle);
+        newData[newCategory] = targetArticles;
+
+        return newData;
+      });
+      toast.success(`Noticia movida a ${categoryNames[newCategory] || newCategory}`);
+    } else {
+      updateArticle(category, articleId, {
+        enhancedTitle: updatedArticle.enhancedTitle,
+        enhancedSummary: updatedArticle.enhancedSummary,
+        imageUrl: updatedArticle.imageUrl,
+        url: updatedArticle.url,
+        source: updatedArticle.source,
+        category: updatedArticle.category,
+        isEditing: false,
+        editedTitle: undefined,
+        editedSummary: undefined,
+        editedImageUrl: undefined,
+        editedUrl: undefined,
+        editedSource: undefined,
+        editedCategory: undefined,
+        editedSubcategory: undefined,
+      });
+      toast.success('Cambios guardados');
+    }
+
     setHasChanges(true);
   };
 
@@ -345,11 +413,11 @@ export function EditableBulletin({
         dataToSave[category] = bulletinData[category].map(article => ({
           title: article.enhancedTitle || article.title,
           content: article.enhancedSummary || article.content,
+          fullContent: article.fullContent,
           url: article.url,
           source: article.source,
           imageUrl: article.imageUrl,
-          // Solo incluir los campos que forman parte de ClassifiedArticle
-          // No agregar campos adicionales como originalTitle/originalContent
+          ...(article.category ? { category: article.category } : {}),
         }));
       });
 
@@ -650,6 +718,63 @@ export function EditableBulletin({
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
+
+                  {/* Selector de categoría en modo edición */}
+                  {article.isEditing && (
+                    <div className="mb-4 flex gap-4">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Categoría</label>
+                        <Select
+                          value={article.editedCategory || category}
+                          onValueChange={(value) => updateArticle(
+                            category as string,
+                            article.id!,
+                            { editedCategory: value, editedSubcategory: value === "ultima_hora" ? (article.editedSubcategory || "") : "" }
+                          )}
+                        >
+                          <SelectTrigger className="w-64">
+                            <SelectValue placeholder="Seleccionar categoría" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(categoryNames)
+                              .sort(([a], [b]) => (categoryOrders[a] ?? 999) - (categoryOrders[b] ?? 999))
+                              .map(([slug, displayName]) => (
+                                <SelectItem key={slug} value={slug}>
+                                  {displayName}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {(article.editedCategory || category) === "ultima_hora" && (
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Subcategoría</label>
+                          <Select
+                            value={article.editedSubcategory || ""}
+                            onValueChange={(value) => updateArticle(
+                              category as string,
+                              article.id!,
+                              { editedSubcategory: value }
+                            )}
+                          >
+                            <SelectTrigger className="w-64">
+                              <SelectValue placeholder="Sin subcategoría" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(categoryNames)
+                                .filter(([slug]) => slug !== "ultima_hora")
+                                .sort(([a], [b]) => (categoryOrders[a] ?? 999) - (categoryOrders[b] ?? 999))
+                                .map(([slug, displayName]) => (
+                                  <SelectItem key={slug} value={slug}>
+                                    {displayName}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Imagen arriba (layout vertical) */}
                   {article.isEditing ? (

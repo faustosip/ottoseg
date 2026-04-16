@@ -17,6 +17,7 @@ import {
   updateBulletinClassification,
 } from "@/lib/db/queries/bulletins";
 import { summarizeByCategory } from "@/lib/news/summarizer";
+import { enrichBulletinFullContent } from "@/lib/news/content-fetcher";
 import type { ClassifiedNews, ClassifiedArticle } from "@/lib/news/classifier";
 import type { ScrapeResult, ScrapedArticle } from "@/lib/news/scraper";
 
@@ -131,8 +132,15 @@ export async function POST(
     const duration = Date.now() - startTime;
     console.log(`✅ Procesamiento instantáneo en ${duration}ms - Resúmenes generándose en background`);
 
-    // Step 3: Fire-and-forget summarization in background
+    // Step 3: Fire-and-forget background tasks
     // This works because the app runs as standalone Node.js (output: "standalone")
+
+    // 3a: Fetch full article content from source URLs
+    void enrichBulletinFullContent(bulletinId).catch((err) => {
+      console.error("❌ Background full-content fetch failed:", err);
+    });
+
+    // 3b: Generate AI summaries
     void summarizeByCategory(classified, bulletinId).catch((err) => {
       console.error("❌ Background summarization failed:", err);
       void updateBulletinStatus(bulletinId, "failed").catch(() => {});

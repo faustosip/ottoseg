@@ -11,11 +11,86 @@ interface PublicBulletinViewProps {
 }
 
 /**
+ * Limpia texto de URLs, hashtags y contenido promocional
+ */
+function cleanDisplayText(text: string): string {
+  return text
+    // Remove URLs (http/https/www)
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/www\.\S+/g, "")
+    // Remove hashtags
+    .replace(/#\w+/g, "")
+    // Remove "pic.twitter.com" and similar
+    .replace(/pic\.twitter\.com\/\S+/g, "")
+    // Remove "Más información:" prefixes
+    .replace(/Más información:\s*/gi, "")
+    // Remove "Contenido Patrocinado" and similar promo text
+    .replace(/Contenido Patrocinado\s*/gi, "")
+    // Remove "enlace:" prefixes
+    .replace(/(?:siguiente\s+)?enlace:\s*/gi, "")
+    // Clean up multiple spaces and newlines
+    .replace(/\s{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Trunca texto a un número aproximado de líneas (oraciones)
+ */
+function truncateToLines(text: string, maxSentences: number = 5): string {
+  const cleaned = cleanDisplayText(text);
+  // Split by sentence boundaries
+  const sentences = cleaned.match(/[^.!?]+[.!?]+/g);
+  if (!sentences || sentences.length <= maxSentences) return cleaned;
+  return sentences.slice(0, maxSentences).join(" ").trim();
+}
+
+/**
  * Vista pública del boletín - Layout de 3 columnas
  * Columna izquierda: Video | Centro: Noticias | Derecha: Última Hora
  */
 export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinViewProps) {
-  const classifiedNews = bulletin.classifiedNews as Record<string, ClassifiedArticle[]> | null;
+  const rawClassifiedNews = bulletin.classifiedNews as Record<string, ClassifiedArticle[]> | null;
+
+  // Merge fullContent from fullArticles into classifiedNews for backward compatibility
+  const classifiedNews = (() => {
+    if (!rawClassifiedNews) return null;
+
+    const fullArticles = bulletin.fullArticles as Record<string, Array<{ url?: string; title?: string; fullContent?: string }>> | null;
+    if (!fullArticles) return rawClassifiedNews;
+
+    // Check if classifiedNews already has fullContent
+    const hasFullContent = Object.values(rawClassifiedNews).some(
+      articles => articles.some(a => a.fullContent)
+    );
+    if (hasFullContent) return rawClassifiedNews;
+
+    // Build lookup map from fullArticles
+    const fullContentMap = new Map<string, string>();
+    for (const articles of Object.values(fullArticles)) {
+      if (!Array.isArray(articles)) continue;
+      for (const article of articles) {
+        if (article.fullContent) {
+          if (article.url) fullContentMap.set(article.url, article.fullContent);
+          if (article.title) fullContentMap.set(article.title.trim().toLowerCase(), article.fullContent);
+        }
+      }
+    }
+
+    if (fullContentMap.size === 0) return rawClassifiedNews;
+
+    // Merge
+    const merged: Record<string, ClassifiedArticle[]> = {};
+    for (const [category, articles] of Object.entries(rawClassifiedNews)) {
+      merged[category] = articles.map(article => {
+        const fc = (article.url && fullContentMap.get(article.url))
+          || fullContentMap.get(article.title.trim().toLowerCase());
+        return fc ? { ...article, fullContent: fc } : article;
+      });
+    }
+    return merged;
+  })();
+
   const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
   const [categoryOrders, setCategoryOrders] = useState<Record<string, number>>({});
 
@@ -52,6 +127,30 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
   // Separar "ultima_hora" del resto de categorías
   const ultimaHoraNews = classifiedNews.ultima_hora || [];
   const hasUltimaHora = ultimaHoraNews.length > 0;
+
+  // Agrupar última hora por subcategoría
+  const ultimaHoraGroups: { category: string; label: string; articles: ClassifiedArticle[] }[] = [];
+  if (hasUltimaHora) {
+    const grouped: Record<string, ClassifiedArticle[]> = {};
+    for (const article of ultimaHoraNews) {
+      const key = article.category || "";
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(article);
+    }
+    // Subcategorías primero (ordenadas por nombre), luego los sin subcategoría
+    const keys = Object.keys(grouped).sort((a, b) => {
+      if (a === "") return 1;
+      if (b === "") return -1;
+      return (categoryNames[a] || a).localeCompare(categoryNames[b] || b);
+    });
+    for (const key of keys) {
+      ultimaHoraGroups.push({
+        category: key,
+        label: key ? (categoryNames[key] || key) : "",
+        articles: grouped[key],
+      });
+    }
+  }
 
   // Categorías principales (excluyendo ultima_hora), ordenadas por displayOrder
   const categoriesWithNews = Object.entries(classifiedNews)
@@ -117,26 +216,68 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
         </div>
       </header>
 
-      {/* Link móvil a Última Hora - solo visible en mobile/tablet */}
+      {/* Última Hora en mobile/tablet (antes del video) */}
       {hasUltimaHora && (
-        <div className="lg:hidden sticky top-0 z-40 bg-red-600 text-white py-3 px-4 text-center">
-          <a
-            href="#ultima-hora-mobile"
-            onClick={(e) => {
-              e.preventDefault();
-              document.getElementById("ultima-hora-mobile")?.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="font-bold text-sm flex items-center justify-center gap-2"
-          >
-            Ir a Última Hora
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
-          </a>
+        <div className="lg:hidden px-6 pt-6" id="ultima-hora-mobile">
+          <div>
+            <h2 className="text-2xl font-bold text-white bg-red-600 rounded-t-lg px-4 py-3 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              ÚLTIMA HORA
+            </h2>
+            <div className="border border-t-0 border-gray-200 rounded-b-lg divide-y divide-gray-100">
+              {ultimaHoraGroups.map((group) => (
+                <div key={`uh-mobile-group-${group.category}`}>
+                  {group.label && (
+                    <div className="px-4 pt-3 pb-1">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-red-700">
+                        {group.label}
+                      </h3>
+                    </div>
+                  )}
+                  {group.articles.map((article: ClassifiedArticle, index: number) => (
+                    <div key={`uh-mobile-${group.category}-${index}`} className="p-4">
+                      {article.imageUrl && (
+                        <div className="w-full h-48 bg-gray-100 mb-3 rounded-lg overflow-hidden">
+                          <Image
+                            src={article.imageUrl}
+                            alt={article.title}
+                            width={600}
+                            height={192}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.parentElement!.style.display = "none";
+                            }}
+                          />
+                        </div>
+                      )}
+                      <h4 className="font-bold text-base text-gray-900 leading-snug mb-2">
+                        {cleanDisplayText(article.title)}
+                      </h4>
+                      <p className="text-sm text-gray-600 leading-relaxed line-clamp-5">
+                        {truncateToLines(article.content || article.fullContent || "", 5)}
+                      </p>
+                      {article.url && (
+                        <a
+                          href={article.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block mt-2 text-sm text-blue-600 hover:text-blue-800 font-semibold"
+                        >
+                          Leer más
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Video en mobile/tablet (arriba del contenido, oculto en desktop) */}
+      {/* Video en mobile/tablet (después de Última Hora, oculto en desktop) */}
       {hasVideo && (
         <div className="lg:hidden px-6 py-6">
           <h2 className="text-xl font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -235,13 +376,13 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
                     )}
 
                     {/* Contenido de la noticia */}
-                    <div className="space-y-4">
-                      <h3 className="text-2xl font-bold text-blue-900 leading-tight">
-                        {article.title}
+                    <div className="space-y-3">
+                      <h3 className="text-xl font-bold text-blue-900 leading-snug">
+                        {cleanDisplayText(article.title)}
                       </h3>
 
-                      <p className="text-gray-700 text-lg leading-relaxed">
-                        {article.content}
+                      <p className="text-gray-700 text-base leading-relaxed">
+                        {truncateToLines(article.content || article.fullContent || "", 5)}
                       </p>
 
                       {article.url && (
@@ -293,24 +434,35 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
             </h2>
             {hasUltimaHora ? (
               <div className="border border-t-0 border-gray-200 rounded-b-lg divide-y divide-gray-100">
-                {ultimaHoraNews.map((article: ClassifiedArticle, index: number) => (
-                  <div key={`uh-${index}`} className="p-4">
-                    <h4 className="font-bold text-sm text-gray-900 leading-snug mb-2">
-                      {article.title}
-                    </h4>
-                    <p className="text-xs text-gray-600 leading-relaxed line-clamp-4">
-                      {article.content}
-                    </p>
-                    {article.url && (
-                      <a
-                        href={article.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block mt-2 text-xs text-blue-600 hover:text-blue-800 font-semibold"
-                      >
-                        Leer más
-                      </a>
+                {ultimaHoraGroups.map((group) => (
+                  <div key={`uh-group-${group.category}`}>
+                    {group.label && (
+                      <div className="px-4 pt-3 pb-1 bg-gray-50">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-red-700">
+                          {group.label}
+                        </h3>
+                      </div>
                     )}
+                    {group.articles.map((article: ClassifiedArticle, index: number) => (
+                      <div key={`uh-${group.category}-${index}`} className="p-4">
+                        <h4 className="font-bold text-sm text-gray-900 leading-snug mb-2">
+                          {cleanDisplayText(article.title)}
+                        </h4>
+                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-4">
+                          {truncateToLines(article.content || article.fullContent || "", 4)}
+                        </p>
+                        {article.url && (
+                          <a
+                            href={article.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block mt-2 text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                          >
+                            Leer más
+                          </a>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -322,56 +474,6 @@ export function PublicBulletinView({ bulletin, formattedDate }: PublicBulletinVi
           </div>
         </aside>
       </div>
-
-      {/* Última Hora en mobile/tablet (al final del contenido) */}
-      {hasUltimaHora && (
-        <div className="lg:hidden px-6 pb-12" id="ultima-hora-mobile">
-          <div>
-            <h2 className="text-2xl font-bold text-white bg-red-600 rounded-t-lg px-4 py-3 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              ÚLTIMA HORA
-            </h2>
-            <div className="border border-t-0 border-gray-200 rounded-b-lg divide-y divide-gray-100">
-              {ultimaHoraNews.map((article: ClassifiedArticle, index: number) => (
-                <div key={`uh-mobile-${index}`} className="p-4">
-                  {article.imageUrl && (
-                    <div className="w-full h-48 bg-gray-100 mb-3 rounded-lg overflow-hidden">
-                      <Image
-                        src={article.imageUrl}
-                        alt={article.title}
-                        width={600}
-                        height={192}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.parentElement!.style.display = "none";
-                        }}
-                      />
-                    </div>
-                  )}
-                  <h4 className="font-bold text-lg text-gray-900 leading-snug mb-2">
-                    {article.title}
-                  </h4>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    {article.content}
-                  </p>
-                  {article.url && (
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block mt-2 text-sm text-blue-600 hover:text-blue-800 font-semibold"
-                    >
-                      Leer más
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Footer profesional con logos */}
       <footer className="bg-gradient-to-r from-gray-900 to-black text-white mt-20">
