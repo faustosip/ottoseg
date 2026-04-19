@@ -53,3 +53,7 @@ __pycache__
 
 # Remotion output
 output
+
+# Audit reports and agent memory (no deben ir en la imagen)
+audit
+.claude

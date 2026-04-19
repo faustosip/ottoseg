@@ -6,9 +6,13 @@
 
 import { NextResponse } from "next/server";
 import { scrapeAllSources } from "@/lib/news/scraper";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export async function GET() {
   try {
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
+
     console.log("🚀 Iniciando test de Crawl4AI...\n");
 
     const result = await scrapeAllSources();
@@ -50,7 +54,12 @@ export async function GET() {
       {
         success: false,
         error: "Error interno",
-        message: (error as Error).message,
+        // En producción no se expone el mensaje crudo ni el stack para evitar
+        // fuga de información sobre la arquitectura interna.
+        message:
+          process.env.NODE_ENV === "development"
+            ? (error as Error).message
+            : undefined,
         stack: process.env.NODE_ENV === "development" ? (error as Error).stack : undefined,
       },
       { status: 500 }

@@ -16,6 +16,7 @@ import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { generateBulletinEmail } from "@/lib/email/templates/bulletin";
 import { createEmailSend } from "@/lib/db/queries/email-tracking";
 import { createAuditLog } from "@/lib/db/queries/audit";
+import { errorResponse } from "@/lib/http/error-response";
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -103,8 +104,19 @@ export async function POST(
 
     console.log(`  Found ${subscriberList.length} active subscribers`);
 
+    // La URL pública de la app se usa para construir enlaces (unsubscribe,
+    // web view, tracking pixel). Si falta en producción es un error
+    // configurable — fallamos temprano. En desarrollo caemos a localhost.
+    const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL;
     const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL || "https://ottoseguridadai.com";
+      configuredAppUrl ||
+      (process.env.NODE_ENV === "production"
+        ? (() => {
+            throw new Error(
+              "NEXT_PUBLIC_APP_URL no está configurado en producción"
+            );
+          })()
+        : "http://localhost:3000");
     let sentCount = 0;
     let failedCount = 0;
 
@@ -185,13 +197,6 @@ export async function POST(
     });
   } catch (error) {
     console.error("❌ Error sending bulletin email:", error);
-
-    return NextResponse.json(
-      {
-        error: "Error enviando emails",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error enviando emails", 500, error);
   }
 }

@@ -6,8 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireAdmin } from "@/lib/auth-guard";
 import {
   getActiveCategories,
   getAllCategories,
@@ -19,15 +18,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const all = searchParams.get("all") === "true";
 
-    // Si piden todas, requiere autenticación
+    // Listar TODAS (activas + inactivas) requiere admin
     if (all) {
-      const session = await auth.api.getSession({
-        headers: await headers(),
-      });
-
-      if (!session) {
-        return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-      }
+      const guard = await requireAdmin();
+      if (!guard.ok) return guard.response;
 
       const categories = await getAllCategories();
       return NextResponse.json({ categories });
@@ -47,13 +41,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const body = await request.json();
     const { name, displayName, displayOrder } = body;

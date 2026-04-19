@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { uploadVideoFile } from "@/lib/storage/supabase-storage";
 import { v4 as uuidv4 } from "uuid";
+import { errorResponse } from "@/lib/http/error-response";
 
 // Allowed video types
 const ALLOWED_TYPES = ["video/mp4"];
@@ -88,12 +89,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("❌ Error subiendo video:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error al subir el video",
-        details: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error al subir el video", 500, error);
   }
 }

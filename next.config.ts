@@ -11,6 +11,41 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Headers de seguridad aplicados a todas las respuestas.
+  // Referencias: OWASP Secure Headers Project, MDN.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // Evita que el navegador adivine el Content-Type y ejecute contenido
+          // subido como HTML/JS.
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Impide que la app se embeba en iframes de terceros (clickjacking).
+          { key: "X-Frame-Options", value: "DENY" },
+          // Controla qué información de Referer se envía a orígenes cruzados.
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          // Desactiva APIs sensibles del navegador por defecto.
+          {
+            key: "Permissions-Policy",
+            value:
+              "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+          // HSTS: fuerza HTTPS durante 2 años, incluyendo subdominios.
+          // Seguro activarlo aquí porque los únicos despliegues oficiales son
+          // HTTPS (ottoseguridadai.com). Cambiar a `max-age=0` si se necesita
+          // probar sobre HTTP temporalmente.
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+        ],
+      },
+    ];
+  },
   // Excluir Remotion del webpack bundle para evitar conflictos en build
   webpack: (config, { isServer }) => {
     if (isServer) {

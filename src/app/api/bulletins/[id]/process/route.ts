@@ -20,6 +20,7 @@ import { summarizeByCategory } from "@/lib/news/summarizer";
 import { enrichBulletinFullContent } from "@/lib/news/content-fetcher";
 import type { ClassifiedNews, ClassifiedArticle } from "@/lib/news/classifier";
 import type { ScrapeResult, ScrapedArticle } from "@/lib/news/scraper";
+import { errorResponse } from "@/lib/http/error-response";
 
 /**
  * Build classifiedNews instantly from rawNews by grouping articles
@@ -158,12 +159,6 @@ export async function POST(
   } catch (error) {
     console.error("❌ Error en procesamiento:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error procesando boletín",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error procesando boletín", 500, error);
   }
 }

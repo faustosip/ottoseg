@@ -12,6 +12,7 @@ import { db } from '@/lib/db';
 import { bulletins } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
 import { createBulletinLog } from '@/lib/db/queries/bulletins';
+import { errorResponse } from '@/lib/http/error-response';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -92,12 +93,6 @@ export async function PUT(
     });
   } catch (error) {
     console.error('Error actualizando boletín:', error);
-    return NextResponse.json(
-      {
-        error: 'Error interno del servidor',
-        details: error instanceof Error ? error.message : 'Error desconocido'
-      },
-      { status: 500 }
-    );
+    return errorResponse('Error interno del servidor', 500, error);
   }
 }

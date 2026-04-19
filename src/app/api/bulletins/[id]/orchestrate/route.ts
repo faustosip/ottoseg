@@ -11,6 +11,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { bulletins } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
+import { requireActiveUser } from '@/lib/auth-guard';
+import { errorResponse } from '@/lib/http/error-response';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -25,6 +28,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const startTime = Date.now();
 
   try {
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
+
+    // Rate limit: 3 por hora por usuario (pipeline completo, muy caro).
+    const rl = await checkRateLimit('orchestrate', guard.session.user.id, 3, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl);
+
     const { id } = await context.params;
 
     console.log(`🎬 Iniciando pipeline de video para boletín ${id}`);
@@ -42,7 +52,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // 2. Verificar que haya noticias seleccionadas
-    const selectedNews = (bulletin.selectedNews as any[]) || [];
+    const selectedNews =
+      (bulletin.selectedNews as Array<Record<string, unknown>> | null) || [];
     if (selectedNews.length === 0) {
       return NextResponse.json(
         {
@@ -166,17 +177,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
       .where(eq(bulletins.id, id));
 
-    return NextResponse.json(
-      {
-        error: 'Error en el pipeline de video',
-        details: error instanceof Error ? error.message : 'Error desconocido',
-        timing: {
-          totalSeconds: ((Date.now() - startTime) / 1000).toFixed(1),
-          failedAt: new Date().toISOString(),
-        },
+    return errorResponse('Error en el pipeline de video', 500, error, {
+      timing: {
+        totalSeconds: ((Date.now() - startTime) / 1000).toFixed(1),
+        failedAt: new Date().toISOString(),
       },
-      { status: 500 }
-    );
+    });
   }
 }
 
@@ -187,6 +193,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
+
     const { id } = await context.params;
 
     const bulletin = await db.query.bulletins.findFirst({
@@ -209,7 +218,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const categoryVideos = bulletin.categoryVideos as Record<
       string,
-      any
+      { mp4Url?: string; duration?: number; simliUrl?: string }
     > | null;
 
     return NextResponse.json({

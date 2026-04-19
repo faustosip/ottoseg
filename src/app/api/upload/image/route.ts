@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { uploadFile } from "@/lib/storage/supabase-storage";
 import { v4 as uuidv4 } from "uuid";
+import { errorResponse } from "@/lib/http/error-response";
 
 // Allowed image types
 const ALLOWED_TYPES = [
@@ -96,12 +97,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("❌ Error subiendo imagen:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error al subir la imagen",
-        details: (error as Error).message
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error al subir la imagen", 500, error);
   }
 }

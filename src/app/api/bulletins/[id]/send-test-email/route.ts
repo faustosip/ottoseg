@@ -10,6 +10,7 @@ import { headers } from "next/headers";
 import { getBulletinById } from "@/lib/db/queries/bulletins";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { generateBulletinEmail } from "@/lib/email/templates/bulletin";
+import { errorResponse } from "@/lib/http/error-response";
 
 /**
  * POST /api/bulletins/[id]/send-test-email
@@ -50,10 +51,27 @@ export async function POST(
       );
     }
 
-    // Allow custom recipient email from request body
+    // Restricción: los emails de prueba solo pueden enviarse al email del
+    // usuario autenticado. Permitir destinatarios arbitrarios aquí convertiría
+    // el endpoint en un relay para enviar correo desde el dominio corporativo
+    // a cualquier dirección del mundo, habilitando spoofing/phishing.
     const body = await request.json().catch(() => ({}));
-    const recipientEmail = body.email || session.user.email;
+    const requestedEmail: string | undefined = body.email;
+    const recipientEmail = session.user.email;
     const recipientName = body.name || session.user.name || undefined;
+
+    if (
+      requestedEmail &&
+      requestedEmail.toLowerCase() !== session.user.email.toLowerCase()
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "El email de prueba solo puede enviarse a la dirección del usuario autenticado.",
+        },
+        { status: 403 }
+      );
+    }
 
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://ottoseguridadai.com";
@@ -85,12 +103,6 @@ export async function POST(
   } catch (error) {
     console.error("❌ Error sending test email:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error enviando email de prueba",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error enviando email de prueba", 500, error);
   }
 }

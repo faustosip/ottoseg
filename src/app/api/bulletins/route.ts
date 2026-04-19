@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { getAllBulletins } from "@/lib/db/queries/bulletins";
+import { errorResponse } from "@/lib/http/error-response";
 
 /**
  * GET /api/bulletins
@@ -72,12 +73,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("❌ Error obteniendo boletines:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error obteniendo boletines",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error obteniendo boletines", 500, error);
   }
 }

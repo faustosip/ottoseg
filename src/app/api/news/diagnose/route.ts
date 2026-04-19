@@ -6,20 +6,18 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { getActiveSources } from "@/lib/db/queries/sources";
 import * as cheerio from "cheerio";
 import { getCategoryExtractionConfig } from "@/lib/crawl4ai/config";
+import { requireActiveUser } from "@/lib/auth-guard";
+import { fetchWithSizeLimit } from "@/lib/net/safe-fetch";
+import { errorResponse } from "@/lib/http/error-response";
 
 export const maxDuration = 60;
 
 async function testUrl(url: string, baseSelector: string) {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(url, {
+    const response = await fetchWithSizeLimit(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -27,12 +25,11 @@ async function testUrl(url: string, baseSelector: string) {
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
       },
-      signal: controller.signal,
+      timeoutMs: 10_000,
+      maxBytes: 5 * 1024 * 1024,
     });
 
-    clearTimeout(timeoutId);
-
-    const html = await response.text();
+    const html = response.text;
     const $ = cheerio.load(html);
     const matchCount = $(baseSelector).length;
     const pageTitle = $("title").text().trim().substring(0, 200);
@@ -61,10 +58,7 @@ async function testUrl(url: string, baseSelector: string) {
  */
 async function testLaHoraHomepage() {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
-
-    const response = await fetch("https://www.lahora.com.ec/", {
+    const response = await fetchWithSizeLimit("https://www.lahora.com.ec/", {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -73,11 +67,11 @@ async function testLaHoraHomepage() {
         "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
         Referer: "https://www.google.com/",
       },
-      signal: controller.signal,
+      timeoutMs: 12_000,
+      maxBytes: 5 * 1024 * 1024,
     });
-    clearTimeout(timeoutId);
 
-    const html = await response.text();
+    const html = response.text;
     const $ = cheerio.load(html);
 
     // Count article links per section
@@ -118,13 +112,12 @@ async function testGoogleNewsRSS(section: string) {
     const query = `site:lahora.com.ec/${section} when:3d`;
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=es-419&gl=EC&ceid=EC:es-419`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const response = await fetchWithSizeLimit(rssUrl, {
+      timeoutMs: 10_000,
+      maxBytes: 5 * 1024 * 1024,
+    });
 
-    const response = await fetch(rssUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    const rssXml = await response.text();
+    const rssXml = response.text;
     const $ = cheerio.load(rssXml, { xmlMode: true });
     const items: string[] = [];
     $("item").each((_, item) => {
@@ -151,13 +144,8 @@ async function testGoogleNewsRSS(section: string) {
 
 export async function GET() {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
 
     const sources = await getActiveSources();
     const results: Record<string, unknown> = {};
@@ -206,9 +194,7 @@ export async function GET() {
       results,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 }
-    );
+    console.error("Error en diagnose:", error);
+    return errorResponse("Error ejecutando diagnóstico", 500, error);
   }
 }

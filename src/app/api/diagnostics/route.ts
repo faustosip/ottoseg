@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireSession, requireAdmin } from "@/lib/auth-guard";
 
 type StatusLevel = "ok" | "warn" | "error";
 
@@ -28,6 +29,16 @@ interface DiagnosticsResponse {
 }
 
 export async function GET(req: Request) {
+  // Requiere sesión válida para cualquier respuesta útil.
+  const sessionGuard = await requireSession();
+  if (!sessionGuard.ok) return sessionGuard.response;
+
+  // Usuarios no-admin reciben una respuesta mínima sin filtrar config/env.
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.ok) {
+    return NextResponse.json({ status: "ok" }, { status: 200 });
+  }
+
   const env = {
     POSTGRES_URL: Boolean(process.env.POSTGRES_URL),
     BETTER_AUTH_SECRET: Boolean(process.env.BETTER_AUTH_SECRET),

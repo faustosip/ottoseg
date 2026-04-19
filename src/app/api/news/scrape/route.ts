@@ -20,6 +20,7 @@ import {
 } from "@/lib/db/queries/bulletins";
 import { scrapeAllSources, enrichWithFullContent, type ScrapedArticle } from "@/lib/news/scraper";
 import { checkCrawl4AIHealth } from "@/lib/crawl4ai";
+import { errorResponse } from "@/lib/http/error-response";
 
 // Timeout máximo del servidor: 4 minutos (debe ser menor que el frontend de 5 min)
 export const maxDuration = 240;
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    console.log(`🔐 Usuario autenticado: ${session.user.email}`);
+    console.log(`🔐 Usuario autenticado: ${session.user.id}`);
 
     // Verificar salud de Crawl4AI antes de iniciar
     console.log("🏥 Verificando conexión con Crawl4AI...");
@@ -378,12 +379,6 @@ export async function POST(request: NextRequest) {
       console.error("Error logging failure:", logError);
     }
 
-    return NextResponse.json(
-      {
-        error: "Error scrapeando noticias",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error scrapeando noticias", 500, error);
   }
 }

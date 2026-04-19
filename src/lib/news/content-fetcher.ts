@@ -11,6 +11,7 @@ import {
   updateBulletinClassification,
 } from "@/lib/db/queries/bulletins";
 import type { ClassifiedArticle } from "@/lib/news/classifier";
+import { assertAllowedUrl, fetchWithSizeLimit } from "@/lib/net/safe-fetch";
 
 /**
  * Content selectors per source domain
@@ -172,14 +173,19 @@ async function fetchElComercioContent(url: string): Promise<string | null> {
 
   try {
     const apiUrl = `https://www.elcomercio.com/wp-json/wp/v2/posts?slug=${encodeURIComponent(slug)}&_fields=content`;
-    const response = await fetch(apiUrl, {
+
+    // Validar hostname + IP (anti-SSRF). Si falla, simplemente no seguimos.
+    await assertAllowedUrl(apiUrl);
+
+    const response = await fetchWithSizeLimit(apiUrl, {
       headers: { "User-Agent": "Mozilla/5.0" },
-      signal: AbortSignal.timeout(15000),
+      timeoutMs: 15_000,
+      maxBytes: 5 * 1024 * 1024,
     });
 
     if (!response.ok) return null;
 
-    const data = await response.json();
+    const data = JSON.parse(response.text);
     if (!Array.isArray(data) || data.length === 0) return null;
 
     const htmlContent = data[0]?.content?.rendered;
@@ -226,7 +232,10 @@ export async function fetchArticleFullContent(
       return await fetchElComercioContent(url);
     }
 
-    const response = await fetch(url, {
+    // Validar URL contra allowlist + resolver DNS (anti-SSRF)
+    await assertAllowedUrl(url);
+
+    const response = await fetchWithSizeLimit(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -234,7 +243,8 @@ export async function fetchArticleFullContent(
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "es-EC,es;q=0.9,en;q=0.8",
       },
-      signal: AbortSignal.timeout(15000),
+      timeoutMs: 15_000,
+      maxBytes: 5 * 1024 * 1024,
     });
 
     if (!response.ok) {
@@ -242,7 +252,7 @@ export async function fetchArticleFullContent(
       return null;
     }
 
-    const html = await response.text();
+    const html = response.text;
 
     // CDN challenge detection (< 5KB = likely challenge page)
     if (html.length < 5000) {

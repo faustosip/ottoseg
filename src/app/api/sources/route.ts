@@ -6,9 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { requireAdmin } from '@/lib/auth-guard';
 import { getAllSources, createSource } from '@/lib/db/queries/sources';
+import { errorResponse } from '@/lib/http/error-response';
 
 /**
  * GET /api/sources
@@ -16,14 +16,8 @@ import { getAllSources, createSource } from '@/lib/db/queries/sources';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Validar autenticación
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     // Obtener parámetros de query
     const { searchParams } = new URL(request.url);
@@ -43,13 +37,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error getting sources:', error);
-    return NextResponse.json(
-      {
-        error: 'Error obteniendo fuentes',
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse('Error obteniendo fuentes', 500, error);
   }
 }
 
@@ -59,14 +47,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Validar autenticación
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     // Obtener datos del body
     const body = await request.json();
@@ -95,12 +77,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error creating source:', error);
-    return NextResponse.json(
-      {
-        error: 'Error creando fuente',
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse('Error creando fuente', 500, error);
   }
 }

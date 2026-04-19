@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getTodayBulletin } from "@/lib/db/queries/bulletins";
+import { errorResponse } from "@/lib/http/error-response";
 
 /**
  * GET /api/cron/daily-bulletin
@@ -180,16 +181,24 @@ export async function GET(request: NextRequest) {
 
     const totalDuration = Date.now() - startTime;
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Error ejecutando pipeline",
-        message: (error as Error).message,
-        executedAt: new Date().toISOString(),
-        totalDuration: `${(totalDuration / 1000).toFixed(2)}s`,
-        pipeline,
-      },
-      { status: 500 }
-    );
+    // En producción, no exponer el campo `error` de cada paso del pipeline
+    // (puede contener detalles internos). Los logs quedan en el servidor.
+    const isDev = process.env.NODE_ENV === "development";
+    const safePipeline = isDev
+      ? pipeline
+      : Object.fromEntries(
+          Object.entries(pipeline).map(([k, v]) => {
+            const copy: PipelineStep = { ...v };
+            delete copy.error;
+            return [k, copy];
+          })
+        );
+
+    return errorResponse("Error ejecutando pipeline", 500, error, {
+      success: false,
+      executedAt: new Date().toISOString(),
+      totalDuration: `${(totalDuration / 1000).toFixed(2)}s`,
+      pipeline: safePipeline,
+    });
   }
 }

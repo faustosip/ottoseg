@@ -1,0 +1,9 @@
+- [Admin role convention](admin_role_convention.md) — cómo se deriva "admin" en el schema actual
+- [Auth guard pattern](auth_guard_pattern.md) — guards reutilizables añadidos en src/lib/auth-guard.ts
+- [Debug endpoints risk](debug_endpoints_risk.md) — endpoints /api/debug son sensibles (SSRF, costes)
+- [Bulletin endpoints auth gap](bulletin_endpoints_auth_gap.md) — varios endpoints de bulletins carecían de auth
+- [Dependency vulns baseline](dependency_vulns_baseline.md) — estado de pnpm audit en abril 2026
+- [Error response helper](error_response_helper.md) — errorResponse() oculta detalles en prod
+- [Safe fetch helpers](safe_fetch_helpers.md) — anti-SSRF + tope de bytes + Simli HLS allowlist
+- [Infrastructure surface](infrastructure_surface.md) — Docker + Traefik + Swarm audit checklist
+- [External services surface](external_services_surface.md) — mapa de Supabase/MinIO/Firecrawl/Crawl4AI/Simli/ElevenLabs/SMTP/Polar

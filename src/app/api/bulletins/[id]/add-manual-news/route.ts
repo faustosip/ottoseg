@@ -13,6 +13,37 @@ import { bulletins } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { getBulletinById } from "@/lib/db/queries/bulletins";
 import type { ClassifiedArticle } from "@/lib/news/classifier";
+import { errorResponse } from "@/lib/http/error-response";
+
+/**
+ * Categorías y subcategorías se restringen a un slug seguro y no pueden
+ * coincidir con nombres reservados (`__proto__`, `constructor`, `prototype`)
+ * para evitar prototype pollution al hacer spread / indexación dinámica.
+ */
+const CATEGORY_SLUG_REGEX = /^[a-z0-9_-]{1,32}$/;
+const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+const categorySlug = z
+  .string()
+  .min(1, "La categoría es requerida")
+  .regex(
+    CATEGORY_SLUG_REGEX,
+    "La categoría solo puede contener letras minúsculas, números, guiones y guiones bajos (máx 32 caracteres)"
+  )
+  .refine((v) => !RESERVED_KEYS.has(v), {
+    message: "Nombre de categoría no permitido",
+  });
+
+const subcategorySlug = z
+  .string()
+  .regex(
+    CATEGORY_SLUG_REGEX,
+    "La subcategoría solo puede contener letras minúsculas, números, guiones y guiones bajos (máx 32 caracteres)"
+  )
+  .refine((v) => !RESERVED_KEYS.has(v), {
+    message: "Nombre de subcategoría no permitido",
+  })
+  .optional();
 
 /**
  * Schema for manual news - accepts any category string (dynamic categories)
@@ -20,8 +51,8 @@ import type { ClassifiedArticle } from "@/lib/news/classifier";
 const ManualNewsSchema = z.object({
   title: z.string().min(1, "El título es requerido"),
   content: z.string().min(1, "El contenido es requerido"),
-  category: z.string().min(1, "La categoría es requerida"),
-  subcategory: z.string().optional(),
+  category: categorySlug,
+  subcategory: subcategorySlug,
   source: z.string().optional().default("Manual"),
   url: z.string().url().optional().or(z.literal("")),
   imageUrl: z.string().url().optional().or(z.literal("")),
@@ -88,8 +119,17 @@ export async function POST(
         : {}),
     };
 
-    // Get existing classified news or create new structure
-    const existingClassified = (bulletin.classifiedNews as Record<string, ClassifiedArticle[]> | null) || {};
+    // Get existing classified news or create new structure.
+    // Creamos un objeto SIN prototipo para evitar que una categoría llamada
+    // `__proto__` en datos previos contamine el prototype chain.
+    const rawExisting =
+      (bulletin.classifiedNews as Record<string, ClassifiedArticle[]> | null) || {};
+    const existingClassified: Record<string, ClassifiedArticle[]> =
+      Object.create(null);
+    for (const [key, value] of Object.entries(rawExisting)) {
+      if (RESERVED_KEYS.has(key)) continue;
+      existingClassified[key] = value;
+    }
 
     // Add the new article to the appropriate category
     const category = newsData.category;
@@ -118,13 +158,6 @@ export async function POST(
     });
   } catch (error) {
     console.error("❌ Error adding manual news:", error);
-
-    return NextResponse.json(
-      {
-        error: "Error agregando noticia",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error agregando noticia", 500, error);
   }
 }

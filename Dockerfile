@@ -35,9 +35,11 @@ ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-# Dummy env vars for build time only (real values provided at runtime)
+# Dummy env vars for build time only (real values provided at runtime).
+# These are scoped to the builder stage and never reach the final runner image.
+# If the runtime ever sees these values, the app must refuse to boot (see src/lib/auth.ts).
 ENV POSTGRES_URL="postgresql://build:build@localhost:5432/build"
-ENV BETTER_AUTH_SECRET="build-time-secret-not-used-in-production"
+ENV BETTER_AUTH_SECRET="__BUILD_ONLY_PLACEHOLDER_REFUSE_AT_RUNTIME__"
 
 # Build the application (without db:migrate for build stage)
 RUN pnpm run build:ci

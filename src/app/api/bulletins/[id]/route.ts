@@ -84,10 +84,13 @@ export async function GET(
   } catch (error) {
     console.error("❌ Error obteniendo boletín:", error);
 
+    const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       {
         error: "Error obteniendo boletín",
-        message: (error as Error).message,
+        ...(isDev && error instanceof Error
+          ? { message: error.message }
+          : {}),
       },
       { status: 500 }
     );
@@ -181,10 +184,13 @@ export async function PATCH(
   } catch (error) {
     console.error("❌ Error actualizando boletín:", error);
 
+    const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       {
         error: "Error actualizando boletín",
-        message: (error as Error).message,
+        ...(isDev && error instanceof Error
+          ? { message: error.message }
+          : {}),
       },
       { status: 500 }
     );
@@ -256,10 +262,13 @@ export async function DELETE(
   } catch (error) {
     console.error("❌ Error eliminando boletín:", error);
 
+    const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       {
         error: "Error eliminando boletín",
-        message: (error as Error).message,
+        ...(isDev && error instanceof Error
+          ? { message: error.message }
+          : {}),
       },
       { status: 500 }
     );

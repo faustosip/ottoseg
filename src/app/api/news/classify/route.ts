@@ -14,6 +14,7 @@ import {
   updateBulletinClassification,
 } from "@/lib/db/queries/bulletins";
 import { classifyNews, type ClassifiedArticle, type ClassifiedNews } from "@/lib/news/classifier";
+import { errorResponse } from "@/lib/http/error-response";
 
 // Allow up to 3 minutes for AI classification
 export const maxDuration = 180;
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    console.log(`🔐 Usuario autenticado: ${session.user.email}`);
+    console.log(`🔐 Usuario autenticado: ${session.user.id}`);
 
     // Parsear y validar body
     const body = await request.json();
@@ -178,13 +179,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error("❌ Error en clasificación:", error);
-
-    return NextResponse.json(
-      {
-        error: "Error clasificando noticias",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error clasificando noticias", 500, error);
   }
 }

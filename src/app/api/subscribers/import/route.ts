@@ -5,9 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireAdmin } from "@/lib/auth-guard";
 import { bulkCreateSubscribers } from "@/lib/db/queries/subscribers";
+import { errorResponse } from "@/lib/http/error-response";
 
 /**
  * POST /api/subscribers/import
@@ -17,14 +17,8 @@ import { bulkCreateSubscribers } from "@/lib/db/queries/subscribers";
  */
 export async function POST(request: NextRequest) {
   try {
-    // Validate authentication
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     // Parse body - can be JSON array or FormData with CSV file
     const contentType = request.headers.get("content-type") || "";
@@ -104,12 +98,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("❌ Error importing subscribers:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error importando suscriptores",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error importando suscriptores", 500, error);
   }
 }

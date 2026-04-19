@@ -1,10 +1,9 @@
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { user, account } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/auth-guard";
 
 const updateUserSchema = z.object({
   isActive: z.boolean().optional(),
@@ -14,19 +13,15 @@ const updateUserSchema = z.object({
 
 /**
  * PUT /api/admin/users/[id] - Actualizar usuario (isActive, allowedMenus, password)
+ * Solo administradores.
  */
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const { id } = await params;
     const body = await request.json();

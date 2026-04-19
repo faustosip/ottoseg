@@ -16,6 +16,7 @@ import {
   getPipelinePerformance,
   getRecentActivity,
 } from "@/lib/db/queries/dashboard";
+import { errorResponse } from "@/lib/http/error-response";
 
 export async function GET() {
   try {
@@ -49,9 +50,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error("❌ Error loading dashboard stats:", error);
-    return NextResponse.json(
-      { error: "Error cargando estadísticas", message: (error as Error).message },
-      { status: 500 }
-    );
+    return errorResponse("Error cargando estadísticas", 500, error);
   }
 }

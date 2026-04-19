@@ -8,9 +8,13 @@ import { NextResponse } from "next/server";
 import { getCrawl4AIClient } from "@/lib/crawl4ai/client";
 import { getCategoryExtractionConfig } from "@/lib/crawl4ai/config";
 import type { Crawl4AIRequestConfig } from "@/lib/crawl4ai/types";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export async function GET() {
   try {
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
+
     const testUrl = "https://www.primicias.ec/politica/";
     const source = "Primicias";
 
@@ -124,8 +128,12 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error: (error as Error).message,
-        stack: (error as Error).stack,
+        error:
+          process.env.NODE_ENV === "development"
+            ? (error as Error).message
+            : "Error interno",
+        stack:
+          process.env.NODE_ENV === "development" ? (error as Error).stack : undefined,
       },
       { status: 500 }
     );

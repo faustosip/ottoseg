@@ -5,9 +5,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth-guard";
+import { errorResponse } from "@/lib/http/error-response";
 
 export async function GET(_request: NextRequest) {
   try {
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
+
     const apiKey = process.env.FIRECRAWL_API_KEY;
     const baseUrl = process.env.FIRECRAWL_API_URL || "https://api.firecrawl.dev";
     const apiUrl = baseUrl.endsWith("/v1/scrape")
@@ -26,7 +31,6 @@ export async function GET(_request: NextRequest) {
 
     console.log(`🔍 Testing Firecrawl health check...`);
     console.log(`   API URL: ${apiUrl}`);
-    console.log(`   API Key: ${apiKey.substring(0, 10)}...`);
 
     // Hacer un scrape simple de Google (siempre disponible)
     const testUrl = "https://www.google.com";
@@ -89,13 +93,8 @@ export async function GET(_request: NextRequest) {
   } catch (error) {
     console.error("❌ Error en health check:", error);
 
-    return NextResponse.json(
-      {
-        status: "error",
-        message: (error as Error).message,
-        errorType: (error as Error).name,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error en health check de Firecrawl", 500, error, {
+      status: "error",
+    });
   }
 }

@@ -13,6 +13,47 @@ import path from 'path';
 import { mkdir } from 'fs/promises';
 import { uploadFile } from '@/lib/storage/minio';
 import { readFile, unlink } from 'fs/promises';
+import { requireActiveUser } from '@/lib/auth-guard';
+import { errorResponse } from '@/lib/http/error-response';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { z } from 'zod';
+
+// Schema que valida cada entrada de selectedNews antes de pasarla a Remotion.
+// Mantenemos los campos opcionales porque históricamente el origen es JSON libre;
+// sin validación, cualquier cambio upstream podría filtrar datos inesperados
+// hacia el bundle.
+const SelectedNewsItemSchema = z
+  .object({
+    category: z.string().min(1),
+    title: z.string().min(1),
+    summary: z.string().optional(),
+    content: z.string().optional(),
+    imageUrl: z.string().optional(),
+    url: z.string().optional(),
+    source: z.string().optional(),
+  })
+  .passthrough();
+
+type SelectedNewsItem = z.infer<typeof SelectedNewsItemSchema>;
+
+interface CategoryVideoEntry {
+  mp4Url: string;
+  duration: number;
+}
+
+interface RemotionNewsInput extends SelectedNewsItem {
+  avatarVideoUrl: string | null;
+  duration: number;
+}
+
+// Remotion requiere que los inputProps sean compatibles con un índice de
+// string. Lo garantizamos con la firma indexada.
+interface RemotionInputProps {
+  bulletinDate: string;
+  news: RemotionNewsInput[];
+  totalDuration: number;
+  [key: string]: unknown;
+}
 
 // Force dynamic rendering (no static optimization)
 export const dynamic = 'force-dynamic';
@@ -31,6 +72,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   let tempVideoPath: string | null = null;
 
   try {
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
+
+    // Rate limit: 3 por hora por usuario (render de Remotion, CPU intensivo).
+    const rl = await checkRateLimit('render-video', guard.session.user.id, 3, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl);
+
     const { id } = await context.params;
 
     // 1. Obtener el boletín
@@ -46,10 +94,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // 2. Verificar que existan videos de avatar generados
-    const categoryVideos = bulletin.categoryVideos as Record<
-      string,
-      { mp4Url: string; duration: number }
-    > | null;
+    const categoryVideos =
+      (bulletin.categoryVideos as Record<string, CategoryVideoEntry> | null) ||
+      null;
 
     if (!categoryVideos || Object.keys(categoryVideos).length === 0) {
       return NextResponse.json(
@@ -58,7 +105,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const selectedNews = (bulletin.selectedNews as any[]) || [];
+    // Validar selectedNews con Zod antes de pasarlo a Remotion.
+    const selectedNewsParse = z
+      .array(SelectedNewsItemSchema)
+      .safeParse(bulletin.selectedNews ?? []);
+    if (!selectedNewsParse.success) {
+      return NextResponse.json(
+        {
+          error: 'selectedNews con formato inválido',
+        },
+        { status: 400 }
+      );
+    }
+    const selectedNews: SelectedNewsItem[] = selectedNewsParse.data;
+
     if (selectedNews.length === 0) {
       return NextResponse.json(
         { error: 'No hay noticias seleccionadas' },
@@ -90,17 +150,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     });
 
     // Combinar noticias con sus videos
-    const newsWithVideos = selectedNews.map((news: any) => ({
+    const newsWithVideos: RemotionNewsInput[] = selectedNews.map((news) => ({
       ...news,
-      avatarVideoUrl: categoryVideos[news.category]?.mp4Url || null,
-      duration: categoryVideos[news.category]?.duration || 10,
+      avatarVideoUrl: categoryVideos[news.category]?.mp4Url ?? null,
+      duration: categoryVideos[news.category]?.duration ?? 10,
     }));
 
-    const inputProps = {
+    const inputProps: RemotionInputProps = {
       bulletinDate: bulletinDate.toUpperCase(),
       news: newsWithVideos,
       totalDuration: newsWithVideos.reduce(
-        (sum: number, n: any) => sum + (n.duration || 10),
+        (sum, n) => sum + (n.duration || 10),
         0
       ),
     };
@@ -160,7 +220,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         finalVideoStatus: 'completed',
         finalVideoUrl,
         finalVideoMetadata: {
-          ...((bulletin.finalVideoMetadata as any) || {}),
+          ...((bulletin.finalVideoMetadata as Record<string, unknown> | null) || {}),
           duration: inputProps.totalDuration,
           resolution: '1080x1920',
           fps: 30,
@@ -202,13 +262,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
       .where(eq(bulletins.id, id));
 
-    return NextResponse.json(
-      {
-        error: 'Error renderizando video final',
-        details: error instanceof Error ? error.message : 'Error desconocido',
-      },
-      { status: 500 }
-    );
+    return errorResponse('Error renderizando video final', 500, error);
   }
 }
 
@@ -219,6 +273,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
+
     const { id } = await context.params;
 
     const bulletin = await db.query.bulletins.findFirst({

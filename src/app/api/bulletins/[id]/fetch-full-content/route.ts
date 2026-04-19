@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { enrichBulletinFullContent } from "@/lib/news/content-fetcher";
+import { errorResponse } from "@/lib/http/error-response";
 
 // Allow up to 2 minutes for fetching
 export const maxDuration = 120;
@@ -47,12 +48,6 @@ export async function POST(
     });
   } catch (error) {
     console.error("❌ Error fetching full content:", error);
-    return NextResponse.json(
-      {
-        error: "Error al obtener contenido completo",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error al obtener contenido completo", 500, error);
   }
 }

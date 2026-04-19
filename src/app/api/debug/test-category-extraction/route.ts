@@ -6,9 +6,13 @@
 
 import { NextResponse } from "next/server";
 import { extractCategoryArticles } from "@/lib/crawl4ai";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export async function GET() {
   try {
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
+
     const testUrl = "https://www.primicias.ec/politica/";
 
     console.log("\n🧪 TEST DE EXTRACCIÓN DE CATEGORÍA");
@@ -50,8 +54,12 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error: (error as Error).message,
-        stack: (error as Error).stack,
+        error:
+          process.env.NODE_ENV === "development"
+            ? (error as Error).message
+            : "Error interno",
+        stack:
+          process.env.NODE_ENV === "development" ? (error as Error).stack : undefined,
       },
       { status: 500 }
     );

@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { user } from "@/lib/schema";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/auth-guard";
 
 const createUserSchema = z.object({
   name: z.string().min(1, "Nombre es requerido"),
@@ -12,17 +12,12 @@ const createUserSchema = z.object({
 });
 
 /**
- * GET /api/admin/users - Lista todos los usuarios
+ * GET /api/admin/users - Lista todos los usuarios (solo administradores)
  */
 export async function GET() {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const users = await db.select({
       id: user.id,
@@ -42,17 +37,12 @@ export async function GET() {
 }
 
 /**
- * POST /api/admin/users - Crear un nuevo usuario
+ * POST /api/admin/users - Crear un nuevo usuario (solo administradores)
  */
 export async function POST(request: Request) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const body = await request.json();
     const parsed = createUserSchema.safeParse(body);

@@ -13,6 +13,7 @@ import {
   updateBulletinStatus,
 } from "@/lib/db/queries/bulletins";
 import { summarizeByCategory } from "@/lib/news/summarizer";
+import { errorResponse } from "@/lib/http/error-response";
 
 // Allow up to 3 minutes for AI summarization (6 categories in parallel)
 export const maxDuration = 180;
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    console.log(`🔐 Usuario autenticado: ${session.user.email}`);
+    console.log(`🔐 Usuario autenticado: ${session.user.id}`);
 
     // Parsear y validar body
     const body = await request.json();
@@ -121,13 +122,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error("❌ Error en summarización:", error);
-
-    return NextResponse.json(
-      {
-        error: "Error generando resúmenes",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error generando resúmenes", 500, error);
   }
 }

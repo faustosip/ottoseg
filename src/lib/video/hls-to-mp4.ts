@@ -8,6 +8,7 @@ import { promises as fs } from 'fs';
 import { unlink } from 'fs/promises';
 import path from 'path';
 import { tmpdir } from 'os';
+import { assertAllowedSimliHlsUrl } from './simli-url';
 
 /**
  * Descarga un video HLS (.m3u8) y lo convierte a MP4
@@ -20,6 +21,10 @@ export async function convertHLStoMP4(
   hlsUrl: string,
   outputFilename: string
 ): Promise<Buffer> {
+  // Defensa en profundidad: rechazamos URLs fuera de la allowlist de Simli
+  // antes de pasarle nada a FFmpeg.
+  assertAllowedSimliHlsUrl(hlsUrl);
+
   const tempOutputPath = path.join(tmpdir(), `${outputFilename}.mp4`);
 
   console.log(`🎬 Convirtiendo HLS a MP4: ${hlsUrl}`);
@@ -67,6 +72,8 @@ export async function convertHLStoMP4(
  * (solo si el formato ya es compatible)
  */
 export async function downloadHLS(hlsUrl: string): Promise<Buffer> {
+  assertAllowedSimliHlsUrl(hlsUrl);
+
   console.log(`⬇️ Descargando HLS: ${hlsUrl}`);
 
   const response = await fetch(hlsUrl);

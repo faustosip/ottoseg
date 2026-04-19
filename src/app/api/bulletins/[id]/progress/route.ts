@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { getBulletinById, getBulletinLogs } from '@/lib/db/queries/bulletins';
+import { errorResponse } from '@/lib/http/error-response';
 
 interface SourceProgress {
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
@@ -101,13 +102,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('Error getting bulletin progress:', error);
-    return NextResponse.json(
-      {
-        error: 'Error obteniendo progreso',
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse('Error obteniendo progreso', 500, error);
   }
 }
 

@@ -87,12 +87,18 @@ export async function getDashboardKPIs() {
 // ============================================================================
 
 export async function getBulletinTrend(weeks = 12) {
+  // Defensa en profundidad: sql.raw inyecta texto sin parametrizar, por lo que
+  // cualquier valor que llegue aquí debe ser un entero positivo y acotado.
+  // Aunque hoy el único caller usa el default 12, validar evita regresiones si
+  // en el futuro se expone este parámetro por API.
+  const safeWeeks = Math.min(Math.max(Math.trunc(Number(weeks) || 12), 1), 520);
+
   const rows = await db.execute<{ week: string; count: number }>(sql`
     SELECT
       date_trunc('week', created_at)::date AS week,
       count(*)::int AS count
     FROM bulletins
-    WHERE created_at >= now() - interval '${sql.raw(String(weeks))} weeks'
+    WHERE created_at >= now() - interval '${sql.raw(String(safeWeeks))} weeks'
     GROUP BY 1
     ORDER BY 1
   `);

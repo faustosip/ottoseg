@@ -7,13 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { requireAdmin } from '@/lib/auth-guard';
 import {
   getSourceById,
   updateSource,
   deleteSource,
 } from '@/lib/db/queries/sources';
+import { errorResponse } from '@/lib/http/error-response';
 
 /**
  * GET /api/sources/:id
@@ -24,14 +24,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Validar autenticación
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const { id: sourceId } = await params;
 
@@ -48,13 +42,7 @@ export async function GET(
     return NextResponse.json({ source });
   } catch (error) {
     console.error('Error getting source:', error);
-    return NextResponse.json(
-      {
-        error: 'Error obteniendo fuente',
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse('Error obteniendo fuente', 500, error);
   }
 }
 
@@ -67,14 +55,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Validar autenticación
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const { id: sourceId } = await params;
 
@@ -106,13 +88,7 @@ export async function PUT(
     });
   } catch (error) {
     console.error('Error updating source:', error);
-    return NextResponse.json(
-      {
-        error: 'Error actualizando fuente',
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse('Error actualizando fuente', 500, error);
   }
 }
 
@@ -125,14 +101,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Validar autenticación
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const { id: sourceId } = await params;
 
@@ -153,12 +123,6 @@ export async function DELETE(
     });
   } catch (error) {
     console.error('Error deleting source:', error);
-    return NextResponse.json(
-      {
-        error: 'Error eliminando fuente',
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse('Error eliminando fuente', 500, error);
   }
 }

@@ -4,6 +4,9 @@ import {bulletins} from '@/lib/schema';
 import {eq} from 'drizzle-orm';
 import path from 'path';
 import {mkdir} from 'fs/promises';
+import {requireActiveUser} from '@/lib/auth-guard';
+import {errorResponse} from '@/lib/http/error-response';
+import {checkRateLimit, rateLimitResponse} from '@/lib/rate-limit';
 
 // Force dynamic rendering (no static optimization)
 export const dynamic = 'force-dynamic';
@@ -14,6 +17,13 @@ export async function POST(
   {params}: {params: Promise<{id: string}>}
 ) {
   try {
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
+
+    // Rate limit: 3 por hora por usuario (pipeline de video compuesto).
+    const rl = await checkRateLimit('generate-video', guard.session.user.id, 3, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl);
+
     const {id} = await params;
 
     // 1. Obtener el boletín
@@ -122,13 +132,7 @@ export async function POST(
       })
       .where(eq(bulletins.id, id));
 
-    return NextResponse.json(
-      {
-        error: 'Error generando video',
-        details: error instanceof Error ? error.message : 'Error desconocido',
-      },
-      {status: 500}
-    );
+    return errorResponse('Error generando video', 500, error);
   }
 }
 
@@ -138,6 +142,9 @@ export async function GET(
   {params}: {params: Promise<{id: string}>}
 ) {
   try {
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
+
     const {id} = await params;
 
     const bulletin = await db.query.bulletins.findFirst({

@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { updateBulletinRawNews } from "@/lib/db/queries/bulletins";
+import { errorResponse } from "@/lib/http/error-response";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -79,12 +80,6 @@ export async function PATCH(
   } catch (error) {
     console.error("❌ Error actualizando selección de noticias:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error actualizando selección",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error actualizando selección", 500, error);
   }
 }

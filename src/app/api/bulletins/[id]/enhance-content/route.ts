@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
+import { requireActiveUser } from '@/lib/auth-guard';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { openrouter } from '@openrouter/ai-sdk-provider';
 import { generateText } from 'ai';
 
@@ -87,17 +87,12 @@ export async function POST(
   context: RouteContext
 ) {
   try {
-    // Verificar autenticación
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
 
-    if (!session) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
+    // Rate limit: 10 por hora por usuario (LLM adicional, más caro que chat).
+    const rl = await checkRateLimit('enhance', guard.session.user.id, 10, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl);
 
     // const { id } = await context.params; // ID del boletín (no usado en este endpoint)
     const body: EnhanceRequest = await request.json();
@@ -156,20 +151,26 @@ export async function POST(
       return NextResponse.json(response);
     } catch (aiError) {
       console.error('Error al procesar con IA:', aiError);
+      const isDev = process.env.NODE_ENV === 'development';
       return NextResponse.json(
         {
           error: 'Error al procesar con IA',
-          details: aiError instanceof Error ? aiError.message : 'Error desconocido'
+          ...(isDev && aiError instanceof Error
+            ? { details: aiError.message }
+            : {}),
         },
         { status: 500 }
       );
     }
   } catch (error) {
     console.error('Error en enhance-content:', error);
+    const isDev = process.env.NODE_ENV === 'development';
     return NextResponse.json(
       {
         error: 'Error interno del servidor',
-        details: error instanceof Error ? error.message : 'Error desconocido'
+        ...(isDev && error instanceof Error
+          ? { details: error.message }
+          : {}),
       },
       { status: 500 }
     );
@@ -184,17 +185,12 @@ export async function PUT(
   context: RouteContext
 ) {
   try {
-    // Verificar autenticación
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
 
-    if (!session) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
+    // Rate limit: 5 batches por hora por usuario (cada batch procesa varios artículos).
+    const rl = await checkRateLimit('enhance-batch', guard.session.user.id, 5, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl);
 
     // const { id } = await context.params; // ID del boletín (no usado en este endpoint)
     const { articles }: { articles: EnhanceRequest[] } = await request.json();
@@ -216,26 +212,49 @@ export async function PUT(
     const enhancedArticles: EnhanceResponse[] = [];
     const errors: Array<{ index: number; error: string }> = [];
 
+    // Helper: ejecuta una función con backoff exponencial.
+    // Antes usábamos maxRetries: 50/150 directamente del SDK — eso podía
+    // dejar una petición colgada horas y disparar coste innecesario en
+    // OpenRouter. Limitamos a 5 reintentos con backoff 0.5s → 8s.
+    const withRetry = async <T,>(fn: () => Promise<T>, maxAttempts = 5): Promise<T> => {
+      let lastError: unknown;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          return await fn();
+        } catch (err) {
+          lastError = err;
+          if (attempt === maxAttempts - 1) break;
+          const delay = Math.min(500 * 2 ** attempt, 8000);
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      }
+      throw lastError;
+    };
+
     // Procesar cada artículo
     for (let i = 0; i < articles.length; i++) {
       const article = articles[i];
 
       try {
         // Mejorar título
-        const titleResult = await generateText({
-          model,
-          prompt: getTitleEnhancementPrompt(article.title),
-          maxRetries: 50,
-          temperature: 0.3,
-        });
+        const titleResult = await withRetry(() =>
+          generateText({
+            model,
+            prompt: getTitleEnhancementPrompt(article.title),
+            maxRetries: 5,
+            temperature: 0.3,
+          })
+        );
 
         // Generar resumen
-        const summaryResult = await generateText({
-          model,
-          prompt: getSummaryPrompt(article.title, article.content, article.fullContent),
-          maxRetries: 150,
-          temperature: 0.3,
-        });
+        const summaryResult = await withRetry(() =>
+          generateText({
+            model,
+            prompt: getSummaryPrompt(article.title, article.content, article.fullContent),
+            maxRetries: 5,
+            temperature: 0.3,
+          })
+        );
 
         enhancedArticles.push({
           enhancedTitle: titleResult.text.trim(),
@@ -281,10 +300,13 @@ export async function PUT(
     });
   } catch (error) {
     console.error('Error en batch enhancement:', error);
+    const isDev = process.env.NODE_ENV === 'development';
     return NextResponse.json(
       {
         error: 'Error interno del servidor',
-        details: error instanceof Error ? error.message : 'Error desconocido'
+        ...(isDev && error instanceof Error
+          ? { details: error.message }
+          : {}),
       },
       { status: 500 }
     );

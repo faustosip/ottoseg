@@ -10,6 +10,10 @@ import { bulletins } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
 import { uploadFile } from '@/lib/storage/minio';
 import { convertHLStoMP4 } from '@/lib/video/hls-to-mp4';
+import { assertAllowedSimliHlsUrl } from '@/lib/video/simli-url';
+import { requireActiveUser } from '@/lib/auth-guard';
+import { errorResponse } from '@/lib/http/error-response';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -22,6 +26,13 @@ interface RouteContext {
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
+
+    // Rate limit: 5 por hora por usuario (Simli cobra por segundo generado).
+    const rl = await checkRateLimit('avatars', guard.session.user.id, 5, 3600);
+    if (!rl.allowed) return rateLimitResponse(rl);
+
     const { id } = await context.params;
 
     // 1. Obtener el boletín
@@ -120,6 +131,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
           throw new Error('No se recibió hls_url de Simli API');
         }
 
+        // Validar que el hls_url provenga de un dominio esperado (anti-SSRF).
+        // Si Simli devuelve un host inesperado, abortamos antes de pasar a FFmpeg.
+        assertAllowedSimliHlsUrl(hlsUrl);
+
         console.log(`✅ Video HLS generado: ${hlsUrl}`);
 
         // 5.2. Convertir HLS a MP4
@@ -210,13 +225,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
       .where(eq(bulletins.id, id));
 
-    return NextResponse.json(
-      {
-        error: 'Error generando videos de avatar',
-        details: error instanceof Error ? error.message : 'Error desconocido',
-      },
-      { status: 500 }
-    );
+    return errorResponse('Error generando videos de avatar', 500, error);
   }
 }
 
@@ -227,6 +236,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    const guard = await requireActiveUser();
+    if (!guard.ok) return guard.response;
+
     const { id } = await context.params;
 
     const bulletin = await db.query.bulletins.findFirst({

@@ -56,6 +56,9 @@ services:
       # Cron Secret
       - CRON_SECRET=${CRON_SECRET}
 
+      # Redis (rate limiting). Servicio `redis` en la red Ottoseguridadnet.
+      - REDIS_URL=${REDIS_URL}
+
       # MinIO Configuration
       - MINIO_ENDPOINT=${MINIO_ENDPOINT}
       - MINIO_PORT=${MINIO_PORT}

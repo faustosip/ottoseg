@@ -5,9 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireAdmin } from "@/lib/auth-guard";
 import { getSubscribers } from "@/lib/db/queries/subscribers";
+import { errorResponse } from "@/lib/http/error-response";
 
 /**
  * GET /api/subscribers/export
@@ -16,14 +16,8 @@ import { getSubscribers } from "@/lib/db/queries/subscribers";
  */
 export async function GET(request: NextRequest) {
   try {
-    // Validate authentication
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     // Parse query parameters for filtering
     const searchParams = request.nextUrl.searchParams;
@@ -73,12 +67,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("❌ Error exporting subscribers:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error exportando suscriptores",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error exportando suscriptores", 500, error);
   }
 }

@@ -7,14 +7,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireAdmin } from "@/lib/auth-guard";
 import { z } from "zod";
 import {
   getSubscriberById,
   updateSubscriber,
   deleteSubscriber,
 } from "@/lib/db/queries/subscribers";
+import { errorResponse } from "@/lib/http/error-response";
 
 /**
  * Schema for updating a subscriber
@@ -35,14 +35,8 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Validate authentication
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const { id } = await context.params;
 
@@ -62,13 +56,7 @@ export async function GET(
   } catch (error) {
     console.error("❌ Error getting subscriber:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error obteniendo suscriptor",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error obteniendo suscriptor", 500, error);
   }
 }
 
@@ -82,14 +70,8 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Validate authentication
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const { id } = await context.params;
 
@@ -130,13 +112,7 @@ export async function PATCH(
   } catch (error) {
     console.error("❌ Error updating subscriber:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error actualizando suscriptor",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error actualizando suscriptor", 500, error);
   }
 }
 
@@ -150,14 +126,8 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Validate authentication
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const guard = await requireAdmin();
+    if (!guard.ok) return guard.response;
 
     const { id } = await context.params;
 
@@ -183,12 +153,6 @@ export async function DELETE(
   } catch (error) {
     console.error("❌ Error deleting subscriber:", error);
 
-    return NextResponse.json(
-      {
-        error: "Error eliminando suscriptor",
-        message: (error as Error).message,
-      },
-      { status: 500 }
-    );
+    return errorResponse("Error eliminando suscriptor", 500, error);
   }
 }
