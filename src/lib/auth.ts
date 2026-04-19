@@ -3,6 +3,10 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { db } from "./db"
 
 const isProduction = process.env.NODE_ENV === "production"
+// Durante `next build` Next.js importa este módulo en la fase de colección de
+// páginas. En esa fase las validaciones de runtime no aplican: el secreto real
+// solo se inyecta cuando el contenedor arranca.
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build"
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
 // En producción solo confiamos en el origen público configurado.
@@ -14,8 +18,10 @@ const trustedOrigins = isProduction
 // `BETTER_AUTH_SECRET` es obligatorio: BetterAuth firma cookies/CSRF tokens
 // con él, y en producción un fallback implícito sería un riesgo crítico.
 // Fail-fast si falta o si quedó el placeholder del Dockerfile.
+// Estas validaciones se aplican únicamente cuando el proceso está sirviendo
+// tráfico, no durante `next build`.
 const BUILD_ONLY_PLACEHOLDER = "__BUILD_ONLY_PLACEHOLDER_REFUSE_AT_RUNTIME__"
-if (isProduction) {
+if (isProduction && !isBuildPhase) {
   const secret = process.env.BETTER_AUTH_SECRET
   if (!secret) {
     throw new Error(
