@@ -522,7 +522,7 @@ export function ManualContent() {
             con tres grupos de navegación: <strong>Operación</strong>,{" "}
             <strong>Audiencia</strong> y <strong>Configuración</strong>. En
             la parte inferior hay un indicador en vivo del estado del
-            pipeline (por ejemplo &quot;Pipeline activo · Renderizando
+            proceso (por ejemplo &quot;Proceso activo · Renderizando
             video&quot;).
           </Paragraph>
           <ScreenshotImg
@@ -533,7 +533,7 @@ export function ManualContent() {
           <Subheading>Módulos disponibles</Subheading>
           <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
             {[
-              { name: "Hoy", desc: "Dashboard del día con KPIs y pipeline" },
+              { name: "Hoy", desc: "Dashboard del día con KPIs y proceso" },
               { name: "Boletines", desc: "Histórico agrupado por semana" },
               { name: "Generar", desc: "Crear el boletín del día" },
               { name: "Suscriptores", desc: "Audiencia y engagement" },
@@ -592,7 +592,7 @@ export function ManualContent() {
             La tarjeta oscura central muestra el estado del boletín que se
             envía a las <strong>06:00</strong>: cantidad de noticias, número
             de categorías, destinatarios y un{" "}
-            <strong>visualizador del pipeline</strong> con cinco etapas:{" "}
+            <strong>visualizador del proceso</strong> con cinco etapas:{" "}
             <Code>Scraping</Code> → <Code>Clasif.</Code> →{" "}
             <Code>Resumen</Code> → <Code>Video</Code> → <Code>Enviar</Code>.
             Los botones <strong>Autorizar y enviar →</strong> y{" "}
@@ -618,8 +618,8 @@ export function ManualContent() {
               },
               {
                 color: "var(--otto-ink)",
-                title: "Pipeline · prom.",
-                desc: "Tiempo promedio que tarda el pipeline en completar.",
+                title: "Proceso · prom.",
+                desc: "Tiempo promedio que tarda el proceso en completar.",
               },
             ].map((kpi) => (
               <div
@@ -655,7 +655,7 @@ export function ManualContent() {
           <Paragraph>
             En la parte inferior se listan los <strong>últimos boletines</strong>{" "}
             (con fecha, título, número de noticias y estado:{" "}
-            <Code>EN PIPELINE</Code> / <Code>ENVIADO</Code>) y un panel de{" "}
+            <Code>EN PROCESO</Code> / <Code>ENVIADO</Code>) y un panel de{" "}
             <strong>Próximos pasos</strong> que indica las acciones
             pendientes (revisar boletín, revisar auditoría, etc.).
           </Paragraph>
@@ -693,7 +693,7 @@ export function ManualContent() {
                 desc: "Noticias recopiladas, pendiente de clasificación",
               },
               {
-                status: "En pipeline",
+                status: "En proceso",
                 variant: "info" as const,
                 desc: "Procesamiento en curso (clasificación, resumen, video)",
               },
@@ -744,7 +744,7 @@ export function ManualContent() {
           <Paragraph>
             Para crear el boletín del día haga clic en{" "}
             <strong>Generar</strong> en el sidebar. Si todavía no existe un
-            boletín para la fecha actual el sistema lanza el pipeline
+            boletín para la fecha actual el sistema lanza el proceso
             automáticamente; si ya existe, le redirige al detalle del boletín
             de hoy.
           </Paragraph>
@@ -759,7 +759,7 @@ export function ManualContent() {
             <em>&quot;Boletín de hoy ya existe. Solo puedes generar uno por
             día. Ver boletín →&quot;</em>.
           </NoteBox>
-          <Subheading>Etapas del pipeline</Subheading>
+          <Subheading>Etapas del proceso</Subheading>
           <StepBox number={1}>
             <strong>Scraping:</strong> el sistema visita las cinco fuentes
             configuradas y descarga los artículos publicados.
@@ -782,7 +782,7 @@ export function ManualContent() {
             distribuye a la lista de suscriptores.
           </StepBox>
           <ImportantBox>
-            El pipeline completo toma entre 3 y 8 minutos según el volumen de
+            El proceso completo toma entre 3 y 8 minutos según el volumen de
             noticias. Puede cerrar la ventana sin problema; el proceso
             continúa en segundo plano.
           </ImportantBox>

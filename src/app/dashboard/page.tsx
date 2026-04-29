@@ -122,7 +122,7 @@ function statusToPill(status: string): { label: string; variant: BulletinRow["pi
     case "summarizing":
     case "classifying":
     case "scraping":
-      return { label: "en pipeline", variant: "run" };
+      return { label: "en proceso", variant: "run" };
     case "draft":
       return { label: "borrador", variant: "muted" };
     default:
@@ -185,10 +185,45 @@ export default async function DashboardPage() {
     getAllBulletins({ limit: 5, orderBy: "date", order: "desc" }),
   ]);
 
-  // Sparkline: open rates de los últimos 7 envíos.
-  const sparkline = emailPerformance
-    .slice(-7)
-    .map((p) => (p.sent > 0 ? Math.round((p.opened / p.sent) * 100) : 0));
+  // Sparkline: open rates de los últimos 7 envíos con etiqueta de fecha.
+  const sparkline = emailPerformance.slice(-7).map((p) => ({
+    value: p.sent > 0 ? Math.round((p.opened / p.sent) * 100) : 0,
+    label: p.bulletinDate.replace(/\.$/, "").toUpperCase(),
+  }));
+
+  // Sparkline boletines · trend semanal (últimas 8 semanas).
+  const bulletinSpark = bulletinTrend.slice(-8).map((t) => ({
+    value: t.count,
+    label: t.week.replace(/\.$/, "").toUpperCase(),
+  }));
+
+  // Stack: tiempo promedio por etapa del proceso.
+  const stepLabels: Record<string, string> = {
+    scraping: "Scraping",
+    classifying: "Clasificación",
+    summarizing: "Resumen",
+    video: "Video",
+    sending: "Envío",
+  };
+  const fmtMs = (ms: number) =>
+    ms >= 60000
+      ? `${(ms / 60000).toFixed(1)}min`
+      : ms >= 1000
+        ? `${(ms / 1000).toFixed(1)}s`
+        : `${ms}ms`;
+  const processStack = pipeline
+    .filter((p) => p.avgDuration > 0)
+    .map((p) => ({
+      label: stepLabels[p.step] ?? p.step,
+      value: p.avgDuration,
+      display: fmtMs(p.avgDuration),
+    }));
+
+  // Suscriptores netos breakdown.
+  const engagement =
+    kpis.email.totalSent > 0
+      ? `${Math.round((kpis.email.totalOpened / kpis.email.totalSent) * 100)}%`
+      : "—";
 
   // Pipeline total: suma de promedios de cada step.
   const pipelineTotalMs = pipeline.reduce((acc, p) => acc + p.avgDuration, 0);
@@ -205,7 +240,7 @@ export default async function DashboardPage() {
     ? todayBulletin.status === "published"
       ? "Boletín enviado a las 06:00"
       : todayBulletin.status === "failed"
-        ? "Error en el pipeline de hoy"
+        ? "Error en el proceso de hoy"
         : "Listo para enviar a las 06:00"
     : "Sin boletín generado hoy";
 
@@ -217,7 +252,7 @@ export default async function DashboardPage() {
       <b>{kpis.subscribers.active.toLocaleString("es-EC")}</b> destinatarios
     </>
   ) : (
-    <>Aún no se ha iniciado el pipeline de hoy.</>
+    <>Aún no se ha iniciado el proceso de hoy.</>
   );
 
   const lastBulletinRows: BulletinRow[] = latestBulletins.map((b) => {
@@ -255,7 +290,7 @@ export default async function DashboardPage() {
   }
   if (todayBulletin?.status === "failed") {
     nextSteps.push({
-      title: "Falla en pipeline de hoy",
+      title: "Falla en el proceso de hoy",
       description: "Revisar errores antes de relanzar.",
     });
   }
@@ -363,6 +398,24 @@ export default async function DashboardPage() {
             dir: kpis.subscribers.newThisWeek >= 0 ? "up" : "down",
             text: `${kpis.subscribers.active.toLocaleString("es-EC")} activos`,
           }}
+          blockTitle="Composición de la audiencia"
+          breakdown={[
+            {
+              label: "Activos",
+              value: kpis.subscribers.active.toLocaleString("es-EC"),
+              tone: "ok",
+            },
+            {
+              label: "Engagement",
+              value: engagement,
+              tone: "ink",
+            },
+            {
+              label: "Total enviado",
+              value: kpis.email.totalSent.toLocaleString("es-EC"),
+              tone: "muted",
+            },
+          ]}
         />
         <KpiCard
           title="Boletines · 7d"
@@ -371,14 +424,18 @@ export default async function DashboardPage() {
             dir: "flat",
             text: `${kpis.bulletins.published} publicados en total`,
           }}
+          sparkline={bulletinSpark.length > 0 ? bulletinSpark : undefined}
+          sparkUnit=""
         />
         <KpiCard
-          title="Pipeline · prom."
+          title="Proceso · prom."
           value={formatPipelineTotal(pipelineTotalMs)}
           delta={{
             dir: pipelineTotalMs <= 600_000 ? "up" : "down",
             text: pipelineTotalMs > 0 ? "vs objetivo 10:00" : "sin datos",
           }}
+          blockTitle="Tiempo por etapa"
+          stack={processStack}
         />
       </div>
 

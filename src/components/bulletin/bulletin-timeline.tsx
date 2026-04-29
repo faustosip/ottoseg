@@ -42,7 +42,7 @@ function statusToPill(
     case "summarizing":
     case "classifying":
     case "scraping":
-      return { label: "en pipeline", variant: "run" };
+      return { label: "en proceso", variant: "run" };
     default:
       return { label: status, variant: "muted" };
   }
@@ -220,7 +220,7 @@ export function BulletinTimeline({ bulletins, emailStats }: Props) {
           const statsParts: string[] = [];
           if (sent > 0) statsParts.push(`${sent} enviado${sent === 1 ? "" : "s"}`);
           if (inPipe > 0)
-            statsParts.push(`${inPipe} en pipeline`);
+            statsParts.push(`${inPipe} en proceso`);
           if (drafted > 0) statsParts.push(`${drafted} borrador${drafted === 1 ? "" : "es"}`);
           if (errored > 0)
             statsParts.push(`${errored} error${errored === 1 ? "" : "es"}`);

@@ -110,7 +110,7 @@ export default function SourcesPage() {
       <Topline crumbs={["Configuración", "Fuentes"]} />
       <PageHeader
         title="Fuentes"
-        lede="Sitios de noticias monitoreados por scraping en cada corrida del pipeline."
+        lede="Sitios de noticias monitoreados por scraping en cada corrida del proceso."
         actions={
           <Button
             onClick={handleAdd}

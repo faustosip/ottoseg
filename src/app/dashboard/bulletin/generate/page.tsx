@@ -186,7 +186,7 @@ export default function GenerateBulletinPage() {
       <PageHeader
         title="Generar"
         highlight="boletín"
-        lede="Inicia el pipeline diario: scraping de fuentes, clasificación por categoría y resumen listo para revisión."
+        lede="Inicia el proceso diario: scraping de fuentes, clasificación por categoría y resumen listo para revisión."
         actions={
           <Link
             href="/dashboard/bulletin"
@@ -269,7 +269,7 @@ export default function GenerateBulletinPage() {
                     boxShadow: "0 4px 14px rgba(214,40,40,.28)",
                   }}
                 >
-                  Iniciar pipeline →
+                  Iniciar proceso →
                 </button>
               </div>
             </div>
@@ -291,7 +291,7 @@ export default function GenerateBulletinPage() {
                 className="m-0 max-w-[420px] text-sm"
                 style={{ color: "var(--otto-muted)" }}
               >
-                Estamos consultando fuentes y preparando el pipeline.
+                Estamos consultando fuentes y preparando el proceso.
               </p>
             </div>
           )}
@@ -349,7 +349,7 @@ export default function GenerateBulletinPage() {
               label: "Estado",
               value:
                 phase === "running"
-                  ? "Pipeline activo"
+                  ? "Proceso activo"
                   : phase === "starting"
                     ? "Iniciando…"
                     : phase === "error"
@@ -361,7 +361,7 @@ export default function GenerateBulletinPage() {
           statusLabel={summaryStatusLabel}
           warning={
             phase === "idle"
-              ? "Una vez iniciado el pipeline, podrás revisar y autorizar el envío en la página de edición."
+              ? "Una vez iniciado el proceso, podrás revisar y autorizar el envío en la página de edición."
               : null
           }
         />

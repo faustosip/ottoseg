@@ -92,7 +92,7 @@ export default function Home() {
               className="font-mono-otto"
               style={{ color: "#e8e6e1" }}
             >
-              Pipeline activo · Renderizando video
+              Proceso activo · Renderizando video
             </span>
           </div>
         </div>
@@ -438,7 +438,7 @@ export default function Home() {
                 className="mt-5 max-w-[420px] text-[15px] leading-[1.65]"
                 style={{ color: "var(--otto-ink-2)" }}
               >
-                El pipeline corre en paralelo desde las{" "}
+                El proceso corre en paralelo desde las{" "}
                 <strong style={{ color: "var(--otto-ink)" }}>
                   04:00 ECT
                 </strong>{" "}
@@ -465,7 +465,7 @@ export default function Home() {
                     className="font-mono-otto"
                     style={{ color: "#9a9aa0" }}
                   >
-                    Boletín 28 abr 2026 · Pipeline
+                    Boletín 28 abr 2026 · Proceso
                   </span>
                   <span
                     className="font-mono-otto"
@@ -933,7 +933,7 @@ export default function Home() {
               style={{ color: "var(--otto-ink-2)" }}
             >
               Apertura del último envío, alta de suscriptores, boletines de la
-              semana y el tiempo promedio del pipeline conviven en una sola
+              semana y el tiempo promedio del proceso conviven en una sola
               pantalla. Su equipo editorial controla cada edición antes de que
               llegue a la lista.
             </p>

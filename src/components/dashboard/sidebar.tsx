@@ -207,7 +207,7 @@ export function Sidebar({ subscriberCount = 0 }: SidebarProps) {
               boxShadow: "0 0 0 3px rgba(58,208,117,.18)",
             }}
           />
-          <span className="font-semibold text-white">Pipeline activo</span>
+          <span className="font-semibold text-white">Proceso activo</span>
         </div>
 
         <button
