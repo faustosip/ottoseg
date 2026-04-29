@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   List,
@@ -11,9 +11,11 @@ import {
   RefreshCw,
   LayoutGrid,
   UserCog,
+  LogOut,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { signOut, useSession } from "@/lib/auth-client";
 
 type NavItem = {
   href: string;
@@ -90,7 +92,18 @@ interface SidebarProps {
 
 export function Sidebar({ subscriberCount = 0 }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: session } = useSession();
   const NAV = buildNav(subscriberCount);
+
+  const userName = session?.user?.name ?? "Usuario";
+  const userEmail = session?.user?.email ?? "";
+
+  async function handleSignOut() {
+    await signOut();
+    router.replace("/");
+    router.refresh();
+  }
 
   return (
     <aside
@@ -182,20 +195,61 @@ export function Sidebar({ subscriberCount = 0 }: SidebarProps) {
         </div>
       ))}
 
-      <div
-        className="mx-1.5 mt-auto rounded-[10px] p-3 text-[11px] leading-snug"
-        style={{ background: "#1c1c1f", color: "#9d9da3" }}
-      >
-        <span
-          className="mr-1.5 inline-block h-2 w-2 rounded-full"
+      <div className="mx-1.5 mt-auto flex flex-col gap-2">
+        <div
+          className="flex items-center gap-2 rounded-[10px] px-3 py-2 text-[11px] leading-tight"
+          style={{ background: "#1c1c1f", color: "#9d9da3" }}
+        >
+          <span
+            className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
+            style={{
+              background: "#3ad075",
+              boxShadow: "0 0 0 3px rgba(58,208,117,.18)",
+            }}
+          />
+          <span className="font-semibold text-white">Pipeline activo</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="group flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left text-[12px] transition-colors hover:bg-[#2a1416]"
           style={{
-            background: "#3ad075",
-            boxShadow: "0 0 0 4px rgba(58,208,117,.18)",
+            background: "#1c1c1f",
+            color: "#bdbdc4",
+            border: "1px solid #2a2a2d",
           }}
-        />
-        <b className="font-semibold text-white">Pipeline activo</b>
-        <br />
-        <span className="text-[10px]">Renderizando video · ETA 06:16</span>
+          title={userEmail || undefined}
+        >
+          <div
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+            style={{ background: "var(--otto-primary)" }}
+          >
+            {(userName || "U")
+              .split(/\s+/)
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((s) => s[0])
+              .join("")
+              .toUpperCase() || "U"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[12px] font-semibold text-white">
+              {userName}
+            </div>
+            <div
+              className="font-mono-otto truncate text-[9px] transition-colors group-hover:text-[var(--otto-primary)]"
+              style={{ color: "#7c7c83", letterSpacing: ".14em" }}
+            >
+              Cerrar sesión
+            </div>
+          </div>
+          <LogOut
+            className="h-3.5 w-3.5 flex-shrink-0 transition-colors group-hover:text-[var(--otto-primary)]"
+            strokeWidth={1.8}
+            style={{ color: "#7c7c83" }}
+          />
+        </button>
       </div>
     </aside>
   );

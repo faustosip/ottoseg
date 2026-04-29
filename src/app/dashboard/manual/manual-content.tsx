@@ -32,11 +32,12 @@ type Section = {
 const sections: Section[] = [
   { id: "intro", label: "Introducción al sistema", icon: BookOpen },
   { id: "login", label: "Inicio de sesión", icon: LogIn },
-  { id: "dashboard", label: "Dashboard ejecutivo", icon: LayoutDashboard },
-  { id: "navegacion", label: "Menú de navegación", icon: ScrollText },
+  { id: "navegacion", label: "Consola y sidebar", icon: ScrollText },
+  { id: "dashboard", label: "Hoy · Dashboard", icon: LayoutDashboard },
   { id: "boletines", label: "Lista de boletines", icon: Newspaper },
   { id: "generar", label: "Generar nuevo boletín", icon: Plus },
   { id: "detalle", label: "Detalle del boletín", icon: FileText },
+  { id: "resumenes", label: "Tab Resúmenes", icon: BookOpen },
   { id: "noticias", label: "Tab Noticias", icon: Rss },
   { id: "editar", label: "Tab Editar", icon: Settings },
   { id: "auditoria", label: "Tab Auditoría", icon: Shield },
@@ -330,7 +331,7 @@ export function ManualContent() {
             </em>
           </>
         }
-        lede="Guía completa del sistema de boletines de seguridad: del primer login al envío masivo, configuración avanzada y administración del equipo editorial."
+        lede="Guía completa de la consola editorial: del primer login al envío masivo, configuración de fuentes y administración del equipo."
       />
 
       <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
@@ -407,7 +408,7 @@ export function ManualContent() {
                 className="font-mono-otto block"
                 style={{ color: "var(--otto-muted)" }}
               >
-                Versión 1.0 · Abr 2026
+                Versión 1.1 · Abr 2026
               </span>
               <p
                 className="mt-2 text-[12px] leading-[1.5]"
@@ -430,25 +431,25 @@ export function ManualContent() {
           </SectionTitle>
           <Paragraph>
             <strong style={{ color: "var(--otto-ink)" }}>OttoSeguridad</strong>{" "}
-            es una plataforma de generación automatizada de boletines de
-            noticias de seguridad para Ecuador. El sistema recopila noticias de
-            múltiples fuentes periodísticas ecuatorianas, las clasifica
-            mediante inteligencia artificial, genera resúmenes y permite su
-            distribución por correo electrónico a suscriptores.
+            es una consola editorial para la generación automatizada de
+            boletines de noticias de Ecuador. El sistema recopila titulares de
+            cinco medios nacionales, los clasifica con inteligencia artificial,
+            redacta resúmenes y los distribuye por correo electrónico a la
+            audiencia registrada.
           </Paragraph>
           <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
             {[
               {
                 title: "Recopilación automática",
-                desc: "Noticias de Primicias, La Hora, El Comercio, Teleamazonas y ECU911",
+                desc: "El Comercio, Primicias, La Hora, Teleamazonas y ECU911",
               },
               {
                 title: "Clasificación con IA",
-                desc: "Categorización automática en Economía, Política, Sociedad, Seguridad, Internacional y Vial",
+                desc: "Categorización automática en 7 etiquetas: Última Hora, Economía, Política, Sociedad, Seguridad, Internacional y Vial",
               },
               {
                 title: "Distribución por email",
-                desc: "Envío masivo a suscriptores con seguimiento de apertura y clicks",
+                desc: "Envío masivo con seguimiento de apertura y engagement por suscriptor",
               },
             ].map((card) => (
               <div
@@ -482,12 +483,12 @@ export function ManualContent() {
           </SectionTitle>
           <Paragraph>
             Para acceder al sistema, ingrese a{" "}
-            <Code>app.ottoseguridadai.com</Code> y utilice sus credenciales
-            de acceso provistas por el administrador.
+            <Code>app.ottoseguridadai.com</Code> y utilice las credenciales
+            entregadas por el administrador.
           </Paragraph>
           <StepBox number={1}>
-            Abra su navegador y vaya a la URL del sistema. Verá la pantalla de
-            inicio de sesión.
+            Abra el navegador y vaya a la URL del sistema. Aparecerá la
+            pantalla de inicio de sesión con el logotipo de OttoSeguridad.
           </StepBox>
           <ScreenshotImg
             src="/manual/screenshots/01-login.png"
@@ -495,8 +496,8 @@ export function ManualContent() {
             caption="Pantalla de inicio de sesión de OttoSeguridad"
           />
           <StepBox number={2}>
-            Ingrese su <strong>correo electrónico</strong> y{" "}
-            <strong>contraseña</strong> proporcionados por el administrador.
+            Ingrese su <strong>correo electrónico</strong> en el campo Email
+            y su <strong>contraseña</strong> en el campo Contraseña.
           </StepBox>
           <ScreenshotImg
             src="/manual/screenshots/02-login-filled.png"
@@ -504,51 +505,121 @@ export function ManualContent() {
             caption="Ingreso de credenciales de acceso"
           />
           <StepBox number={3}>
-            Haga clic en <strong>&quot;Iniciar sesión&quot;</strong>. Será
-            redirigido al Dashboard principal.
+            Haga clic en el botón rojo <strong>Iniciar Sesión</strong>. Será
+            redirigido a la consola en la pantalla <Code>Hoy</Code>.
           </StepBox>
           <ImportantBox>
-            Si su cuenta ha sido desactivada por el administrador, recibirá un
-            mensaje de error. Contacte al administrador para reactivar su
-            cuenta.
+            Si su cuenta ha sido desactivada por el administrador recibirá un
+            mensaje de error. Contacte al administrador para reactivarla.
           </ImportantBox>
 
-          {/* DASHBOARD */}
-          <SectionTitle id="dashboard" index={3} icon={LayoutDashboard}>
-            Dashboard ejecutivo
+          {/* NAVEGACION */}
+          <SectionTitle id="navegacion" index={3} icon={ScrollText}>
+            Consola y sidebar
           </SectionTitle>
           <Paragraph>
-            El Dashboard es la pantalla principal del sistema. Muestra
-            indicadores clave de rendimiento (KPIs), gráficos de tendencias y
-            la actividad reciente del equipo editorial.
+            La consola usa un <strong>sidebar oscuro a la izquierda</strong>{" "}
+            con tres grupos de navegación: <strong>Operación</strong>,{" "}
+            <strong>Audiencia</strong> y <strong>Configuración</strong>. En
+            la parte inferior hay un indicador en vivo del estado del
+            pipeline (por ejemplo &quot;Pipeline activo · Renderizando
+            video&quot;).
+          </Paragraph>
+          <ScreenshotImg
+            src="/manual/screenshots/19-menu-navegacion.png"
+            alt="Sidebar de navegación"
+            caption="Sidebar oscuro con los módulos de la consola"
+          />
+          <Subheading>Módulos disponibles</Subheading>
+          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+            {[
+              { name: "Hoy", desc: "Dashboard del día con KPIs y pipeline" },
+              { name: "Boletines", desc: "Histórico agrupado por semana" },
+              { name: "Generar", desc: "Crear el boletín del día" },
+              { name: "Suscriptores", desc: "Audiencia y engagement" },
+              { name: "Fuentes", desc: "Sitios monitoreados" },
+              { name: "Categorías", desc: "Etiquetas del clasificador" },
+              { name: "Usuarios", desc: "Permisos del equipo" },
+            ].map((item) => (
+              <div
+                key={item.name}
+                className="rounded-lg border p-3"
+                style={{
+                  background: "var(--otto-surface)",
+                  borderColor: "var(--otto-rule)",
+                }}
+              >
+                <p
+                  className="font-display m-0 text-[14px] font-semibold"
+                  style={{ color: "var(--otto-ink)" }}
+                >
+                  {item.name}
+                </p>
+                <p
+                  className="m-0 mt-0.5 text-[12px] leading-[1.4]"
+                  style={{ color: "var(--otto-muted)" }}
+                >
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+          <Paragraph>
+            En la cabecera superior derecha encontrará el{" "}
+            <strong>buscador global</strong> (atajo <Code>⌘K</Code>) para
+            buscar boletines o fuentes y un <strong>avatar circular</strong>{" "}
+            con sus iniciales que despliega el menú de perfil y cierre de
+            sesión.
+          </Paragraph>
+
+          {/* DASHBOARD */}
+          <SectionTitle id="dashboard" index={4} icon={LayoutDashboard}>
+            Hoy · Dashboard ejecutivo
+          </SectionTitle>
+          <Paragraph>
+            La pantalla <Code>Hoy</Code> es la primera vista al iniciar
+            sesión. Muestra un saludo personalizado y resume el estado del
+            boletín del día, los indicadores de los últimos 7 días y los
+            próximos pasos pendientes.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/03-dashboard.png"
-            alt="Dashboard ejecutivo"
-            caption="Dashboard ejecutivo con KPIs, gráficos y actividad reciente"
+            alt="Dashboard ejecutivo Hoy"
+            caption="Vista Hoy con hero card del boletín, KPIs y actividad"
           />
-          <Subheading>Indicadores KPI</Subheading>
+          <Subheading>Hero card del boletín</Subheading>
+          <Paragraph>
+            La tarjeta oscura central muestra el estado del boletín que se
+            envía a las <strong>06:00</strong>: cantidad de noticias, número
+            de categorías, destinatarios y un{" "}
+            <strong>visualizador del pipeline</strong> con cinco etapas:{" "}
+            <Code>Scraping</Code> → <Code>Clasif.</Code> →{" "}
+            <Code>Resumen</Code> → <Code>Video</Code> → <Code>Enviar</Code>.
+            Los botones <strong>Autorizar y enviar →</strong> y{" "}
+            <strong>Previsualizar</strong> permiten actuar en un clic.
+          </Paragraph>
+          <Subheading>Indicadores KPI (últimos 7 días)</Subheading>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {[
               {
                 color: "var(--otto-primary)",
-                title: "Boletines publicados",
-                desc: "Total de boletines que han sido autorizados y publicados.",
+                title: "Apertura · último envío",
+                desc: "Porcentaje de aperturas del boletín más reciente y total de envíos.",
               },
               {
                 color: "var(--otto-ok)",
-                title: "Suscriptores activos",
-                desc: "Cantidad de suscriptores que reciben los boletines.",
+                title: "Suscriptores netos · 7D",
+                desc: "Variación neta de suscriptores en la última semana.",
               },
               {
                 color: "var(--otto-warn)",
-                title: "Tasa de apertura",
-                desc: "Porcentaje de emails abiertos vs enviados.",
+                title: "Boletines · 7D",
+                desc: "Cuántos boletines se publicaron en los últimos 7 días.",
               },
               {
                 color: "var(--otto-ink)",
-                title: "Noticias procesadas",
-                desc: "Total de noticias recopiladas y clasificadas.",
+                title: "Pipeline · prom.",
+                desc: "Tiempo promedio que tarda el pipeline en completar.",
               },
             ].map((kpi) => (
               <div
@@ -580,112 +651,56 @@ export function ManualContent() {
               </div>
             ))}
           </div>
-          <Subheading>Gráficos disponibles</Subheading>
-          <BulletList>
-            <li>
-              <strong>Boletines por semana:</strong> tendencia de generación
-              de boletines.
-            </li>
-            <li>
-              <strong>Emails enviados vs abiertos:</strong> efectividad de las
-              campañas de email.
-            </li>
-            <li>
-              <strong>Noticias por categoría:</strong> distribución de
-              noticias (Economía, Política, etc.).
-            </li>
-            <li>
-              <strong>Artículos por fuente:</strong> volumen de noticias por
-              cada fuente periodística.
-            </li>
-          </BulletList>
-          <Subheading>Actividad reciente</Subheading>
+          <Subheading>Últimos boletines y próximos pasos</Subheading>
           <Paragraph>
-            En la sección inferior del Dashboard se muestra un registro de las
-            acciones recientes: autorizaciones, publicaciones, envíos de email
-            y eliminaciones con fecha, hora y usuario responsable.
+            En la parte inferior se listan los <strong>últimos boletines</strong>{" "}
+            (con fecha, título, número de noticias y estado:{" "}
+            <Code>EN PIPELINE</Code> / <Code>ENVIADO</Code>) y un panel de{" "}
+            <strong>Próximos pasos</strong> que indica las acciones
+            pendientes (revisar boletín, revisar auditoría, etc.).
           </Paragraph>
-
-          {/* MENU NAVEGACION */}
-          <SectionTitle id="navegacion" index={4} icon={ScrollText}>
-            Menú de navegación
-          </SectionTitle>
-          <Paragraph>
-            La barra lateral izquierda permite acceder a todos los módulos del
-            sistema, agrupados por <strong>Operación</strong>,{" "}
-            <strong>Audiencia</strong> y <strong>Configuración</strong>.
-          </Paragraph>
-          <ScreenshotImg
-            src="/manual/screenshots/19-menu-navegacion.png"
-            alt="Menú de navegación"
-            caption="Sidebar con todos los módulos del sistema"
-          />
-          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
-            {[
-              { name: "Hoy", desc: "Dashboard del día y pipeline activo" },
-              { name: "Boletines", desc: "Gestión de boletines diarios" },
-              { name: "Generar", desc: "Crear un nuevo boletín" },
-              { name: "Suscriptores", desc: "Gestión de lista de correos" },
-              { name: "Fuentes", desc: "Configuración de fuentes" },
-              { name: "Categorías", desc: "Categorías de clasificación" },
-              { name: "Usuarios", desc: "Administración de usuarios" },
-            ].map((item) => (
-              <div
-                key={item.name}
-                className="rounded-lg border p-3"
-                style={{
-                  background: "var(--otto-surface)",
-                  borderColor: "var(--otto-rule)",
-                }}
-              >
-                <p
-                  className="font-display m-0 text-[14px] font-semibold"
-                  style={{ color: "var(--otto-ink)" }}
-                >
-                  {item.name}
-                </p>
-                <p
-                  className="m-0 mt-0.5 text-[12px] leading-[1.4]"
-                  style={{ color: "var(--otto-muted)" }}
-                >
-                  {item.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-          <ImportantBox>
-            El administrador puede configurar qué módulos ve cada usuario. Si
-            no aparece alguno de estos elementos en su sidebar, contacte al
-            administrador para solicitar acceso.
-          </ImportantBox>
 
           {/* BOLETINES */}
           <SectionTitle id="boletines" index={5} icon={Newspaper}>
             Lista de boletines
           </SectionTitle>
           <Paragraph>
-            La sección de Boletines muestra todos los boletines generados
-            agrupados por semana (más recientes primero). Cada fila muestra el
-            día, título, cantidad de noticias, tasa de apertura y estado del
-            envío.
+            La sección <Code>Boletines</Code> muestra el histórico completo,
+            agrupado por semana (más reciente primero). En la parte superior
+            encontrará pestañas de filtro <strong>Todos</strong>,{" "}
+            <strong>Enviados</strong>, <strong>Borradores</strong> y{" "}
+            <strong>Errores</strong>, además de un selector de mes y un botón{" "}
+            <strong>Exportar</strong>.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/04-boletines-lista.png"
             alt="Lista de boletines"
-            caption="Vista general de todos los boletines generados"
+            caption="Histórico de boletines agrupado por semana, con filtros y exportación"
           />
+          <Paragraph>
+            Cada fila muestra el día, el título destacado del boletín, número
+            de noticias, número de categorías y un <strong>pill</strong> con
+            el estado. Para los boletines enviados se muestra además la{" "}
+            <strong>tasa de apertura</strong> y el número de lecturas. Al
+            hacer clic en una fila se abre el detalle.
+          </Paragraph>
           <Subheading>Estados de un boletín</Subheading>
           <div className="space-y-2">
             {[
               {
-                status: "Borrador",
+                status: "Scraped",
                 variant: "muted" as const,
-                desc: "Recién creado, en proceso de recopilación",
+                desc: "Noticias recopiladas, pendiente de clasificación",
+              },
+              {
+                status: "En pipeline",
+                variant: "info" as const,
+                desc: "Procesamiento en curso (clasificación, resumen, video)",
               },
               {
                 status: "Listo",
                 variant: "info" as const,
-                desc: "Noticias clasificadas y resúmenes generados",
+                desc: "Resúmenes generados, listo para autorizar",
               },
               {
                 status: "Autorizado",
@@ -695,12 +710,12 @@ export function ManualContent() {
               {
                 status: "Publicado",
                 variant: "okStrong" as const,
-                desc: "Disponible públicamente y enviado",
+                desc: "Disponible públicamente y enviado por email",
               },
               {
-                status: "Fallido",
-                variant: "err" as const,
-                desc: "Error durante la generación",
+                status: "Enviado",
+                variant: "okStrong" as const,
+                desc: "Email distribuido a la lista de suscriptores",
               },
             ].map((item) => (
               <div
@@ -727,36 +742,49 @@ export function ManualContent() {
             Generar nuevo boletín
           </SectionTitle>
           <Paragraph>
-            Para generar un nuevo boletín diario, haga clic en{" "}
-            <strong>&quot;Generar boletín&quot;</strong> desde el menú lateral
-            o desde la lista de boletines.
+            Para crear el boletín del día haga clic en{" "}
+            <strong>Generar</strong> en el sidebar. Si todavía no existe un
+            boletín para la fecha actual el sistema lanza el pipeline
+            automáticamente; si ya existe, le redirige al detalle del boletín
+            de hoy.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/05-generar-boletin.png"
-            alt="Generar boletín"
-            caption="Pantalla de generación de un nuevo boletín"
+            alt="Pantalla de boletín del día"
+            caption="Cuando ya existe boletín de hoy, el botón Generar abre directamente su detalle"
           />
           <NoteBox>
-            Solo se puede generar un boletín por día. Si ya existe un boletín
-            para la fecha actual, el botón estará deshabilitado.
+            Solo se puede generar <strong>un boletín por día</strong>. Si ya
+            existe, la lista de boletines mostrará un banner rojo:{" "}
+            <em>&quot;Boletín de hoy ya existe. Solo puedes generar uno por
+            día. Ver boletín →&quot;</em>.
           </NoteBox>
-          <Subheading>Proceso de generación (Pipeline)</Subheading>
+          <Subheading>Etapas del pipeline</Subheading>
           <StepBox number={1}>
-            <strong>Recopilación (Scraping):</strong> el sistema visita
-            automáticamente las fuentes configuradas y extrae las noticias del
-            día.
+            <strong>Scraping:</strong> el sistema visita las cinco fuentes
+            configuradas y descarga los artículos publicados.
           </StepBox>
           <StepBox number={2}>
-            <strong>Clasificación (IA):</strong> la inteligencia artificial
-            analiza cada noticia y la asigna a una categoría.
+            <strong>Clasificación (IA):</strong> cada noticia se asigna
+            automáticamente a una de las 7 categorías.
           </StepBox>
           <StepBox number={3}>
-            <strong>Resumen (IA):</strong> se generan resúmenes concisos de las
-            noticias más relevantes de cada categoría.
+            <strong>Resumen (IA):</strong> se redactan los resúmenes
+            editoriales por sección.
+          </StepBox>
+          <StepBox number={4}>
+            <strong>Video:</strong> se renderiza un video con las imágenes y
+            titulares destacados (visible en la columna izquierda del
+            boletín público).
+          </StepBox>
+          <StepBox number={5}>
+            <strong>Enviar:</strong> al autorizar y publicar, el boletín se
+            distribuye a la lista de suscriptores.
           </StepBox>
           <ImportantBox>
-            El proceso completo toma entre 3 y 8 minutos dependiendo de la
-            cantidad de noticias. No cierre la ventana durante la generación.
+            El pipeline completo toma entre 3 y 8 minutos según el volumen de
+            noticias. Puede cerrar la ventana sin problema; el proceso
+            continúa en segundo plano.
           </ImportantBox>
 
           {/* DETALLE */}
@@ -764,30 +792,28 @@ export function ManualContent() {
             Detalle del boletín
           </SectionTitle>
           <Paragraph>
-            Al hacer clic en un boletín de la lista, accede a su vista
-            detallada. Aquí puede ver los resúmenes, las noticias originales,
-            editar contenido, revisar la auditoría y gestionar la
-            publicación.
+            Al abrir un boletín verá su <strong>fecha</strong> como título y
+            su <strong>ID</strong> en gris debajo. A la derecha aparece un
+            pill con el estado actual (<Code>Listo</Code>,{" "}
+            <Code>Publicado</Code>, etc.). Debajo hay una barra blanca con
+            los <strong>botones de acción</strong> y, finalmente, las cuatro
+            pestañas del boletín.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/06-boletin-detalle.png"
             alt="Detalle del boletín"
-            caption="Vista de detalle de un boletín con tabs y botones de acción"
+            caption="Vista de detalle: título, ID, acciones y tabs"
           />
-          <Subheading>Botones de acción</Subheading>
+          <Subheading>Botones de acción según el estado</Subheading>
+          <Paragraph>
+            <strong>Boletín en estado &quot;Listo&quot;</strong> (sin
+            autorizar):
+          </Paragraph>
           <div className="space-y-2">
             {[
               {
-                btn: "Reactivar boletín",
-                desc: "Permite regenerar el procesamiento del boletín",
-              },
-              {
-                btn: "Enviar prueba",
-                desc: "Envía un email de prueba al administrador antes del envío masivo",
-              },
-              {
-                btn: "Compartir link público",
-                desc: "Genera un enlace público para compartir el boletín (solo si está autorizado/publicado)",
+                btn: "Autorizar",
+                desc: "Marca el boletín como aprobado y registra al usuario en la auditoría",
               },
               {
                 btn: "Eliminar",
@@ -812,102 +838,197 @@ export function ManualContent() {
               </div>
             ))}
           </div>
-          <Subheading>Tab: Resúmenes</Subheading>
           <Paragraph>
-            Muestra el boletín con los resúmenes generados por IA. Puede
-            alternar entre dos diseños:{" "}
-            <strong>Clásico</strong> (formato tradicional editorial) y{" "}
-            <strong>Moderno</strong> (tarjetas con jerarquía visual).
+            <strong>Boletín en estado &quot;Publicado&quot;</strong> (ya
+            enviado):
+          </Paragraph>
+          <ScreenshotImg
+            src="/manual/screenshots/12-botones-accion.png"
+            alt="Botones de acción de un boletín publicado"
+            caption="Acciones disponibles para un boletín ya publicado y enviado"
+          />
+          <div className="space-y-2">
+            {[
+              {
+                btn: "Reactivar Boletín",
+                desc: "Reabre el boletín para edición (revierte la autorización)",
+              },
+              {
+                btn: "Enviar Prueba",
+                desc: "Envía un email de prueba al administrador antes del envío masivo",
+              },
+              {
+                btn: "Compartir Link Público",
+                desc: "Copia el enlace público (de la forma /bulletin/15-abr-2026) al portapapeles",
+              },
+              {
+                btn: "No se puede eliminar",
+                desc: "Los boletines enviados no pueden borrarse para preservar el registro de auditoría",
+              },
+            ].map((item) => (
+              <div
+                key={item.btn}
+                className="flex items-start gap-3 rounded-lg border p-3"
+                style={{
+                  background: "var(--otto-surface)",
+                  borderColor: "var(--otto-rule)",
+                }}
+              >
+                <Code>{item.btn}</Code>
+                <span
+                  className="flex-1 text-[13px] leading-[1.5]"
+                  style={{ color: "var(--otto-muted)" }}
+                >
+                  {item.desc}
+                </span>
+              </div>
+            ))}
+          </div>
+          <Subheading>Pestañas del boletín</Subheading>
+          <Paragraph>
+            Cada boletín tiene exactamente cuatro pestañas:{" "}
+            <strong>Resúmenes</strong>, <strong>Noticias</strong>,{" "}
+            <strong>Editar</strong> y <strong>Auditoría</strong>. Las
+            siguientes secciones describen cada una en detalle.
+          </Paragraph>
+
+          {/* TAB RESUMENES */}
+          <SectionTitle id="resumenes" index={8} icon={BookOpen}>
+            Tab Resúmenes
+          </SectionTitle>
+          <Paragraph>
+            Esta es la pestaña por defecto. Muestra el boletín completo con
+            los resúmenes generados por IA, tal y como lo verán los
+            destinatarios. Arriba hay un selector de{" "}
+            <strong>Estilo de visualización</strong> con dos opciones:{" "}
+            <strong>Diseño Clásico</strong> (formato editorial tradicional)
+            y <strong>Diseño Moderno</strong> (tarjetas con jerarquía
+            visual).
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/07-tab-resumenes.png"
             alt="Tab resúmenes"
-            caption="Tab de resúmenes con selector de diseño Clásico/Moderno"
+            caption="Tab Resúmenes con selector de diseño Clásico/Moderno"
           />
 
           {/* TAB NOTICIAS */}
-          <SectionTitle id="noticias" index={8} icon={Rss}>
+          <SectionTitle id="noticias" index={9} icon={Rss}>
             Tab Noticias
           </SectionTitle>
           <Paragraph>
-            Esta pestaña muestra todas las noticias recopiladas, organizadas
-            por fuente. Cada noticia tiene un checkbox que indica si fue
-            seleccionada para el boletín. Puede ver el total de noticias, las
-            seleccionadas y las fuentes consultadas.
+            La pestaña <Code>Noticias</Code> muestra todas las noticias
+            recopiladas, organizadas por <strong>fuente</strong>. En la parte
+            superior hay un resumen con tres métricas:{" "}
+            <strong>Total</strong> (noticias recopiladas),{" "}
+            <strong>Seleccionadas</strong> (las que entrarán al boletín en
+            verde) y <strong>Fuentes</strong> consultadas.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/08-tab-noticias.png"
             alt="Tab noticias"
-            caption="Noticias organizadas por fuente con contadores y checkboxes"
+            caption="Noticias agrupadas por fuente con contadores y selección por checkbox"
           />
           <Paragraph>
-            Las fuentes se muestran como pestañas secundarias:{" "}
-            <strong>La Hora, Primicias, El Comercio, Teleamazonas, ECU911</strong>
-            . Haga clic en cada fuente para ver sus noticias. Cada noticia
-            incluye título, descripción, fecha y un enlace{" "}
-            <strong>&quot;Ver original&quot;</strong> para abrir la noticia en
-            su fuente.
+            Las fuentes aparecen como <strong>pestañas secundarias</strong>{" "}
+            en negro con su contador (por ejemplo{" "}
+            <Code>La Hora 6/20</Code>). Cada noticia incluye imagen,
+            titular, descripción, fecha, etiqueta de categoría y un enlace{" "}
+            <strong>Ver original</strong> que abre la noticia en su sitio
+            fuente.
           </Paragraph>
+          <Subheading>Acciones de selección</Subheading>
+          <BulletList>
+            <li>
+              <strong>Checkbox individual</strong> en cada noticia para
+              incluirla o excluirla del boletín.
+            </li>
+            <li>
+              <strong>Seleccionar todas</strong> /{" "}
+              <strong>Deseleccionar todas</strong> por fuente.
+            </li>
+            <li>
+              <strong>Guardar</strong> guarda los cambios en la selección.
+            </li>
+            <li>
+              <strong>Guardar y generar boletín</strong> guarda y vuelve a
+              ejecutar el resumidor con la nueva selección.
+            </li>
+          </BulletList>
 
           {/* TAB EDITAR */}
-          <SectionTitle id="editar" index={9} icon={Settings}>
+          <SectionTitle id="editar" index={10} icon={Settings}>
             Tab Editar
           </SectionTitle>
           <Paragraph>
-            En esta pestaña puede editar los resúmenes generados por la IA,
-            agregar noticias manualmente, reordenar con drag &amp; drop y
-            modificar el contenido antes de autorizar el boletín. Los cambios
-            se guardan automáticamente.
+            La pestaña <Code>Editar</Code> activa el <strong>Modo
+            Edición</strong> y permite ajustar manualmente el contenido del
+            boletín antes de autorizarlo: editar resúmenes, agregar noticias
+            manuales y administrar el video del boletín.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/09-tab-editar.png"
             alt="Tab editar"
-            caption="Interfaz de edición del boletín con campos editables por categoría"
+            caption="Modo Edición con video del boletín y herramientas de IA"
           />
-          <Subheading>Agregar noticias manualmente</Subheading>
-          <Paragraph>
-            Si desea agregar una noticia que no fue recopilada
-            automáticamente, use el formulario de{" "}
-            <strong>&quot;Agregar noticia manual&quot;</strong>. Complete el
-            título, resumen, URL de la fuente y seleccione la categoría
-            correspondiente.
-          </Paragraph>
-
-          {/* TAB AUDITORIA */}
-          <SectionTitle id="auditoria" index={10} icon={Shield}>
-            Tab Auditoría
-          </SectionTitle>
-          <Paragraph>
-            El registro de auditoría muestra un historial cronológico de todas
-            las acciones realizadas sobre el boletín: quién lo autorizó, quién
-            lo publicó, cuándo se envió el email y cualquier eliminación.
-          </Paragraph>
-          <ScreenshotImg
-            src="/manual/screenshots/10-tab-auditoria.png"
-            alt="Tab auditoría"
-            caption="Registro de auditoría mostrando acciones, usuarios y fechas"
-          />
-          <Paragraph>Cada entrada muestra:</Paragraph>
+          <Subheading>Herramientas disponibles</Subheading>
           <BulletList>
             <li>
-              <strong>Tipo de acción:</strong> Autorizado, Publicado, Email
-              enviado, Eliminado.
+              <strong>+ Agregar manual</strong>: agrega una noticia que no
+              fue recopilada por scraping (título, resumen, URL y categoría).
             </li>
             <li>
-              <strong>Usuario:</strong> nombre y correo del responsable.
+              <strong>Mejorar todo con IA</strong>: vuelve a ejecutar el
+              resumidor sobre todo el boletín para refinar la redacción.
             </li>
             <li>
-              <strong>Fecha y hora:</strong> momento exacto de la acción.
+              <strong>Video del boletín</strong>: suba un MP4 (máximo
+              150&nbsp;MB) que se mostrará en la columna izquierda del
+              boletín público. También puede eliminarlo.
             </li>
           </BulletList>
 
+          {/* TAB AUDITORIA */}
+          <SectionTitle id="auditoria" index={11} icon={Shield}>
+            Tab Auditoría
+          </SectionTitle>
+          <Paragraph>
+            El <strong>Registro de Auditoría</strong> guarda un historial
+            cronológico de todas las acciones críticas sobre el boletín:
+            quién lo autorizó, quién lo publicó, cuándo se envió el email y
+            cualquier intento de eliminación.
+          </Paragraph>
+          <ScreenshotImg
+            src="/manual/screenshots/11b-tab-auditoria.png"
+            alt="Tab auditoría con eventos"
+            caption="Registro de auditoría: AUTORIZADO, PUBLICADO y EMAIL_SENT con usuario y fecha"
+          />
+          <Paragraph>Cada entrada del registro muestra:</Paragraph>
+          <BulletList>
+            <li>
+              <strong>Tipo de evento</strong> en pill rojo:{" "}
+              <Code>AUTORIZADO</Code>, <Code>PUBLICADO</Code>,{" "}
+              <Code>EMAIL_SENT</Code> o <Code>ELIMINADO</Code>.
+            </li>
+            <li>
+              <strong>Usuario responsable</strong>: nombre y correo.
+            </li>
+            <li>
+              <strong>Timestamp</strong>: fecha y hora exactas (formato 24h
+              en zona horaria de Ecuador).
+            </li>
+          </BulletList>
+          <ImportantBox>
+            Los registros de auditoría son <strong>inmutables</strong>: no
+            pueden editarse ni borrarse. Esto garantiza la trazabilidad
+            editorial.
+          </ImportantBox>
+
           {/* PUBLICAR */}
-          <SectionTitle id="publicar" index={11} icon={Send}>
+          <SectionTitle id="publicar" index={12} icon={Send}>
             Autorizar y publicar
           </SectionTitle>
           <Paragraph>
-            El flujo de publicación de un boletín sigue cinco etapas
-            secuenciales:
+            El flujo de publicación de un boletín sigue cinco etapas:
           </Paragraph>
           <div
             className="my-6 flex flex-wrap items-center gap-3 rounded-xl border p-5"
@@ -916,15 +1037,15 @@ export function ManualContent() {
               borderColor: "var(--otto-rule)",
             }}
           >
-            {["Borrador", "Listo", "Autorizado", "Publicado", "Email enviado"].map(
+            {["Listo", "Autorizado", "Publicado", "Email enviado"].map(
               (step, i) => {
                 const variants: Array<
                   "muted" | "info" | "ok" | "okStrong"
-                > = ["muted", "muted", "info", "ok", "okStrong"];
+                > = ["info", "ok", "okStrong", "okStrong"];
                 return (
                   <div key={step} className="flex items-center gap-3">
                     <StatusPill label={step} variant={variants[i]} />
-                    {i < 4 ? (
+                    {i < 3 ? (
                       <span
                         className="font-mono-otto"
                         style={{ color: "var(--otto-muted)" }}
@@ -938,222 +1059,296 @@ export function ManualContent() {
             )}
           </div>
           <StepBox number={1}>
-            <strong>Autorizar:</strong> revise el contenido en la tab
-            &quot;Resúmenes&quot;. Si todo está correcto, haga clic en{" "}
-            <strong>&quot;Autorizar&quot;</strong>. Esto registra en la
-            auditoría quién aprobó el boletín.
+            <strong>Revisar:</strong> abra el boletín y revise la pestaña{" "}
+            <Code>Resúmenes</Code>. Si necesita ajustar contenido use{" "}
+            <Code>Editar</Code>; si necesita cambiar la selección de
+            noticias use <Code>Noticias</Code>.
           </StepBox>
           <StepBox number={2}>
-            <strong>Publicar:</strong> una vez autorizado, haga clic en{" "}
-            <strong>&quot;Publicar&quot;</strong>. Esto genera el enlace
-            público del boletín.
+            <strong>Autorizar:</strong> cuando todo esté correcto, haga clic
+            en el botón naranja <strong>Autorizar</strong>. Se registra al
+            usuario en la auditoría y aparecen los botones de envío.
           </StepBox>
           <StepBox number={3}>
-            <strong>Enviar prueba:</strong> antes del envío masivo, haga clic
-            en <strong>&quot;Enviar prueba&quot;</strong> para verificar cómo
-            se ve el correo.
+            <strong>Enviar Prueba:</strong> envíe primero una prueba al
+            administrador para verificar cómo se ve el correo en la bandeja
+            de entrada.
           </StepBox>
           <StepBox number={4}>
-            <strong>Enviar a suscriptores:</strong> finalmente, envíe el
-            boletín a todos los suscriptores registrados. El sistema rastrea
-            las aperturas y los clicks.
+            <strong>Publicar y enviar:</strong> esto genera el enlace
+            público y distribuye el boletín a toda la lista de suscriptores.
+            El sistema rastrea aperturas automáticamente.
           </StepBox>
           <NoteBox>
-            Una vez enviado el email a suscriptores, el boletín no se puede
-            eliminar para mantener la integridad del registro de auditoría.
+            Una vez enviado el email a los suscriptores el boletín{" "}
+            <strong>no puede eliminarse</strong>. El botón aparece como{" "}
+            <Code>No se puede eliminar</Code> para preservar el registro.
           </NoteBox>
 
           {/* VISTA PUBLICA */}
-          <SectionTitle id="vista-publica" index={12} icon={Eye}>
+          <SectionTitle id="vista-publica" index={13} icon={Eye}>
             Vista pública del boletín
           </SectionTitle>
           <Paragraph>
             Los boletines publicados tienen una vista pública accesible sin
-            necesidad de iniciar sesión. Esta vista organiza el contenido en
-            tres columnas: video (izquierda), noticias por categoría (centro)
-            y última hora (derecha).
+            iniciar sesión, en URLs amigables como{" "}
+            <Code>/bulletin/15-abr-2026</Code>. El layout combina hero
+            visual y tres columnas: <strong>VIDEO</strong> a la izquierda,
+            <strong> noticias por categoría</strong> al centro (numeradas) y
+            <strong> ÚLTIMA HORA</strong> a la derecha.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/17-vista-publica.png"
-            alt="Vista pública"
-            caption="Vista pública del boletín con layout de 3 columnas"
+            alt="Vista pública del boletín"
+            caption="Hero con título y fecha, video a la izquierda y noticias al centro"
+          />
+          <ScreenshotImg
+            src="/manual/screenshots/17b-vista-publica-scroll.png"
+            alt="Vista pública con scroll"
+            caption="Las noticias muestran imagen, título destacado, resumen y enlace 'Leer más'"
           />
           <Paragraph>
-            Para compartir un boletín, use el botón{" "}
-            <strong>&quot;Compartir link público&quot;</strong> en la vista
-            de detalle. El enlace se copiará al portapapeles y podrá
-            distribuirlo por cualquier medio.
+            Para compartir un boletín use el botón{" "}
+            <strong>Compartir Link Público</strong> en su detalle. El enlace
+            se copia al portapapeles para distribuirlo por cualquier canal.
           </Paragraph>
 
           {/* FUENTES */}
-          <SectionTitle id="fuentes" index={13} icon={Rss}>
+          <SectionTitle id="fuentes" index={14} icon={Rss}>
             Configuración de fuentes
           </SectionTitle>
           <Paragraph>
-            En la sección de <strong>Fuentes</strong> se configuran los sitios
-            web de donde el sistema recopila noticias automáticamente. Las
-            fuentes actuales incluyen los principales medios ecuatorianos.
+            En <Code>Fuentes</Code> se configuran los sitios desde donde el
+            sistema recopila noticias. La cabecera muestra cuatro KPIs:{" "}
+            <strong>fuentes activas</strong>, <strong>total scraped</strong>
+            , <strong>última corrida</strong> y{" "}
+            <strong>errores 24h</strong>. Cada tarjeta de fuente tiene un
+            toggle para activarla o desactivarla y un menú contextual para
+            edición avanzada.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/13-fuentes.png"
             alt="Fuentes de noticias"
-            caption="Configuración de fuentes de noticias del sistema"
+            caption="Cinco fuentes configuradas con KPIs de scraping en tiempo real"
           />
+          <Paragraph>
+            Las fuentes actuales son <strong>El Comercio</strong>,{" "}
+            <strong>Primicias</strong>, <strong>La Hora</strong>,{" "}
+            <strong>Teleamazonas</strong> y <strong>ECU911</strong>. Cada
+            tarjeta muestra el dominio, el número de artículos, hace cuánto
+            se ejecutó y el estado (<Code>success</Code> o error).
+          </Paragraph>
           <ImportantBox>
-            La configuración de fuentes es una tarea avanzada. Solo modifique
-            estos valores si sabe lo que está haciendo o bajo instrucciones
-            del equipo técnico.
+            La configuración avanzada de fuentes (selectores CSS, headers,
+            estrategia de scraping) es una tarea técnica. Solo modifíquela
+            bajo instrucciones del equipo técnico.
           </ImportantBox>
 
           {/* SUSCRIPTORES */}
-          <SectionTitle id="suscriptores" index={14} icon={Users}>
+          <SectionTitle id="suscriptores" index={15} icon={Users}>
             Gestión de suscriptores
           </SectionTitle>
           <Paragraph>
-            La sección de Suscriptores permite gestionar la lista de correos
-            electrónicos que reciben los boletines. Puede agregar, editar y
-            eliminar suscriptores individualmente o importarlos masivamente
-            desde un archivo CSV.
+            La sección <Code>Suscriptores</Code> centraliza la audiencia y
+            su engagement. Arriba se muestran cuatro KPIs:{" "}
+            <strong>total activos</strong>,{" "}
+            <strong>engagement promedio</strong>,{" "}
+            <strong>inactivos</strong> y{" "}
+            <strong>total suscriptores</strong>.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/14-suscriptores.png"
             alt="Suscriptores"
-            caption="Gestión de suscriptores de email"
+            caption="Lista de suscriptores con segmento, engagement y última apertura"
           />
           <Subheading>Funciones disponibles</Subheading>
           <BulletList>
             <li>
-              <strong>Agregar suscriptor:</strong> ingrese nombre y correo
-              electrónico.
+              <strong>Pestañas de filtro</strong>: Todos, Activos,
+              Recientes, Inactivos.
             </li>
             <li>
-              <strong>Importar CSV:</strong> cargue un archivo CSV con
-              columnas <Code>name</Code> y <Code>email</Code>.
+              <strong>Buscador</strong> por email o nombre.
             </li>
             <li>
-              <strong>Exportar:</strong> descargue la lista completa en
-              formato CSV.
+              <strong>+ Nuevo</strong>: registra un suscriptor manualmente
+              (nombre y correo).
             </li>
             <li>
-              <strong>Eliminar:</strong> remueva suscriptores individuales o
-              en lote.
+              <strong>Importar CSV</strong>: carga masiva con columnas{" "}
+              <Code>name</Code> y <Code>email</Code>.
+            </li>
+            <li>
+              <strong>Exportar</strong>: descarga la lista completa en CSV.
+            </li>
+            <li>
+              <strong>Menú contextual (···)</strong> en cada fila para
+              editar o eliminar.
             </li>
           </BulletList>
+          <Paragraph>
+            Cada fila muestra el segmento del suscriptor (<Code>ENGAGED</Code>{" "}
+            o <Code>INACTIVO</Code>), una barra de engagement con
+            porcentaje, su última apertura y la fecha en que se suscribió.
+          </Paragraph>
           <ImportantBox>
-            Los suscriptores pueden darse de baja automáticamente a través del
-            enlace incluido en cada correo electrónico.
+            Los suscriptores pueden darse de baja automáticamente desde el
+            enlace incluido al pie de cada correo electrónico.
           </ImportantBox>
 
           {/* CATEGORIAS */}
-          <SectionTitle id="categorias" index={15} icon={Tag}>
+          <SectionTitle id="categorias" index={16} icon={Tag}>
             Gestión de categorías
           </SectionTitle>
           <Paragraph>
-            Las categorías determinan cómo se clasifican las noticias. Puede
-            crear nuevas categorías, editar las existentes y reordenarlas
-            arrastrando las tarjetas en el grid.
+            En <Code>Categorías</Code> se gestionan las etiquetas con las
+            que el clasificador agrupa las noticias del boletín. La vista
+            muestra tres KPIs (<strong>total</strong>,{" "}
+            <strong>activas</strong>, <strong>keywords totales</strong>) y
+            las categorías como <strong>tarjetas en grid</strong> con un
+            color distintivo a la izquierda.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/15-categorias.png"
             alt="Categorías"
-            caption="Gestión de categorías de noticias"
+            caption="Las 7 categorías predeterminadas, cada una con su orden y estado"
           />
           <Paragraph>
             Las categorías predeterminadas son:{" "}
             <strong>
-              Economía, Política, Sociedad, Seguridad, Internacional y Vial
+              Última Hora, Economía, Política, Sociedad, Seguridad,
+              Internacional y Vial
             </strong>
-            . La IA utilizará estas categorías para clasificar
-            automáticamente las noticias recopiladas.
+            . Cada tarjeta muestra el nombre, etiqueta <Code>Default</Code>{" "}
+            si es del sistema, descripción opcional, las{" "}
+            <strong>keywords</strong> que ayudan al clasificador, el conteo
+            de noticias 7D, su <strong>orden</strong> de aparición y el
+            estado <Code>ACTIVA</Code>.
+          </Paragraph>
+          <Paragraph>
+            Use <strong>+ Nueva categoría</strong> para crear etiquetas
+            personalizadas. Las tarjetas pueden reordenarse arrastrándolas
+            para definir el orden en que aparecen en el boletín público.
           </Paragraph>
 
           {/* USUARIOS */}
-          <SectionTitle id="usuarios" index={16} icon={Users}>
+          <SectionTitle id="usuarios" index={17} icon={Users}>
             Administración de usuarios
           </SectionTitle>
           <Paragraph>
-            La sección de Usuarios permite al administrador gestionar las
-            cuentas de acceso al sistema. Puede crear nuevos usuarios, cambiar
-            contraseñas, activar/desactivar cuentas y asignar permisos por
-            rol (Admin, Editor, Viewer).
+            La sección <Code>Usuarios y permisos</Code> gestiona el acceso
+            del equipo a la consola. En la parte superior hay tres tarjetas
+            con los <strong>roles disponibles</strong>, sus capacidades y
+            cuántos usuarios tiene asignados cada uno.
           </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/16-usuarios.png"
-            alt="Usuarios"
-            caption="Panel de administración de usuarios"
+            alt="Usuarios y permisos"
+            caption="Roles ADMIN, EDITOR y VIEWER con detalle de permisos y lista del equipo"
           />
-          <Subheading>Funciones de administración</Subheading>
+          <Subheading>Roles del sistema</Subheading>
+          <div className="space-y-3">
+            {[
+              {
+                role: "ADMIN",
+                desc: "Acceso completo. Gestiona usuarios, fuentes y configuración. Puede generar y enviar boletines, gestionar suscriptores e invitar/eliminar usuarios.",
+              },
+              {
+                role: "EDITOR",
+                desc: "Genera boletines y administra la audiencia. Sin acceso a configuración (no configura fuentes/categorías ni invita usuarios).",
+              },
+              {
+                role: "VIEWER",
+                desc: "Solo lectura. Visualiza boletines, métricas y suscriptores sin modificar nada.",
+              },
+            ].map((r) => (
+              <div
+                key={r.role}
+                className="flex items-start gap-3 rounded-lg border p-3"
+                style={{
+                  background: "var(--otto-surface)",
+                  borderColor: "var(--otto-rule)",
+                }}
+              >
+                <Code>{r.role}</Code>
+                <span
+                  className="flex-1 text-[13px] leading-[1.5]"
+                  style={{ color: "var(--otto-muted)" }}
+                >
+                  {r.desc}
+                </span>
+              </div>
+            ))}
+          </div>
+          <Subheading>Acciones disponibles</Subheading>
           <BulletList>
             <li>
-              <strong>Crear usuario:</strong> defina nombre, email y
-              contraseña para un nuevo usuario.
+              <strong>+ Invitar usuario</strong>: envía una invitación por
+              email para crear una cuenta con el rol asignado.
             </li>
             <li>
-              <strong>Cambiar contraseña:</strong> restablezca la contraseña
-              de cualquier usuario.
+              <strong>Tabla del equipo</strong>: muestra usuario, rol,
+              estado (<Code>ACTIVO</Code> / <Code>INACTIVO</Code>) y fecha
+              de alta.
             </li>
             <li>
-              <strong>Activar/Desactivar:</strong> las cuentas desactivadas no
-              pueden iniciar sesión.
-            </li>
-            <li>
-              <strong>Permisos por rol:</strong> Admin (control total), Editor
-              (gestión editorial), Viewer (solo lectura).
+              <strong>Menú contextual (···)</strong>: cambiar rol,
+              activar/desactivar cuenta o eliminar usuario.
             </li>
           </BulletList>
           <NoteBox>
-            Los cambios en permisos se aplican inmediatamente. El usuario
-            afectado verá los cambios la próxima vez que cargue la página.
+            Los cambios de rol se aplican inmediatamente. El usuario verá
+            la nueva configuración la próxima vez que cargue la consola.
           </NoteBox>
 
           {/* EMAIL */}
-          <SectionTitle id="email" index={17} icon={Mail}>
+          <SectionTitle id="email" index={18} icon={Mail}>
             Envío de correos electrónicos
           </SectionTitle>
           <Paragraph>
-            El sistema envía boletines por correo electrónico a todos los
-            suscriptores registrados. Los correos incluyen el contenido
-            completo del boletín con un diseño editorial profesional.
+            El sistema envía los boletines por correo electrónico a los
+            suscriptores activos. Los correos incluyen el boletín completo
+            con un diseño editorial profesional y enlaces que rastrean
+            aperturas y clicks.
           </Paragraph>
           <Subheading>Proceso de envío</Subheading>
           <StepBox number={1}>
             Asegúrese de que el boletín esté en estado{" "}
-            <strong>Autorizado</strong> o <strong>Publicado</strong>.
+            <Code>Autorizado</Code> o <Code>Publicado</Code>.
           </StepBox>
           <StepBox number={2}>
-            Haga clic en <strong>&quot;Enviar prueba&quot;</strong> para
-            recibir un email de prueba en su correo y verificar el contenido.
+            Haga clic en <strong>Enviar Prueba</strong> para recibir un
+            email de prueba en su correo y verificar el contenido visual.
           </StepBox>
           <StepBox number={3}>
-            Si la prueba se ve bien, haga clic en{" "}
-            <strong>&quot;Enviar a suscriptores&quot;</strong> para distribuir
-            el boletín a toda la lista.
+            Si la prueba se ve correctamente, complete el envío masivo
+            desde el flujo de publicación.
           </StepBox>
           <Subheading>Seguimiento de emails</Subheading>
           <Paragraph>El sistema rastrea automáticamente:</Paragraph>
           <BulletList>
             <li>
-              <strong>Aperturas:</strong> cuántos destinatarios abrieron el
-              email.
+              <strong>Aperturas</strong>: cuántos destinatarios abrieron el
+              email (alimenta el KPI &quot;Apertura · último envío&quot; en
+              Hoy).
             </li>
             <li>
-              <strong>Clicks:</strong> cuántos hicieron clic en los enlaces de
-              noticias.
+              <strong>Clicks</strong>: cuántos hicieron clic en cada enlace
+              de noticia.
+            </li>
+            <li>
+              <strong>Engagement por suscriptor</strong>: visible en la
+              sección Suscriptores como porcentaje y barra de progreso.
             </li>
           </BulletList>
-          <Paragraph>
-            Estos datos alimentan los KPIs del Dashboard ejecutivo
-            (&quot;Tasa de apertura&quot;, &quot;Emails enviados vs
-            abiertos&quot;).
-          </Paragraph>
 
           {/* VIDEO */}
-          <SectionTitle id="video" index={18} icon={Video}>
+          <SectionTitle id="video" index={19} icon={Video}>
             Video tutorial
           </SectionTitle>
           <Paragraph>
-            A continuación puede ver un video tutorial que demuestra el uso
-            completo del sistema OttoSeguridad de inicio a fin:
+            A continuación puede ver un video tutorial con el recorrido
+            completo por la consola OttoSeguridad:
           </Paragraph>
           <div
             className="overflow-hidden rounded-xl border"
@@ -1202,7 +1397,7 @@ export function ManualContent() {
               className="font-mono-otto mt-2"
               style={{ color: "var(--otto-muted)" }}
             >
-              Versión 1.0 · Última actualización abril 2026
+              Versión 1.1 · Última actualización abril 2026
             </p>
             <p
               className="m-0 mt-3 text-[13px]"
