@@ -3,6 +3,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { getActiveSubscriberCount } from "@/lib/db/queries/subscribers";
+import { db } from "@/lib/db";
+import { user } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
 export default async function DashboardLayout({
   children,
@@ -17,7 +20,19 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const subscriberCount = await getActiveSubscriberCount().catch(() => 0);
+  const [subscriberCount, userRow] = await Promise.all([
+    getActiveSubscriberCount().catch(() => 0),
+    db
+      .select({ allowedMenus: user.allowedMenus })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .then((rows) => rows[0] ?? null)
+      .catch(() => null),
+  ]);
+
+  // null = sin restricción (legacy/admin) — ve todo.
+  // array = lista explícita de slugs permitidos.
+  const allowedMenus = userRow?.allowedMenus ?? null;
 
   return (
     <div
@@ -28,7 +43,10 @@ export default async function DashboardLayout({
         color: "var(--otto-ink)",
       }}
     >
-      <Sidebar subscriberCount={subscriberCount} />
+      <Sidebar
+        subscriberCount={subscriberCount}
+        allowedMenus={allowedMenus}
+      />
       <main className="w-full min-w-0 max-w-[1280px] px-8 pb-16 pt-6">
         {children}
       </main>

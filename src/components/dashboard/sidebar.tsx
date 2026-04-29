@@ -22,6 +22,8 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   badge?: string;
+  /** Slug del menú (debe coincidir con AVAILABLE_MENUS en lib/menu-items). */
+  slug: string;
 };
 
 type NavGroup = {
@@ -42,9 +44,9 @@ function buildNav(subscriberCount: number): NavGroup[] {
     {
       group: "Operación",
       items: [
-        { href: "/dashboard", label: "Hoy", icon: Home, badge: "live" },
-        { href: "/dashboard/bulletin", label: "Boletines", icon: List },
-        { href: "/dashboard/bulletin/generate", label: "Generar", icon: Plus },
+        { href: "/dashboard", label: "Hoy", icon: Home, badge: "live", slug: "dashboard" },
+        { href: "/dashboard/bulletin", label: "Boletines", icon: List, slug: "boletines" },
+        { href: "/dashboard/bulletin/generate", label: "Generar", icon: Plus, slug: "boletines" },
       ],
     },
     {
@@ -54,6 +56,7 @@ function buildNav(subscriberCount: number): NavGroup[] {
           href: "/dashboard/subscribers",
           label: "Suscriptores",
           icon: Users,
+          slug: "suscriptores",
           badge: subscriberCount > 0 ? formatCount(subscriberCount) : undefined,
         },
       ],
@@ -65,20 +68,34 @@ function buildNav(subscriberCount: number): NavGroup[] {
           href: "/dashboard/settings/sources",
           label: "Fuentes",
           icon: RefreshCw,
+          slug: "fuentes",
         },
         {
           href: "/dashboard/settings/categories",
           label: "Categorías",
           icon: LayoutGrid,
+          slug: "categorias",
         },
         {
           href: "/dashboard/settings/users",
           label: "Usuarios",
           icon: UserCog,
+          slug: "usuarios",
         },
       ],
     },
   ];
+}
+
+function filterNavByAllowed(
+  nav: NavGroup[],
+  allowedMenus: string[] | null,
+): NavGroup[] {
+  if (allowedMenus === null) return nav;
+  const allowed = new Set(allowedMenus);
+  return nav
+    .map((g) => ({ ...g, items: g.items.filter((i) => allowed.has(i.slug)) }))
+    .filter((g) => g.items.length > 0);
 }
 
 function isActive(pathname: string, href: string) {
@@ -88,13 +105,18 @@ function isActive(pathname: string, href: string) {
 
 interface SidebarProps {
   subscriberCount?: number;
+  /** null = sin restricción; array = lista explícita de slugs permitidos. */
+  allowedMenus?: string[] | null;
 }
 
-export function Sidebar({ subscriberCount = 0 }: SidebarProps) {
+export function Sidebar({
+  subscriberCount = 0,
+  allowedMenus = null,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
-  const NAV = buildNav(subscriberCount);
+  const NAV = filterNavByAllowed(buildNav(subscriberCount), allowedMenus);
 
   const userName = session?.user?.name ?? "Usuario";
   const userEmail = session?.user?.email ?? "";
