@@ -221,15 +221,17 @@ export function BulletinActions({
       {/* Publish button with email toggle - only when authorized */}
       {status === "authorized" && (
         <div className="flex items-center gap-4 flex-wrap">
-          {/* Test email button */}
-          <Button
-            variant="outline"
-            onClick={() => setShowTestDialog(true)}
-            className="gap-2"
-          >
-            <Mail className="h-4 w-4" />
-            Enviar Prueba
-          </Button>
+          {/* Test email button — oculto en producción */}
+          {false && (
+            <Button
+              variant="outline"
+              onClick={() => setShowTestDialog(true)}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              Enviar Prueba
+            </Button>
+          )}
 
           {/* Email toggle */}
           <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border">
@@ -290,15 +292,17 @@ export function BulletinActions({
             Reactivar Boletín
           </Button>
 
-          {/* Test email button */}
-          <Button
-            variant="outline"
-            onClick={() => setShowTestDialog(true)}
-            className="gap-2"
-          >
-            <Mail className="h-4 w-4" />
-            Enviar Prueba
-          </Button>
+          {/* Test email button — oculto en producción */}
+          {false && (
+            <Button
+              variant="outline"
+              onClick={() => setShowTestDialog(true)}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              Enviar Prueba
+            </Button>
+          )}
         </div>
       )}
     </div>
