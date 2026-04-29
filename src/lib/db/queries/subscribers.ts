@@ -6,7 +6,18 @@
 
 import { db } from "@/lib/db";
 import { subscribers, type Subscriber, type NewSubscriber } from "@/lib/schema";
-import { eq, desc, asc, ilike, and, SQL } from "drizzle-orm";
+import { eq, desc, asc, ilike, and, count, SQL } from "drizzle-orm";
+
+/**
+ * Count of active subscribers — used by the sidebar badge.
+ */
+export async function getActiveSubscriberCount(): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(subscribers)
+    .where(eq(subscribers.isActive, true));
+  return row?.value ?? 0;
+}
 
 /**
  * Get all subscribers with optional filtering

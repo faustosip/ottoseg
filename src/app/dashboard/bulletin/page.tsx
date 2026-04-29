@@ -1,119 +1,104 @@
-import { Suspense } from "react";
-import { getAllBulletins, getTodayBulletin } from "@/lib/db/queries/bulletins";
-import { Button } from "@/components/ui/button";
-import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
-import { BulletinList } from "./components/bulletin-list";
+import { AlertCircle, Plus } from "lucide-react";
+import {
+  getAllBulletins,
+  getTodayBulletin,
+  getBulletinEmailStats,
+} from "@/lib/db/queries/bulletins";
+import { Topline } from "@/components/dashboard/topline";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { FooterNote } from "@/components/dashboard/footer-note";
+import { BulletinTimeline } from "@/components/bulletin/bulletin-timeline";
 
-// Forzar renderizado dinámico sin caché
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/**
- * Página Lista de Boletines
- *
- * Muestra todos los boletines generados con filtros y paginación
- */
 export default async function BulletinListPage() {
-  // Cargar boletines iniciales
   const bulletins = await getAllBulletins({
-    limit: 20,
-    orderBy: "createdAt",
+    limit: 50,
+    orderBy: "date",
     order: "desc",
   });
 
-  // Verificar si existe boletín de hoy
   const todayBulletin = await getTodayBulletin();
   const hasTodayBulletin = !!todayBulletin;
+  const canGenerate =
+    !hasTodayBulletin || todayBulletin?.status === "failed";
+
+  const emailStatsMap = await getBulletinEmailStats(bulletins.map((b) => b.id));
+  const emailStats: Record<string, { sent: number; opened: number }> = {};
+  for (const [id, stat] of emailStatsMap.entries()) {
+    emailStats[id] = stat;
+  }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Boletines Diarios
-          </h1>
-          <p className="text-gray-600">
-            Gestiona y visualiza todos los boletines de noticias generados
-          </p>
-        </div>
+    <>
+      <Topline crumbs={["Operación", "Boletines"]} />
+      <PageHeader
+        title="Boletines"
+        lede="Histórico de envíos y borradores. Agrupados por semana."
+        actions={
+          canGenerate ? (
+            <Link
+              href="/dashboard/bulletin/generate"
+              className="inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-[13px] font-semibold text-white transition-shadow hover:shadow-[0_6px_18px_rgba(214,40,40,.36)]"
+              style={{
+                background: "var(--otto-primary)",
+                boxShadow: "0 4px 14px rgba(214,40,40,.28)",
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Generar boletín
+            </Link>
+          ) : (
+            <Link
+              href={`/dashboard/bulletin/${todayBulletin!.id}`}
+              className="inline-flex items-center gap-2 rounded-[10px] border px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-[var(--otto-bg)]"
+              style={{
+                background: "var(--otto-surface)",
+                borderColor: "var(--otto-rule)",
+                color: "var(--otto-ink)",
+              }}
+              title="Ya existe un boletín para hoy"
+            >
+              Ver boletín de hoy →
+            </Link>
+          )
+        }
+      />
 
-        {/* Botón Generar Nuevo */}
-        {hasTodayBulletin && todayBulletin?.status !== "failed" ? (
-          <Button size="lg" disabled className="gap-2">
-            <Plus className="h-5 w-5" />
-            Generar Nuevo Boletín
-          </Button>
-        ) : (
-          <Link href="/dashboard/bulletin/generate">
-            <Button size="lg" className="gap-2">
-              <Plus className="h-5 w-5" />
-              Generar Nuevo Boletín
-            </Button>
-          </Link>
-        )}
-      </div>
-
-      {/* Mensaje si ya existe boletín de hoy */}
-      {hasTodayBulletin && todayBulletin?.status !== "failed" && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Boletín de hoy ya existe.</strong> El boletín del día actual está en proceso o completado.
-            Solo puedes generar uno por día.
-          </p>
-        </div>
-      )}
-
-      {/* Lista de Boletines */}
-      <Suspense fallback={<BulletinListSkeleton />}>
-        {bulletins.length > 0 ? (
-          <BulletinList bulletins={bulletins} />
-        ) : (
-          <EmptyState />
-        )}
-      </Suspense>
-    </div>
-  );
-}
-
-/**
- * Estado vacío cuando no hay boletines
- */
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-        <FileText className="w-12 h-12 text-gray-400" />
-      </div>
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">
-        No hay boletines generados
-      </h3>
-      <p className="text-gray-600 text-center mb-6 max-w-md">
-        Aún no se ha generado ningún boletín. Comienza creando el primer boletín diario.
-      </p>
-      <Link href="/dashboard/bulletin/generate">
-        <Button size="lg" className="gap-2">
-          <Plus className="h-5 w-5" />
-          Generar Primer Boletín
-        </Button>
-      </Link>
-    </div>
-  );
-}
-
-/**
- * Loading skeleton para lista de boletines
- */
-function BulletinListSkeleton() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {[1, 2, 3, 4, 5, 6].map((i) => (
+      {hasTodayBulletin && todayBulletin?.status !== "failed" ? (
         <div
-          key={i}
-          className="h-64 bg-gray-100 rounded-lg animate-pulse"
-        />
-      ))}
-    </div>
+          className="mb-[22px] flex items-start gap-3 rounded-[12px] border p-3.5"
+          style={{
+            background: "var(--otto-primary-soft)",
+            borderColor: "var(--otto-primary)",
+            color: "var(--otto-primary-ink)",
+          }}
+        >
+          <AlertCircle
+            className="mt-0.5 h-4 w-4 flex-shrink-0"
+            style={{ color: "var(--otto-primary)" }}
+          />
+          <div className="flex-1 text-[13px] leading-[1.5]">
+            <strong className="font-semibold">
+              Boletín de hoy ya existe.
+            </strong>{" "}
+            Solo puedes generar uno por día.{" "}
+            <Link
+              href={`/dashboard/bulletin/${todayBulletin!.id}`}
+              className="font-semibold underline underline-offset-2"
+              style={{ color: "var(--otto-primary-ink)" }}
+            >
+              Ver boletín →
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      <BulletinTimeline bulletins={bulletins} emailStats={emailStats} />
+
+      <FooterNote>OttoSeguridad · Console · Boletines</FooterNote>
+    </>
   );
 }

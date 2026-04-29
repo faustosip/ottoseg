@@ -1,19 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Plus, ArrowLeft, Loader2 } from "lucide-react";
-import Link from "next/link";
-import { SourceCard } from "@/components/sources/source-card";
+import { Plus, Loader2 } from "lucide-react";
+import { SourceCardOtto } from "@/components/sources/source-card-otto";
 import { SourceFormDialog } from "@/components/sources/source-form-dialog";
+import { Topline } from "@/components/dashboard/topline";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { FooterNote } from "@/components/dashboard/footer-note";
+import { SourcesStatsRow } from "@/components/sources/sources-stats-row";
 import type { NewsSource } from "@/lib/schema";
 
-/**
- * Página de configuración de fuentes de noticias
- *
- * Permite gestionar las fuentes que se utilizan para scrapear noticias
- */
 export default function SourcesPage() {
   const [sources, setSources] = useState<NewsSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,19 +18,12 @@ export default function SourcesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<NewsSource | null>(null);
 
-  /**
-   * Carga las fuentes desde la API
-   */
   const loadSources = async () => {
     try {
       setIsLoading(true);
       setError(null);
       const response = await fetch("/api/sources");
-
-      if (!response.ok) {
-        throw new Error("Error cargando fuentes");
-      }
-
+      if (!response.ok) throw new Error("Error cargando fuentes");
       const data = await response.json();
       setSources(data.sources || []);
     } catch (err) {
@@ -44,24 +34,11 @@ export default function SourcesPage() {
     }
   };
 
-  /**
-   * Elimina una fuente
-   */
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Estás seguro de eliminar esta fuente?")) {
-      return;
-    }
-
+    if (!confirm("¿Estás seguro de eliminar esta fuente?")) return;
     try {
-      const response = await fetch(`/api/sources/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Error eliminando fuente");
-      }
-
-      // Recargar fuentes
+      const response = await fetch(`/api/sources/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Error eliminando fuente");
       await loadSources();
     } catch (err) {
       console.error("Error deleting source:", err);
@@ -69,9 +46,6 @@ export default function SourcesPage() {
     }
   };
 
-  /**
-   * Activa/desactiva una fuente
-   */
   const handleToggleActive = async (id: string, isActive: boolean) => {
     try {
       const response = await fetch(`/api/sources/${id}`, {
@@ -79,12 +53,7 @@ export default function SourcesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive }),
       });
-
-      if (!response.ok) {
-        throw new Error("Error actualizando fuente");
-      }
-
-      // Recargar fuentes
+      if (!response.ok) throw new Error("Error actualizando fuente");
       await loadSources();
     } catch (err) {
       console.error("Error toggling source:", err);
@@ -92,134 +61,166 @@ export default function SourcesPage() {
     }
   };
 
-  /**
-   * Abre el formulario para editar una fuente
-   */
   const handleEdit = (source: NewsSource) => {
     setEditingSource(source);
     setIsFormOpen(true);
   };
 
-  /**
-   * Abre el formulario para crear una nueva fuente
-   */
   const handleAdd = () => {
     setEditingSource(null);
     setIsFormOpen(true);
   };
 
-  /**
-   * Maneja el guardado desde el formulario
-   */
   const handleFormSave = async () => {
     setIsFormOpen(false);
     setEditingSource(null);
     await loadSources();
   };
 
-  // Cargar fuentes al montar
   useEffect(() => {
     loadSources();
   }, []);
 
-  // Calcular estadísticas
-  const activeSources = sources.filter((s) => s.isActive).length;
-  const inactiveSources = sources.filter((s) => !s.isActive).length;
+  const stats = useMemo(() => {
+    const active = sources.filter((s) => s.isActive).length;
+    const failed24h = sources.filter((s) => {
+      if (!s.lastScraped || s.lastScrapedStatus !== "failed") return false;
+      const t = new Date(s.lastScraped).getTime();
+      return Date.now() - t < 86_400_000;
+    }).length;
+    const totalToday = sources.reduce(
+      (acc, s) => acc + (s.totalScraped ?? 0),
+      0,
+    );
+    const lastRun = sources
+      .map((s) => (s.lastScraped ? new Date(s.lastScraped).getTime() : 0))
+      .filter((n) => n > 0)
+      .sort((a, b) => b - a)[0];
+    const lastRunLabel = lastRun
+      ? new Date(lastRun).toLocaleTimeString("es-EC", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "—";
+    return { active, failed24h, totalToday, lastRunLabel };
+  }, [sources]);
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Header */}
-      <div className="mb-8">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver al dashboard
-        </Link>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Fuentes de Noticias</h1>
-            <p className="text-muted-foreground">
-              Administra las fuentes que se utilizan para scrapear noticias
-            </p>
-          </div>
-
-          <Button onClick={handleAdd} size="lg">
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Fuente
+    <>
+      <Topline crumbs={["Configuración", "Fuentes"]} />
+      <PageHeader
+        title="Fuentes"
+        lede="Sitios de noticias monitoreados por scraping en cada corrida del pipeline."
+        actions={
+          <Button
+            onClick={handleAdd}
+            className="rounded-[10px] text-white"
+            style={{
+              background: "var(--otto-primary)",
+              boxShadow: "0 4px 14px rgba(214,40,40,.28)",
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Agregar fuente
           </Button>
-        </div>
+        }
+      />
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-3 gap-4 mt-6">
-          <Card className="p-4">
-            <div className="text-2xl font-bold">{sources.length}</div>
-            <div className="text-sm text-muted-foreground">Total Fuentes</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-2xl font-bold text-green-600">{activeSources}</div>
-            <div className="text-sm text-muted-foreground">Activas</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-2xl font-bold text-gray-400">{inactiveSources}</div>
-            <div className="text-sm text-muted-foreground">Inactivas</div>
-          </Card>
-        </div>
-      </div>
+      <SourcesStatsRow
+        items={[
+          { label: "Fuentes activas", value: stats.active },
+          {
+            label: "Total scraped",
+            value: stats.totalToday.toLocaleString("es-EC"),
+          },
+          { label: "Última corrida", value: stats.lastRunLabel },
+          {
+            label: "Errores · 24h",
+            value: stats.failed24h,
+            tone: stats.failed24h > 0 ? "error" : "default",
+          },
+        ]}
+      />
 
-      {/* Loading state */}
       {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-muted-foreground">Cargando fuentes...</span>
+        <div
+          className="flex items-center justify-center rounded-[14px] border bg-white p-12"
+          style={{ borderColor: "var(--otto-rule)" }}
+        >
+          <Loader2
+            className="h-8 w-8 animate-spin"
+            style={{ color: "var(--otto-primary)" }}
+          />
+          <span className="ml-3" style={{ color: "var(--otto-muted)" }}>
+            Cargando fuentes…
+          </span>
         </div>
       )}
 
-      {/* Error state */}
       {error && !isLoading && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-          <p className="text-destructive font-medium">Error cargando fuentes</p>
-          <p className="text-destructive/80 text-sm mt-1">{error}</p>
-          <Button onClick={loadSources} variant="outline" size="sm" className="mt-3">
+        <div
+          className="rounded-[10px] border p-4"
+          style={{
+            background: "var(--otto-err-soft)",
+            borderColor: "var(--otto-err)",
+            color: "var(--otto-err)",
+          }}
+        >
+          <p className="m-0 mb-1 font-medium">Error cargando fuentes</p>
+          <p className="m-0 text-sm">{error}</p>
+          <Button
+            onClick={loadSources}
+            variant="outline"
+            size="sm"
+            className="mt-3"
+          >
             Reintentar
           </Button>
         </div>
       )}
 
-      {/* Sources grid */}
       {!isLoading && !error && sources.length === 0 && (
-        <div className="text-center p-12 bg-muted/50 rounded-lg">
-          <p className="text-muted-foreground mb-4">No hay fuentes configuradas</p>
-          <Button onClick={handleAdd}>
-            <Plus className="h-4 w-4 mr-2" />
-            Agregar Primera Fuente
+        <div
+          className="rounded-[14px] border bg-white p-12 text-center"
+          style={{ borderColor: "var(--otto-rule)" }}
+        >
+          <p className="mb-4" style={{ color: "var(--otto-muted)" }}>
+            No hay fuentes configuradas
+          </p>
+          <Button
+            onClick={handleAdd}
+            className="rounded-[10px] text-white"
+            style={{ background: "var(--otto-primary)" }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Agregar primera fuente
           </Button>
         </div>
       )}
 
       {!isLoading && !error && sources.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
           {sources.map((source) => (
-            <SourceCard
+            <SourceCardOtto
               key={source.id}
               source={source}
               onEdit={() => handleEdit(source)}
               onDelete={() => handleDelete(source.id)}
-              onToggleActive={(isActive) => handleToggleActive(source.id, isActive)}
+              onToggleActive={(isActive) =>
+                handleToggleActive(source.id, isActive)
+              }
             />
           ))}
         </div>
       )}
 
-      {/* Form dialog */}
       <SourceFormDialog
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         source={editingSource}
         onSave={handleFormSave}
       />
-    </div>
+
+      <FooterNote>OttoSeguridad · Console · Fuentes</FooterNote>
+    </>
   );
 }

@@ -1,24 +1,19 @@
 /**
- * Classic Bulletin Layout V2
- * Réplica exacta del diseño de ejemplo.html (Canva)
+ * Classic Bulletin Layout V2 — diseño editorial pro
  *
- * Colores exactos:
- * - Título noticias: rgb(0, 74, 173) #004AAD
- * - Links "Leer más": rgb(26, 98, 255) #1A62FF
- * - Texto: rgb(0, 0, 0) #000000
- * - Líneas: rgb(201, 201, 201) #C9C9C9
- * - Fondo: rgb(255, 255, 255) #FFFFFF
+ * Elementos editoriales: tag de edición, índice de contenido,
+ * source attribution, reading time, drop cap, ornamentos entre secciones.
  */
 
 import Image from "next/image";
 import type { ClassifiedNews, ClassifiedArticle } from "@/lib/news/classifier";
+import { ArticleBody } from "./article-body";
 
 export interface ClassicBulletinV2Props {
   date: Date;
   classifiedData: ClassifiedNews;
 }
 
-// Mapeo de categorías a español
 const categoryNames: Record<string, string> = {
   economia: "Economía",
   politica: "Política",
@@ -28,11 +23,31 @@ const categoryNames: Record<string, string> = {
   vial: "Vial",
 };
 
+const OTTO_RED = "rgb(214, 40, 40)";
+const OTTO_INK = "#0e0e10";
+const OTTO_INK_2 = "#3c3c40";
+const OTTO_MUTED = "#6c6c72";
+const OTTO_RULE = "#e6e5e1";
+const OTTO_BG_SOFT = "#faf9f7";
+
+function getDomain(url?: string): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function readingTime(text: string): number {
+  const words = text.trim().split(/\s+/).length;
+  return Math.max(1, Math.round(words / 220));
+}
+
 export function ClassicBulletinV2({
   date,
   classifiedData,
 }: ClassicBulletinV2Props) {
-  // Formatear fecha
   const formattedDate = new Intl.DateTimeFormat("es-EC", {
     weekday: "long",
     day: "numeric",
@@ -43,275 +58,474 @@ export function ClassicBulletinV2({
   const capitalizedDate =
     formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
 
-  // Obtener categorías con noticias
   const categoriesWithNews = Object.entries(classifiedData).filter(
-    ([, news]) => news.length > 0
+    ([, news]) => news.length > 0,
   );
 
-  // Función para limpiar contenido (remover líneas entrecortadas y otros artefactos)
+  const totalNews = categoriesWithNews.reduce(
+    (acc, [, news]) => acc + news.length,
+    0,
+  );
+
   const cleanContent = (content: string): string => {
     return content
-      .replace(/^-{3,}\s*/gm, "") // Remover líneas que solo tienen guiones al inicio
-      .replace(/\s*-{3,}\s*$/gm, "") // Remover líneas que solo tienen guiones al final
-      .replace(/\n\s*-{10,}\s*\n/g, "\n") // Remover líneas de guiones entre párrafos
+      .replace(/^-{3,}\s*/gm, "")
+      .replace(/\s*-{3,}\s*$/gm, "")
+      .replace(/\n\s*-{10,}\s*\n/g, "\n")
       .trim();
   };
 
   return (
-    <div
-      className="mx-auto bg-white font-open-sans"
+    <article
+      className="mx-auto bg-white"
       style={{
-        width: "1024px",
-        minHeight: "100vh",
+        maxWidth: "720px",
+        width: "100%",
+        fontFamily: "var(--font-inter), system-ui, sans-serif",
       }}
     >
-      {/* Header Section */}
-      <section
-        style={{
-          width: "1024px",
-          backgroundColor: "rgb(255, 255, 255)",
-        }}
-      >
-        {/* Banner image */}
-        <div style={{ width: "1024px" }}>
+      {/* HEADER */}
+      <header>
+        <div
+          className="overflow-hidden rounded-[10px]"
+          style={{ maxHeight: "180px" }}
+        >
           <Image
             src="/banner.png"
             alt="Resumen Diario de Noticias"
             width={1024}
             height={458}
-            className="w-full h-auto"
+            className="h-auto w-full object-cover"
+            style={{ maxHeight: "180px" }}
             priority
             onError={(e) => {
               e.currentTarget.style.display = "none";
-              e.currentTarget.parentElement!.style.background =
-                "linear-gradient(135deg, #8B0000 0%, #DC143C 100%)";
-              e.currentTarget.parentElement!.style.height = "200px";
             }}
           />
         </div>
 
-        {/* Título y fecha */}
-        <div style={{ padding: "40px 80px 20px" }}>
+        <div className="px-4 pb-4 pt-7 text-center">
+          <div
+            className="mb-2.5 inline-flex items-center gap-2"
+            style={{
+              fontFamily:
+                "var(--font-jetbrains-mono), ui-monospace, monospace",
+              fontSize: "10px",
+              letterSpacing: ".18em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+              color: OTTO_RED,
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: "8px",
+                height: "8px",
+                background: OTTO_RED,
+                transform: "rotate(45deg)",
+                display: "inline-block",
+              }}
+            />
+            Edición · {capitalizedDate}
+          </div>
           <h1
-            className="text-center font-montserrat"
             style={{
-              fontSize: "28px",
-              lineHeight: "38px",
+              fontFamily:
+                "var(--font-space-grotesk), system-ui, sans-serif",
+              fontSize: "30px",
+              lineHeight: 1.1,
               fontWeight: 700,
-              color: "rgb(0, 0, 0)",
+              color: OTTO_INK,
+              letterSpacing: "-0.8px",
+              margin: 0,
             }}
           >
-            RESUMEN DIARIO DE NOTICIAS
+            Resumen Diario de Noticias
           </h1>
-
           <p
-            className="text-center"
             style={{
-              fontSize: "22px",
-              lineHeight: "32px",
+              fontSize: "14px",
+              lineHeight: 1.55,
               fontWeight: 400,
-              color: "rgb(0, 0, 0)",
-              marginTop: "16px",
+              color: OTTO_MUTED,
+              marginTop: "10px",
+              marginBottom: 0,
+              maxWidth: "440px",
+              marginLeft: "auto",
+              marginRight: "auto",
             }}
           >
-            {capitalizedDate}
+            Lo más relevante del país, curado por OttoSeguridad.
           </p>
+
+          {/* Stats line */}
+          <div
+            className="mt-4 inline-flex items-center gap-3"
+            style={{
+              fontFamily:
+                "var(--font-jetbrains-mono), ui-monospace, monospace",
+              fontSize: "10px",
+              letterSpacing: ".14em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+              color: OTTO_MUTED,
+            }}
+          >
+            <span>{totalNews} notas</span>
+            <span style={{ color: OTTO_RULE }}>•</span>
+            <span>{categoriesWithNews.length} secciones</span>
+          </div>
         </div>
 
-        {/* Líneas separadoras */}
-        <div
-          style={{
-            width: "952px",
-            height: "2px",
-            margin: "12px auto 0",
-            backgroundColor: "rgb(201, 201, 201)",
-          }}
-        />
-        <div
-          style={{
-            width: "962px",
-            height: "2px",
-            margin: "24px auto 0",
-            backgroundColor: "rgb(201, 201, 201)",
-          }}
-        />
-      </section>
+        {/* ÍNDICE / Table of Contents */}
+        {categoriesWithNews.length > 1 ? (
+          <nav
+            className="mx-4 mt-2 mb-6 rounded-[10px] px-4 py-3"
+            style={{
+              background: OTTO_BG_SOFT,
+              border: `1px solid ${OTTO_RULE}`,
+            }}
+            aria-label="Índice"
+          >
+            <div
+              className="mb-2"
+              style={{
+                fontFamily:
+                  "var(--font-jetbrains-mono), ui-monospace, monospace",
+                fontSize: "9px",
+                letterSpacing: ".18em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                color: OTTO_MUTED,
+              }}
+            >
+              En esta edición
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {categoriesWithNews.map(([category, news], idx) => (
+                <a
+                  key={category}
+                  href={`#cat-${category}`}
+                  className="inline-flex items-baseline gap-1.5 transition-colors hover:opacity-70"
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: OTTO_INK,
+                    textDecoration: "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily:
+                        "var(--font-jetbrains-mono), ui-monospace, monospace",
+                      fontSize: "10px",
+                      color: OTTO_RED,
+                      fontWeight: 700,
+                      letterSpacing: ".04em",
+                    }}
+                  >
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  {categoryNames[category]}
+                  <span
+                    style={{
+                      fontFamily:
+                        "var(--font-jetbrains-mono), ui-monospace, monospace",
+                      fontSize: "10px",
+                      color: OTTO_MUTED,
+                      fontWeight: 500,
+                      letterSpacing: ".04em",
+                    }}
+                  >
+                    {news.length}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </nav>
+        ) : (
+          <hr
+            className="my-6"
+            style={{ border: 0, borderTop: `1px solid ${OTTO_RULE}` }}
+          />
+        )}
+      </header>
 
-      {/* News Sections */}
+      {/* SECCIONES */}
       {categoriesWithNews.map(([category, news], categoryIndex) => (
         <section
           key={category}
-          className="relative"
-          style={{
-            width: "1024px",
-            minHeight: "1000px",
-            backgroundColor: "rgb(255, 255, 255)",
-            paddingTop: "102px",
-            paddingBottom: "102px",
-          }}
+          id={`cat-${category}`}
+          className="px-4 scroll-mt-6"
+          style={{ paddingBottom: "32px", paddingTop: "8px" }}
         >
-          {/* Título de categoría (1. Economía) */}
+          {/* Tag editorial */}
           <div
-            className="font-montserrat"
+            className="mb-2 flex items-center gap-2"
             style={{
-              marginLeft: "81px",
-              marginBottom: "50px",
+              fontFamily:
+                "var(--font-jetbrains-mono), ui-monospace, monospace",
+              fontSize: "10px",
+              letterSpacing: ".18em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+              color: OTTO_RED,
             }}
           >
-            <h2
+            <span
+              aria-hidden
               style={{
-                fontSize: "44px",
-                lineHeight: "61px",
-                fontWeight: 700,
-                color: "rgb(0, 0, 0)",
-                textDecoration: "underline",
-                textDecorationColor: "rgb(0, 0, 0)",
+                display: "inline-block",
+                width: "20px",
+                height: "2px",
+                background: OTTO_RED,
               }}
-            >
-              {categoryIndex + 1}. {categoryNames[category]}
-            </h2>
+            />
+            {categoryNames[category]} ·{" "}
+            {String(categoryIndex + 1).padStart(2, "0")}
           </div>
 
-          {/* Noticias de la categoría */}
-          <div className="space-y-24">
-            {news.map((article: ClassifiedArticle, index: number) => (
-              <div
-                key={`${category}-${index}`}
-                className="relative"
-                style={{
-                  marginLeft: "31px",
-                  marginRight: "31px",
-                }}
-              >
-                {/* Imagen arriba (layout vertical) */}
-                {article.imageUrl && (
+          {/* Título de categoría */}
+          <h2
+            style={{
+              fontFamily:
+                "var(--font-space-grotesk), system-ui, sans-serif",
+              fontSize: "24px",
+              lineHeight: 1.15,
+              fontWeight: 700,
+              color: OTTO_INK,
+              letterSpacing: "-0.6px",
+              margin: 0,
+              marginBottom: "20px",
+            }}
+          >
+            {categoryNames[category]}
+          </h2>
+
+          {/* Noticias */}
+          <div className="space-y-7">
+            {news.map((article: ClassifiedArticle, index: number) => {
+              const fullText = article.fullContent || article.content || "";
+              const cleaned = cleanContent(fullText);
+              const minutes = readingTime(cleaned);
+              const domain = getDomain(article.url);
+              const isFirst = index === 0;
+
+              return (
+                <article key={`${category}-${index}`}>
+                  {/* Source attribution */}
                   <div
-                    className="rounded-lg overflow-hidden"
+                    className="mb-2 flex items-center gap-2"
                     style={{
-                      width: "100%",
-                      maxWidth: "962px",
-                      height: "400px",
-                      marginBottom: "30px",
-                      backgroundColor: "rgb(245, 245, 245)",
+                      fontFamily:
+                        "var(--font-jetbrains-mono), ui-monospace, monospace",
+                      fontSize: "10px",
+                      letterSpacing: ".14em",
+                      textTransform: "uppercase",
+                      fontWeight: 600,
+                      color: OTTO_MUTED,
                     }}
                   >
-                    <Image
-                      src={article.imageUrl}
-                      alt={article.title}
-                      width={962}
-                      height={400}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.parentElement!.style.display = "none";
-                      }}
-                    />
+                    {domain ? (
+                      <span style={{ color: OTTO_INK_2 }}>{domain}</span>
+                    ) : (
+                      <span style={{ color: OTTO_INK_2 }}>OttoSeguridad</span>
+                    )}
+                    <span style={{ color: OTTO_RULE }}>•</span>
+                    <span>{minutes} min de lectura</span>
                   </div>
-                )}
 
-                {/* Título de la noticia */}
-                <div
-                  style={{
-                    maxWidth: "962px",
-                    marginBottom: "20px",
-                  }}
-                >
+                  {/* Imagen */}
+                  {article.imageUrl && (
+                    <div
+                      className="overflow-hidden rounded-[10px]"
+                      style={{
+                        width: "100%",
+                        aspectRatio: isFirst ? "21 / 9" : "16 / 9",
+                        marginBottom: "14px",
+                        backgroundColor: "#f5f5f5",
+                      }}
+                    >
+                      <Image
+                        src={article.imageUrl}
+                        alt={article.title}
+                        width={720}
+                        height={isFirst ? 308 : 405}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.parentElement!.style.display =
+                            "none";
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Título de la noticia */}
                   <h3
                     style={{
-                      fontSize: "38px",
-                      lineHeight: "48px",
+                      fontFamily:
+                        "var(--font-space-grotesk), system-ui, sans-serif",
+                      fontSize: "19px",
+                      lineHeight: 1.3,
                       fontWeight: 700,
-                      color: "rgb(0, 74, 173)",
-                      letterSpacing: "0em",
+                      color: OTTO_RED,
+                      letterSpacing: "-0.3px",
+                      margin: 0,
+                      marginBottom: "10px",
                     }}
                   >
                     {article.title}
                   </h3>
-                </div>
 
-                {/* Contenido/Resumen */}
-                <div
-                  style={{
-                    maxWidth: "962px",
-                    marginTop: "20px",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "18px",
-                      lineHeight: "28px",
-                      fontWeight: 400,
-                      color: "rgb(0, 0, 0)",
-                      letterSpacing: "0em",
-                      marginBottom: "20px",
-                    }}
-                  >
-                    {cleanContent(article.fullContent || article.content)}
-                  </p>
+                  {/* Contenido sanitizado + colapsable */}
+                  <ArticleBody
+                    content={cleaned}
+                    variant="classic"
+                    withDropCap={isFirst}
+                  />
 
                   {/* Link "Leer más" */}
                   {article.url && (
-                    <p style={{ marginTop: "20px" }}>
+                    <div className="mt-3 text-right">
                       <a
                         href={article.url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 transition-colors hover:underline"
                         style={{
-                          fontSize: "18px",
-                          lineHeight: "24px",
+                          fontSize: "13px",
+                          lineHeight: 1.4,
                           fontWeight: 700,
-                          color: "rgb(26, 98, 255)",
-                          textDecoration: "underline",
-                          textDecorationColor: "rgb(26, 98, 255)",
+                          color: OTTO_RED,
                         }}
                       >
-                        Leer más →
+                        Leer nota completa →
                       </a>
-                    </p>
+                    </div>
                   )}
-                </div>
 
-                {/* Separador entre noticias (si no es la última) */}
-                {index < news.length - 1 && (
-                  <div
-                    style={{
-                      width: "962px",
-                      height: "3px",
-                      backgroundColor: "rgb(201, 201, 201)",
-                      marginTop: "80px",
-                    }}
-                  />
-                )}
-              </div>
-            ))}
+                  {/* Separador entre noticias */}
+                  {index < news.length - 1 && (
+                    <hr
+                      className="mt-7"
+                      style={{
+                        border: 0,
+                        borderTop: `1px solid ${OTTO_RULE}`,
+                      }}
+                    />
+                  )}
+                </article>
+              );
+            })}
           </div>
 
-          {/* Separadores al final de cada sección (si no es la última categoría) */}
+          {/* Separador entre categorías — ornamento */}
           {categoryIndex < categoriesWithNews.length - 1 && (
-            <>
-              <div
-                className="absolute"
+            <div
+              aria-hidden
+              className="mt-9 flex items-center justify-center gap-3"
+            >
+              <span
                 style={{
-                  width: "962px",
-                  height: "3px",
-                  bottom: "27px",
-                  left: "31px",
-                  backgroundColor: "rgb(201, 201, 201)",
+                  flex: 1,
+                  height: "1px",
+                  background: `linear-gradient(to right, transparent, ${OTTO_RULE} 30%, ${OTTO_RULE} 70%, transparent)`,
                 }}
               />
-              <div
-                className="absolute"
+              <span
                 style={{
-                  width: "962px",
-                  height: "3px",
-                  bottom: 0,
-                  left: "31px",
-                  backgroundColor: "rgb(201, 201, 201)",
+                  width: "8px",
+                  height: "8px",
+                  background: OTTO_RED,
+                  transform: "rotate(45deg)",
+                  display: "inline-block",
                 }}
               />
-            </>
+              <span
+                style={{
+                  flex: 1,
+                  height: "1px",
+                  background: `linear-gradient(to right, transparent, ${OTTO_RULE} 30%, ${OTTO_RULE} 70%, transparent)`,
+                }}
+              />
+            </div>
           )}
         </section>
       ))}
-    </div>
+
+      {/* FOOTER */}
+      <footer
+        className="mx-4 mt-4 px-2 pb-10 pt-6 text-center"
+        style={{ borderTop: `1px solid ${OTTO_RULE}` }}
+      >
+        <div className="flex justify-center">
+          <div
+            className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-[10px]"
+            style={{ background: "#000" }}
+          >
+            <Image
+              src="/logos/buho-seguridad.png"
+              alt="OttoSeguridad"
+              width={88}
+              height={48}
+              className="h-auto w-[40px] object-contain"
+            />
+          </div>
+        </div>
+        <div
+          className="mt-3"
+          style={{
+            fontFamily: "var(--font-space-grotesk), system-ui, sans-serif",
+            fontSize: "14px",
+            fontWeight: 700,
+            color: OTTO_INK,
+            letterSpacing: "-0.2px",
+          }}
+        >
+          OttoSeguridad
+        </div>
+        <div
+          className="mt-1"
+          style={{
+            fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: "10px",
+            letterSpacing: ".18em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            color: OTTO_MUTED,
+          }}
+        >
+          Resumen Diario · {capitalizedDate}
+        </div>
+        <div
+          className="mt-3 flex items-center justify-center gap-3"
+          style={{
+            fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: "9px",
+            letterSpacing: ".14em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            color: OTTO_MUTED,
+          }}
+        >
+          <span>Inteligencia · Análisis · Curaduría</span>
+        </div>
+      </footer>
+
+      <style jsx>{`
+        .first-letter-drop::first-letter {
+          font-family: var(--font-space-grotesk), system-ui, sans-serif;
+          font-size: 44px;
+          font-weight: 700;
+          line-height: 0.9;
+          float: left;
+          padding-right: 8px;
+          padding-top: 4px;
+          color: ${OTTO_RED};
+          letter-spacing: -1.5px;
+        }
+      `}</style>
+    </article>
   );
 }

@@ -80,9 +80,9 @@ export interface DesignConfig {
  * Estos colores se usan consistentemente en ambos diseños
  */
 export const BRAND_COLORS = {
-  // Azules corporativos
-  primary: '#004aad',        // Azul oscuro
-  secondary: '#1a62ff',      // Azul enlace
+  // Rojos corporativos OttoSeguridad
+  primary: '#d62828',        // Rojo otto-primary
+  secondary: '#7a1414',      // Rojo oscuro otto-primary-ink
 
   // Acentos
   accent: '#c9c9c9',         // Gris separadores (clásico)
@@ -99,9 +99,9 @@ export const BRAND_COLORS = {
   textSecondary: '#4b5563',  // Gris medio (moderno)
   textTertiary: '#6b7280',   // Gris claro (moderno)
 
-  // Blues para UI moderna
-  blue50: '#eff6ff',
-  blue600: '#1e40af',
+  // Soft accent para UI moderna
+  blue50: '#fde2e2',         // otto-primary-soft
+  blue600: '#7a1414',        // otto-primary-ink
 } as const;
 
 // ============================================================================
@@ -126,9 +126,9 @@ export const CLASSIC_DESIGN: DesignConfig = {
   name: 'classic',
 
   layout: {
-    maxWidth: '1024px',
-    containerPadding: '48px',
-    sectionSpacing: '60px',
+    maxWidth: '720px',
+    containerPadding: '32px',
+    sectionSpacing: '40px',
   },
 
   typography: {
@@ -194,15 +194,16 @@ export const MODERN_DESIGN: DesignConfig = {
 
   typography: {
     fontFamily: {
-      heading: 'var(--font-inter), "Inter", system-ui, sans-serif',
+      heading:
+        'var(--font-space-grotesk), var(--font-inter), "Inter", system-ui, sans-serif',
       body: 'var(--font-inter), "Inter", system-ui, sans-serif',
     },
     sizes: {
-      mainTitle: '48px',      // Título principal del header
-      sectionTitle: '32px',   // Títulos de categorías
-      newsTitle: '28px',      // Títulos de noticias en cards
-      body: '16px',           // Contenido de cards
-      date: '14px',           // Fecha en header
+      mainTitle: '44px',      // Título principal del header
+      sectionTitle: '28px',   // Títulos de categorías
+      newsTitle: '22px',      // Títulos de noticias en cards
+      body: '15px',           // Contenido de cards
+      date: '13px',           // Fecha en header
     },
   },
 

@@ -1,27 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { PipelineProgress } from "@/components/bulletin/pipeline-progress";
 import { toast } from "sonner";
+import { PipelineProgress } from "@/components/bulletin/pipeline-progress";
+import { Topline } from "@/components/dashboard/topline";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { FooterNote } from "@/components/dashboard/footer-note";
+import {
+  GenerateStepper,
+  type GenerateStep,
+} from "@/components/bulletin/generate-stepper";
+import { GenerateSummaryCard } from "@/components/bulletin/generate-summary-card";
 
-/**
- * Página de Generación de Boletín
- *
- * Ejecuta el pipeline completo: scrape → enrich → classify → summarize
- */
+type Phase =
+  | "idle"
+  | "checking"
+  | "starting"
+  | "running"
+  | "error";
+
+function todayLabel(): string {
+  const fmt = new Intl.DateTimeFormat("es-EC", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  return fmt.format(new Date()).toUpperCase().replace(/\./g, "");
+}
+
 export default function GenerateBulletinPage() {
   const router = useRouter();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [phase, setPhase] = useState<Phase>("checking");
   const [bulletinId, setBulletinId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState(true);
 
-  // Check if today's bulletin already exists on page load
   useEffect(() => {
+    let cancelled = false;
     async function checkExisting() {
       try {
         const res = await fetch("/api/bulletins/today");
@@ -34,44 +50,36 @@ export default function GenerateBulletinPage() {
           }
         }
       } catch {
-        // If the check fails, allow generation anyway (API will catch duplicates)
+        // permitir generación si la verificación falla
       }
-      setChecking(false);
+      if (!cancelled) setPhase("idle");
     }
     checkExisting();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
-  /**
-   * Ejecuta el pipeline completo
-   */
   const generateBulletin = async () => {
-    console.log("🚀 Iniciando scraping de noticias...");
-    setIsGenerating(true);
+    setPhase("starting");
     setError(null);
 
     try {
-      // Crear un timeout para la petición (5 minutos)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.error("⏱️ Timeout: La petición tardó más de 5 minutos");
-        controller.abort();
-      }, 300000);
+      const timeoutId = setTimeout(() => controller.abort(), 300000);
 
-      // Iniciar scraping (deshabilitar enriquecimiento para ser más rápido)
       const scrapeRes = await fetch("/api/news/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enableCrawl4AI: false }), // FASE 2 deshabilitada
+        body: JSON.stringify({ enableCrawl4AI: false }),
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
-      console.log("✅ Respuesta recibida del servidor:", scrapeRes.status);
 
       if (!scrapeRes.ok) {
         const errorData = await scrapeRes.json();
         if (scrapeRes.status === 409) {
-          // Duplicate bulletin - redirect to existing one
           toast.info("Ya existe un boletín para hoy");
           if (errorData.bulletinId) {
             router.replace(`/dashboard/bulletin/${errorData.bulletinId}`);
@@ -82,150 +90,284 @@ export default function GenerateBulletinPage() {
         }
         if (scrapeRes.status === 503) {
           throw new Error(
-            `🔌 ${errorData.error || "Servicio de scraping no disponible"}. ${errorData.details || ""}`
+            `${errorData.error || "Servicio de scraping no disponible"}. ${errorData.details || ""}`,
           );
         }
-        throw new Error(errorData.message || errorData.error || "Error en scraping");
+        throw new Error(
+          errorData.message || errorData.error || "Error en scraping",
+        );
       }
 
       const scrapeData = await scrapeRes.json();
       setBulletinId(scrapeData.bulletinId);
-
-      // El componente PipelineProgress ahora maneja el polling y redirección
+      setPhase("running");
     } catch (err) {
-      console.error("❌ Error en pipeline:", err);
-
-      // Manejar diferentes tipos de errores
+      let msg = "Error desconocido en el scraping";
       if (err instanceof Error) {
         if (err.name === "AbortError") {
-          setError(
-            "⏱️ La petición tardó más de 5 minutos. Por favor verifica los logs del servidor."
-          );
+          msg = "La petición tardó más de 5 minutos. Revisa los logs del servidor.";
         } else if (err.message.includes("Failed to fetch")) {
-          setError(
-            "🌐 Error de conexión. Verifica que el servidor esté corriendo."
-          );
+          msg = "Error de conexión. Verifica que el servidor esté corriendo.";
         } else {
-          setError(err.message);
+          msg = err.message;
         }
-      } else {
-        setError("Error desconocido en el scraping");
       }
-
-      setIsGenerating(false);
+      setError(msg);
+      setPhase("error");
     }
   };
 
-  /**
-   * Callback cuando se completa el pipeline
-   */
   const handleComplete = () => {
     if (bulletinId) {
-      // Redirigir a página de edición después de 2 segundos
       setTimeout(() => {
         router.push(`/dashboard/bulletin/${bulletinId}/edit`);
-      }, 2000);
+      }, 1500);
     }
   };
 
-  /**
-   * Callback cuando hay error
-   */
   const handleError = (errorMsg: string) => {
     setError(errorMsg);
-    setIsGenerating(false);
+    setPhase("error");
   };
 
-  return (
-    <div className="container mx-auto p-6 max-w-6xl">
-      {/* Header */}
-      <div className="mb-8">
-        <Link
-          href="/dashboard/bulletin"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a boletines
-        </Link>
+  const steps = useMemo<GenerateStep[]>(() => {
+    const make = (
+      label: string,
+      sub: string,
+      idx: number,
+    ): Omit<GenerateStep, "status"> => ({ label, sub, count: idx });
 
-        <h1 className="text-3xl font-bold mb-2">Generar Boletín</h1>
-        <p className="text-muted-foreground">
-          Recopila automáticamente las noticias más relevantes del día desde todas las fuentes configuradas.
-        </p>
+    if (phase === "running") {
+      return [
+        { ...make("Scraping", "en curso", 1), status: "now" },
+        { ...make("Clasificación", "en cola", 2), status: "pending" },
+        { ...make("Selección", "—", 3), status: "pending" },
+        { ...make("Video", "—", 4), status: "pending" },
+        { ...make("Envío", "06:00", 5), status: "pending" },
+      ];
+    }
+
+    if (phase === "error") {
+      return [
+        { ...make("Scraping", "error", 1), status: "error" },
+        { ...make("Clasificación", "—", 2), status: "pending" },
+        { ...make("Selección", "—", 3), status: "pending" },
+        { ...make("Video", "—", 4), status: "pending" },
+        { ...make("Envío", "—", 5), status: "pending" },
+      ];
+    }
+
+    return [
+      { ...make("Scraping", "listo para iniciar", 1), status: "pending" },
+      { ...make("Clasificación", "—", 2), status: "pending" },
+      { ...make("Selección", "—", 3), status: "pending" },
+      { ...make("Video", "—", 4), status: "pending" },
+      { ...make("Envío", "06:00", 5), status: "pending" },
+    ];
+  }, [phase]);
+
+  const summaryStatus: "pending" | "running" | "ready" | "error" =
+    phase === "running" || phase === "starting"
+      ? "running"
+      : phase === "error"
+        ? "error"
+        : "pending";
+
+  const summaryStatusLabel =
+    summaryStatus === "running"
+      ? "en curso"
+      : summaryStatus === "error"
+        ? "error"
+        : "pendiente";
+
+  return (
+    <>
+      <Topline crumbs={["Operación", "Generar boletín"]} />
+      <PageHeader
+        title="Generar"
+        highlight="boletín"
+        lede="Inicia el pipeline diario: scraping de fuentes, clasificación por categoría y resumen listo para revisión."
+        actions={
+          <Link
+            href="/dashboard/bulletin"
+            className="inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-[13px] font-semibold"
+            style={{
+              background: "var(--otto-surface)",
+              border: "1px solid var(--otto-rule)",
+              color: "var(--otto-ink)",
+            }}
+          >
+            ← Volver a boletines
+          </Link>
+        }
+      />
+
+      <GenerateStepper steps={steps} />
+
+      <div
+        className="grid items-start gap-[18px]"
+        style={{ gridTemplateColumns: "minmax(0,1fr) 320px" }}
+      >
+        <div
+          className="rounded-[14px] border bg-white p-6"
+          style={{
+            borderColor: "var(--otto-rule)",
+            boxShadow: "var(--otto-shadow-1)",
+          }}
+        >
+          {phase === "checking" && (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-b-2"
+                style={{ borderColor: "var(--otto-primary)" }}
+              />
+              <p
+                className="m-0 text-sm"
+                style={{ color: "var(--otto-muted)" }}
+              >
+                Verificando boletín del día…
+              </p>
+            </div>
+          )}
+
+          {phase === "idle" && (
+            <div className="py-8 text-center">
+              <div
+                className="font-mono-otto mb-2"
+                style={{
+                  fontSize: "10px",
+                  letterSpacing: ".14em",
+                  color: "var(--otto-muted)",
+                }}
+              >
+                Edición · {todayLabel()}
+              </div>
+              <h2
+                className="font-display m-0 mb-3 text-[26px] font-bold leading-[1.1]"
+                style={{
+                  letterSpacing: "-0.8px",
+                  color: "var(--otto-ink)",
+                }}
+              >
+                ¿Listo para generar el boletín de hoy?
+              </h2>
+              <p
+                className="mx-auto mb-6 max-w-[560px] text-[14px] leading-[1.55]"
+                style={{ color: "var(--otto-muted)" }}
+              >
+                El proceso tarda 1–2 minutos: recopila noticias de las fuentes
+                configuradas, clasifica por categoría y genera un resumen listo
+                para revisión.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={generateBulletin}
+                  className="inline-flex items-center gap-2 rounded-[10px] px-5 py-3 text-[13px] font-semibold text-white"
+                  style={{
+                    background: "var(--otto-primary)",
+                    boxShadow: "0 4px 14px rgba(214,40,40,.28)",
+                  }}
+                >
+                  Iniciar pipeline →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {phase === "starting" && (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <div
+                className="h-10 w-10 animate-spin rounded-full border-b-2"
+                style={{ borderColor: "var(--otto-primary)" }}
+              />
+              <h3
+                className="font-display m-0 text-[18px] font-semibold"
+                style={{ color: "var(--otto-ink)" }}
+              >
+                Recopilando noticias…
+              </h3>
+              <p
+                className="m-0 max-w-[420px] text-sm"
+                style={{ color: "var(--otto-muted)" }}
+              >
+                Estamos consultando fuentes y preparando el pipeline.
+              </p>
+            </div>
+          )}
+
+          {phase === "running" && bulletinId && (
+            <PipelineProgress
+              bulletinId={bulletinId}
+              onComplete={handleComplete}
+              onError={handleError}
+            />
+          )}
+
+          {phase === "error" && (
+            <div className="py-6">
+              <div
+                className="rounded-[10px] border p-4"
+                style={{
+                  background: "var(--otto-err-soft)",
+                  borderColor: "var(--otto-err)",
+                  color: "var(--otto-err)",
+                }}
+              >
+                <div className="font-display mb-1 text-[15px] font-bold">
+                  Error al generar el boletín
+                </div>
+                <p className="m-0 text-[13px] leading-[1.5]">{error}</p>
+              </div>
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setPhase("idle");
+                  }}
+                  className="inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-[13px] font-semibold"
+                  style={{
+                    background: "var(--otto-surface)",
+                    border: "1px solid var(--otto-rule)",
+                    color: "var(--otto-ink)",
+                  }}
+                >
+                  Intentar de nuevo
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <GenerateSummaryCard
+          rows={[
+            { label: "Edición", value: todayLabel() },
+            { label: "Hora envío", value: "06:00" },
+            { label: "Fuentes", value: "5 activas" },
+            {
+              label: "Estado",
+              value:
+                phase === "running"
+                  ? "Pipeline activo"
+                  : phase === "starting"
+                    ? "Iniciando…"
+                    : phase === "error"
+                      ? "Detenido"
+                      : "Listo para iniciar",
+            },
+          ]}
+          status={summaryStatus}
+          statusLabel={summaryStatusLabel}
+          warning={
+            phase === "idle"
+              ? "Una vez iniciado el pipeline, podrás revisar y autorizar el envío en la página de edición."
+              : null
+          }
+        />
       </div>
 
-      {/* Loading while checking for existing bulletin */}
-      {checking && (
-        <div className="bg-card rounded-lg border p-8 text-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <p className="text-muted-foreground">Verificando boletín del día...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Panel de generación */}
-      {!checking && !isGenerating && !bulletinId && (
-        <div className="bg-card rounded-lg border p-8 text-center">
-          <h2 className="text-xl font-semibold mb-4">
-            ¿Listo para generar el boletín de hoy?
-          </h2>
-          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-            El proceso tomará aproximadamente 1-2 minutos:
-            <br />
-            • Recopila noticias de las principales fuentes del país
-            <br />
-            • Clasifica automáticamente por categoría (Economía, Política, Sociedad, etc.)
-            <br />
-            • Genera un resumen listo para revisar y publicar
-          </p>
-          <Button onClick={generateBulletin} size="lg">
-            Iniciar Recopilación
-          </Button>
-        </div>
-      )}
-
-      {/* Mensaje de "Esperando respuesta del servidor..." */}
-      {isGenerating && !bulletinId && !error && (
-        <div className="bg-card rounded-lg border p-8 text-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            <h2 className="text-xl font-semibold">
-              Recopilando noticias...
-            </h2>
-            <p className="text-muted-foreground max-w-md">
-              Estamos obteniendo las noticias más recientes. Esto tomará 1-2 minutos.
-            </p>
-            <p className="text-sm text-muted-foreground/60">
-              Consultando fuentes y clasificando artículos...
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Componente de progreso detallado */}
-      {bulletinId && (
-        <PipelineProgress
-          bulletinId={bulletinId}
-          onComplete={handleComplete}
-          onError={handleError}
-        />
-      )}
-
-      {/* Mensaje de error */}
-      {error && !bulletinId && (
-        <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-          <p className="text-destructive font-medium mb-2">
-            Error al generar el boletín
-          </p>
-          <p className="text-destructive/80 text-sm">{error}</p>
-          <div className="mt-4">
-            <Button onClick={() => setError(null)} variant="outline" size="sm">
-              Intentar de nuevo
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+      <FooterNote>OttoSeguridad · Console · Generar</FooterNote>
+    </>
   );
 }

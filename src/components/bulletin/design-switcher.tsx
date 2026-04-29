@@ -85,80 +85,119 @@ export function DesignSwitcher({
 
   return (
     <div
-      className={`flex flex-col sm:flex-row gap-4 items-center justify-center p-4 bg-white dark:bg-gray-900 rounded-lg shadow-sm border ${className}`}
+      className={`flex flex-col items-center justify-center gap-3 rounded-[14px] border bg-white p-4 sm:flex-row ${className}`}
       role="group"
       aria-label="Selector de diseño de boletín"
+      style={{
+        borderColor: "var(--otto-rule)",
+        boxShadow: "var(--otto-shadow-1)",
+      }}
     >
-      {/* Label */}
-      <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-        Estilo de visualización:
+      <span
+        className="font-mono-otto whitespace-nowrap"
+        style={{
+          fontSize: "10px",
+          letterSpacing: ".14em",
+          color: "var(--otto-muted)",
+        }}
+      >
+        Estilo de visualización
       </span>
 
-      {/* Opciones */}
       <div className="flex gap-2">
-        {/* Opción Clásico */}
         <button
           onClick={() => handleDesignChange("classic")}
           disabled={isTransitioning}
-          className={`
-            flex flex-col items-center gap-2 px-4 py-3 rounded-lg border-2 transition-all duration-200
-            ${currentDesign === "classic"
-              ? "border-primary bg-primary/5 shadow-sm"
-              : "border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-gray-800"
-            }
-            ${isTransitioning ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-            focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
-          `}
+          className={`relative flex flex-col items-center gap-1.5 rounded-[10px] border px-4 py-2.5 transition-all duration-200 ${
+            isTransitioning ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+          } focus:outline-none focus:ring-2 focus:ring-offset-2`}
+          style={{
+            background:
+              currentDesign === "classic"
+                ? "var(--otto-primary-soft)"
+                : "var(--otto-surface)",
+            borderColor:
+              currentDesign === "classic"
+                ? "var(--otto-primary)"
+                : "var(--otto-rule)",
+          }}
           aria-label="Cambiar a diseño clásico"
           aria-pressed={currentDesign === "classic"}
         >
           <Monitor
-            className={`h-5 w-5 ${currentDesign === "classic" ? "text-primary" : "text-muted-foreground"}`}
+            className="h-5 w-5"
+            style={{
+              color:
+                currentDesign === "classic"
+                  ? "var(--otto-primary)"
+                  : "var(--otto-muted)",
+            }}
           />
           <span
-            className={`text-sm font-medium ${currentDesign === "classic" ? "text-primary" : "text-muted-foreground"}`}
+            className="text-[12px] font-semibold"
+            style={{
+              color:
+                currentDesign === "classic"
+                  ? "var(--otto-primary-ink)"
+                  : "var(--otto-ink-2)",
+            }}
           >
             {getDesignDisplayName("classic")}
           </span>
-          {currentDesign === "classic" && (
-            <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-          )}
         </button>
 
-        {/* Opción Moderno */}
         <button
           onClick={() => handleDesignChange("modern")}
           disabled={isTransitioning}
-          className={`
-            flex flex-col items-center gap-2 px-4 py-3 rounded-lg border-2 transition-all duration-200
-            ${currentDesign === "modern"
-              ? "border-primary bg-primary/5 shadow-sm"
-              : "border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-gray-800"
-            }
-            ${isTransitioning ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-            focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
-          `}
+          className={`relative flex flex-col items-center gap-1.5 rounded-[10px] border px-4 py-2.5 transition-all duration-200 ${
+            isTransitioning ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+          } focus:outline-none focus:ring-2 focus:ring-offset-2`}
+          style={{
+            background:
+              currentDesign === "modern"
+                ? "var(--otto-primary-soft)"
+                : "var(--otto-surface)",
+            borderColor:
+              currentDesign === "modern"
+                ? "var(--otto-primary)"
+                : "var(--otto-rule)",
+          }}
           aria-label="Cambiar a diseño moderno"
           aria-pressed={currentDesign === "modern"}
         >
           <Smartphone
-            className={`h-5 w-5 ${currentDesign === "modern" ? "text-primary" : "text-muted-foreground"}`}
+            className="h-5 w-5"
+            style={{
+              color:
+                currentDesign === "modern"
+                  ? "var(--otto-primary)"
+                  : "var(--otto-muted)",
+            }}
           />
           <span
-            className={`text-sm font-medium ${currentDesign === "modern" ? "text-primary" : "text-muted-foreground"}`}
+            className="text-[12px] font-semibold"
+            style={{
+              color:
+                currentDesign === "modern"
+                  ? "var(--otto-primary-ink)"
+                  : "var(--otto-ink-2)",
+            }}
           >
             {getDesignDisplayName("modern")}
           </span>
-          {currentDesign === "modern" && (
-            <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-          )}
         </button>
       </div>
 
-      {/* Indicador de transición */}
       {isTransitioning && (
-        <span className="text-xs text-muted-foreground animate-pulse">
-          Cambiando diseño...
+        <span
+          className="font-mono-otto animate-pulse"
+          style={{
+            fontSize: "10px",
+            letterSpacing: ".1em",
+            color: "var(--otto-muted)",
+          }}
+        >
+          Cambiando…
         </span>
       )}
     </div>

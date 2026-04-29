@@ -3,13 +3,14 @@ import {
   bulletins,
   bulletinLogs,
   bulletinCategories,
+  emailSends,
   type Bulletin,
   type NewBulletin,
   type BulletinLog,
   type BulletinCategory,
   type NewBulletinCategory,
 } from "@/lib/schema";
-import { eq, desc, and, gte, lte, asc } from "drizzle-orm";
+import { eq, desc, and, gte, lte, asc, inArray, count, sql } from "drizzle-orm";
 
 // ============================================================================
 // BULLETIN QUERIES
@@ -454,7 +455,10 @@ export async function getAllCategories(): Promise<BulletinCategory[]> {
  * Crea una nueva categoría
  */
 export async function createCategory(
-  data: Pick<NewBulletinCategory, "name" | "displayName" | "displayOrder">
+  data: Pick<
+    NewBulletinCategory,
+    "name" | "displayName" | "displayOrder" | "description" | "keywords"
+  >
 ): Promise<BulletinCategory> {
   try {
     const [category] = await db
@@ -473,7 +477,16 @@ export async function createCategory(
  */
 export async function updateCategory(
   id: string,
-  data: Partial<Pick<NewBulletinCategory, "displayName" | "displayOrder" | "isActive">>
+  data: Partial<
+    Pick<
+      NewBulletinCategory,
+      | "displayName"
+      | "displayOrder"
+      | "isActive"
+      | "description"
+      | "keywords"
+    >
+  >
 ): Promise<BulletinCategory> {
   try {
     const [category] = await db
@@ -584,5 +597,46 @@ export async function getBulletinLogs(bulletinId: string): Promise<BulletinLog[]
   } catch (error) {
     console.error("Error fetching bulletin logs:", error);
     throw new Error("Failed to fetch bulletin logs");
+  }
+}
+
+/**
+ * Obtiene estadísticas de email (sent/opened) por boletín.
+ *
+ * @param bulletinIds - IDs de los boletines a consultar
+ * @returns Map<bulletinId, { sent, opened }>
+ */
+export async function getBulletinEmailStats(
+  bulletinIds: string[]
+): Promise<Map<string, { sent: number; opened: number }>> {
+  const result = new Map<string, { sent: number; opened: number }>();
+  if (bulletinIds.length === 0) return result;
+
+  try {
+    const rows = await db
+      .select({
+        bulletinId: emailSends.bulletinId,
+        sent: count(),
+        opened: sql<number>`count(${emailSends.openedAt})`.mapWith(Number),
+      })
+      .from(emailSends)
+      .where(
+        and(
+          inArray(emailSends.bulletinId, bulletinIds),
+          eq(emailSends.status, "sent")
+        )
+      )
+      .groupBy(emailSends.bulletinId);
+
+    for (const row of rows) {
+      result.set(row.bulletinId, {
+        sent: Number(row.sent ?? 0),
+        opened: Number(row.opened ?? 0),
+      });
+    }
+    return result;
+  } catch (error) {
+    console.error("Error fetching bulletin email stats:", error);
+    return result;
   }
 }

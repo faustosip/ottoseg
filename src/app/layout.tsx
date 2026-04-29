@@ -1,9 +1,17 @@
 import { ThemeProvider } from "@/components/theme-provider";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Open_Sans, Montserrat, Oswald, Inter } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+  Open_Sans,
+  Montserrat,
+  Oswald,
+  Inter,
+  Space_Grotesk,
+  JetBrains_Mono,
+} from "next/font/google";
 import "./globals.css";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
+import { ConditionalShell } from "@/components/conditional-shell";
 import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
@@ -44,6 +52,21 @@ const inter = Inter({
   display: "swap",
 });
 
+// Fuentes para Console v2 (rediseño OttoSeguridad)
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+});
+
 // NOTA: Si tienes las fuentes custom Canva Sans y Coco Gothic:
 // 1. Colócalas en /public/fonts/
 // 2. Impórtalas usando localFont
@@ -63,7 +86,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${openSans.variable} ${montserrat.variable} ${oswald.variable} ${inter.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${openSans.variable} ${montserrat.variable} ${oswald.variable} ${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
         suppressHydrationWarning
       >
         <ThemeProvider
@@ -72,9 +95,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SiteHeader />
-          {children}
-          <SiteFooter />
+          <ConditionalShell>{children}</ConditionalShell>
           <Toaster />
         </ThemeProvider>
       </body>

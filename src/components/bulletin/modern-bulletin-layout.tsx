@@ -5,6 +5,26 @@ import Image from "next/image";
 import Link from "next/link";
 import { MODERN_DESIGN } from "@/lib/bulletin/design-system";
 import type { BulletinData, CategoryData } from "./classic-bulletin-layout";
+import { stripSpamTail } from "@/lib/bulletin/content-sanitizer";
+
+const OTTO_RED = "#d62828";
+const OTTO_RED_INK = "#7a1414";
+const OTTO_RED_SOFT = "#fde2e2";
+
+function getDomain(url?: string): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function readingTime(text?: string): number {
+  if (!text) return 1;
+  const words = text.trim().split(/\s+/).length;
+  return Math.max(1, Math.round(words / 220));
+}
 
 /**
  * Props para ModernBulletinLayout
@@ -100,6 +120,7 @@ interface CategoryBadgeProps {
   isActive: boolean;
   onClick: () => void;
   hasContent: boolean;
+  count?: number;
 }
 
 function CategoryBadge({
@@ -107,25 +128,42 @@ function CategoryBadge({
   isActive,
   onClick,
   hasContent,
+  count,
 }: CategoryBadgeProps) {
   if (!hasContent) return null;
 
   return (
     <button
       onClick={onClick}
-      className={`
-        modern-category-badge px-4 py-2 rounded-full font-medium text-sm transition-all duration-200 whitespace-nowrap
-        ${
-          isActive
-            ? "bg-[#004aad] text-white shadow-md"
-            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-        }
-      `}
+      className={`modern-category-badge inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+        isActive
+          ? "text-white shadow-md"
+          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+      }`}
       style={{
         fontFamily: MODERN_DESIGN.typography.fontFamily.body,
+        background: isActive ? OTTO_RED : undefined,
+        boxShadow: isActive ? "0 4px 14px rgba(214,40,40,.28)" : undefined,
       }}
     >
       {name}
+      {typeof count === "number" ? (
+        <span
+          className="inline-flex items-center justify-center rounded-full px-1.5"
+          style={{
+            fontFamily:
+              "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: "10px",
+            letterSpacing: ".04em",
+            background: isActive ? "rgba(255,255,255,.2)" : "rgba(0,0,0,.06)",
+            color: isActive ? "#fff" : "#6c6c72",
+            minWidth: "20px",
+            height: "18px",
+          }}
+        >
+          {count}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -141,66 +179,157 @@ interface NewsItemCardProps {
     fullContent?: string;
     url?: string;
     source?: string;
+    imageUrl?: string;
   };
 }
 
-function NewsItemCard({ categoryName, newsItem }: NewsItemCardProps) {
+function NewsItemCard({
+  categoryName,
+  newsItem,
+  rank,
+  featured,
+}: NewsItemCardProps & { rank?: number; featured?: boolean }) {
+  const rawText = newsItem.fullContent || newsItem.content || "";
+  const text = stripSpamTail(rawText);
+  const minutes = readingTime(text);
+  const domain = getDomain(newsItem.url);
+  const imageUrl = (newsItem as { imageUrl?: string }).imageUrl;
+
   return (
-    <article className="modern-news-card bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group hover:-translate-y-1">
-      {/* Badge de categoría */}
-      <div className="px-6 pt-6">
-        <span
-          className="inline-block px-3 py-1 rounded-full text-xs font-semibold"
+    <article
+      className={`modern-news-card group relative overflow-hidden rounded-2xl border bg-white transition-all duration-200 hover:-translate-y-1 ${
+        featured ? "md:col-span-2 lg:col-span-2" : ""
+      }`}
+      style={{
+        borderColor: "#e6e5e1",
+        boxShadow:
+          "0 1px 2px rgba(14,14,16,.04), 0 4px 14px rgba(14,14,16,.04)",
+      }}
+    >
+      {/* Imagen */}
+      {imageUrl ? (
+        <div
+          className="relative w-full overflow-hidden"
           style={{
-            backgroundColor: "#eff6ff",
-            color: MODERN_DESIGN.colors.primary,
+            aspectRatio: featured ? "21 / 9" : "16 / 9",
+            background: "#f5f5f5",
           }}
         >
-          {categoryName}
-        </span>
-        {newsItem.source && (
-          <span className="ml-2 text-xs text-gray-500">
-            • {newsItem.source}
-          </span>
-        )}
-      </div>
+          <Image
+            src={imageUrl}
+            alt={newsItem.title}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            onError={(e) => {
+              (e.currentTarget.parentElement as HTMLElement).style.display =
+                "none";
+            }}
+          />
+          {/* Ranking badge */}
+          {typeof rank === "number" ? (
+            <div
+              className="absolute left-3 top-3 inline-flex items-center justify-center rounded-full text-white"
+              style={{
+                width: "28px",
+                height: "28px",
+                background: "rgba(14,14,16,.78)",
+                backdropFilter: "blur(4px)",
+                fontFamily:
+                  "var(--font-jetbrains-mono), ui-monospace, monospace",
+                fontSize: "11px",
+                fontWeight: 700,
+                letterSpacing: ".04em",
+              }}
+            >
+              {String(rank).padStart(2, "0")}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Contenido textual */}
-      <div className="p-6">
+      <div className="p-5">
+        {/* Meta line: categoría · fuente · tiempo */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span
+            className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider"
+            style={{
+              background: OTTO_RED_SOFT,
+              color: OTTO_RED_INK,
+              letterSpacing: ".08em",
+            }}
+          >
+            {categoryName}
+          </span>
+          <span
+            className="text-[11px]"
+            style={{
+              fontFamily:
+                "var(--font-jetbrains-mono), ui-monospace, monospace",
+              color: "#6c6c72",
+              letterSpacing: ".06em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}
+          >
+            {domain ?? newsItem.source ?? "Otto"}
+          </span>
+          <span
+            className="text-[11px]"
+            style={{
+              fontFamily:
+                "var(--font-jetbrains-mono), ui-monospace, monospace",
+              color: "#a0a0a8",
+              letterSpacing: ".06em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}
+          >
+            · {minutes} min
+          </span>
+        </div>
+
         {/* Título */}
         <h3
-          className="modern-news-title text-2xl font-bold mb-3 line-clamp-2"
+          className={`modern-news-title m-0 mb-2 font-bold transition-colors group-hover:text-[var(--otto-primary)] ${
+            featured ? "line-clamp-2 text-[24px]" : "line-clamp-2 text-[19px]"
+          }`}
           style={{
             fontFamily: MODERN_DESIGN.typography.fontFamily.heading,
-            color: MODERN_DESIGN.colors.primary,
+            color: "#0e0e10",
+            letterSpacing: "-.4px",
+            lineHeight: 1.25,
           }}
         >
           {newsItem.title}
         </h3>
 
-        {/* Contenido */}
+        {/* Excerpt */}
         <p
-          className="modern-news-summary text-base leading-relaxed mb-4 line-clamp-3"
+          className={`modern-news-summary m-0 ${featured ? "line-clamp-3" : "line-clamp-2"}`}
           style={{
             fontFamily: MODERN_DESIGN.typography.fontFamily.body,
-            color: "#1f2937",
+            color: "#3c3c40",
+            fontSize: "13.5px",
+            lineHeight: 1.55,
+            marginBottom: "14px",
           }}
         >
-          {newsItem.fullContent || newsItem.content}
+          {text}
         </p>
 
-        {/* Link "Leer más" */}
+        {/* CTA */}
         {newsItem.url && (
           <Link
             href={newsItem.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="modern-read-more inline-flex items-center gap-2 text-sm font-semibold hover:underline"
-            style={{ color: MODERN_DESIGN.colors.secondary }}
+            className="modern-read-more inline-flex items-center gap-1.5 text-[12.5px] font-bold transition-all"
+            style={{ color: OTTO_RED, letterSpacing: ".02em" }}
           >
-            Leer más
+            Leer nota completa
             <svg
-              className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+              className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -208,7 +337,7 @@ function NewsItemCard({ categoryName, newsItem }: NewsItemCardProps) {
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
+                strokeWidth={2.5}
                 d="M9 5l7 7-7 7"
               />
             </svg>
@@ -238,6 +367,8 @@ function NewsCard({ categoryName, data, roadClosureMapUrl }: NewsCardProps) {
             key={`${categoryName}-${index}`}
             categoryName={categoryName}
             newsItem={newsItem}
+            rank={index + 1}
+            featured={index === 0}
           />
         ))}
         {/* Imagen del mapa de cierres viales */}
@@ -372,6 +503,35 @@ export function ModernBulletinLayout({
     return data && (data.summary || (data.news && data.news.length > 0));
   });
 
+  // Stats agregados
+  const totalNews = categoriesWithContent.reduce((acc, cat) => {
+    const d = bulletin[cat.key];
+    return acc + (d?.news?.length ?? (d?.summary ? 1 : 0));
+  }, 0);
+
+  const totalReadingTime = categoriesWithContent.reduce((acc, cat) => {
+    const d = bulletin[cat.key];
+    if (d?.news && d.news.length > 0) {
+      return (
+        acc +
+        d.news.reduce(
+          (a, n) => a + readingTime(n.content || ""),
+          0,
+        )
+      );
+    }
+    if (d?.summary) return acc + readingTime(d.summary);
+    return acc;
+  }, 0);
+
+  // Conteo por categoría para los pills
+  const countByCategory: Record<string, number> = {};
+  categoriesWithContent.forEach((cat) => {
+    const d = bulletin[cat.key];
+    countByCategory[cat.key] =
+      d?.news?.length ?? (d?.summary ? 1 : 0);
+  });
+
   // Obtener noticias filtradas
   const filteredNews = activeCategory
     ? CATEGORIES.filter((cat) => cat.key === activeCategory)
@@ -386,35 +546,151 @@ export function ModernBulletinLayout({
         backgroundColor: MODERN_DESIGN.colors.background,
       }}
     >
-      {/* HEADER CON GRADIENTE */}
+      {/* HEADER — fondo negro institucional con destello rojo */}
       <header
-        className="modern-header relative rounded-2xl px-6 py-12 mb-8 text-center"
+        className="modern-header relative mb-8 overflow-hidden rounded-2xl px-8 py-14 text-left"
         style={{
-          background: "linear-gradient(135deg, #004aad 0%, #1a62ff 100%)",
+          background: "linear-gradient(135deg, #0e0e10 0%, #1d1d20 100%)",
         }}
       >
-        {/* Título principal */}
-        <h1
-          className="modern-title text-5xl font-bold text-white mb-3"
+        {/* Glow rojo radial */}
+        <div
+          aria-hidden
+          className="absolute -right-[120px] -top-[120px] h-[360px] w-[360px] rounded-full"
           style={{
-            fontFamily: MODERN_DESIGN.typography.fontFamily.heading,
-            fontSize: MODERN_DESIGN.typography.sizes.mainTitle,
+            background:
+              "radial-gradient(circle, #d62828 0%, transparent 65%)",
+            opacity: 0.55,
           }}
-        >
-          Resumen Diario de Noticias
-        </h1>
+        />
 
-        {/* Fecha */}
-        <p
-          className="modern-date text-white"
+        {/* Patrón de grid sutil */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
           style={{
-            opacity: 0.9,
-            fontSize: MODERN_DESIGN.typography.sizes.date,
-            fontFamily: MODERN_DESIGN.typography.fontFamily.body,
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
           }}
-        >
-          {formattedDate}
-        </p>
+        />
+
+        <div className="relative z-10">
+          {/* Tag editorial */}
+          <div
+            className="mb-3 inline-flex items-center gap-2"
+            style={{
+              fontFamily:
+                "var(--font-jetbrains-mono), ui-monospace, monospace",
+              fontSize: "10px",
+              letterSpacing: ".18em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+              color: "#fbcdcd",
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: "8px",
+                height: "8px",
+                background: "#d62828",
+                transform: "rotate(45deg)",
+                display: "inline-block",
+              }}
+            />
+            Edición · {formattedDate}
+          </div>
+
+          {/* Título principal */}
+          <h1
+            className="modern-title m-0 mb-2 font-bold text-white"
+            style={{
+              fontFamily: "var(--font-space-grotesk), system-ui, sans-serif",
+              fontSize: "clamp(28px, 4vw, 44px)",
+              letterSpacing: "-1.4px",
+              lineHeight: 1.05,
+            }}
+          >
+            Resumen Diario de Noticias
+          </h1>
+
+          {/* Subtítulo */}
+          <p
+            className="modern-date m-0 mb-5 max-w-[480px] text-[14px] leading-[1.55]"
+            style={{
+              color: "#bdbdc4",
+              fontFamily: "var(--font-inter), system-ui, sans-serif",
+            }}
+          >
+            Lo más relevante de Ecuador y el mundo, curado por OttoSeguridad.
+          </p>
+
+          {/* Stats line */}
+          <div
+            className="flex flex-wrap items-center gap-x-5 gap-y-2"
+            style={{
+              fontFamily:
+                "var(--font-jetbrains-mono), ui-monospace, monospace",
+              fontSize: "10px",
+              letterSpacing: ".14em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+              color: "#7c7c83",
+            }}
+          >
+            <div className="inline-flex items-baseline gap-1.5">
+              <span
+                style={{
+                  fontFamily:
+                    "var(--font-space-grotesk), system-ui, sans-serif",
+                  fontSize: "20px",
+                  fontWeight: 700,
+                  color: "#fff",
+                  letterSpacing: "-.5px",
+                  textTransform: "none",
+                }}
+              >
+                {totalNews}
+              </span>
+              <span>notas</span>
+            </div>
+            <span style={{ color: "rgba(255,255,255,.18)" }}>·</span>
+            <div className="inline-flex items-baseline gap-1.5">
+              <span
+                style={{
+                  fontFamily:
+                    "var(--font-space-grotesk), system-ui, sans-serif",
+                  fontSize: "20px",
+                  fontWeight: 700,
+                  color: "#fff",
+                  letterSpacing: "-.5px",
+                  textTransform: "none",
+                }}
+              >
+                {categoriesWithContent.length}
+              </span>
+              <span>secciones</span>
+            </div>
+            <span style={{ color: "rgba(255,255,255,.18)" }}>·</span>
+            <div className="inline-flex items-baseline gap-1.5">
+              <span
+                style={{
+                  fontFamily:
+                    "var(--font-space-grotesk), system-ui, sans-serif",
+                  fontSize: "20px",
+                  fontWeight: 700,
+                  color: "#fff",
+                  letterSpacing: "-.5px",
+                  textTransform: "none",
+                }}
+              >
+                ~{totalReadingTime}
+              </span>
+              <span>min lectura</span>
+            </div>
+          </div>
+        </div>
       </header>
 
       {/* NAVEGACIÓN DE CATEGORÍAS */}
@@ -426,19 +702,39 @@ export function ModernBulletinLayout({
           {/* Badge "Todas" */}
           <button
             onClick={() => setActiveCategory(null)}
-            className={`
-              modern-category-badge px-4 py-2 rounded-full font-medium text-sm transition-all duration-200 whitespace-nowrap
-              ${
-                activeCategory === null
-                  ? "bg-[#004aad] text-white shadow-md"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }
-            `}
+            className={`modern-category-badge inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+              activeCategory === null
+                ? "text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
             style={{
               fontFamily: MODERN_DESIGN.typography.fontFamily.body,
+              background: activeCategory === null ? OTTO_RED : undefined,
+              boxShadow:
+                activeCategory === null
+                  ? "0 4px 14px rgba(214,40,40,.28)"
+                  : undefined,
             }}
           >
             Todas
+            <span
+              className="inline-flex items-center justify-center rounded-full px-1.5"
+              style={{
+                fontFamily:
+                  "var(--font-jetbrains-mono), ui-monospace, monospace",
+                fontSize: "10px",
+                letterSpacing: ".04em",
+                background:
+                  activeCategory === null
+                    ? "rgba(255,255,255,.2)"
+                    : "rgba(0,0,0,.06)",
+                color: activeCategory === null ? "#fff" : "#6c6c72",
+                minWidth: "20px",
+                height: "18px",
+              }}
+            >
+              {totalNews}
+            </span>
           </button>
 
           {/* Badges de categorías */}
@@ -452,6 +748,7 @@ export function ModernBulletinLayout({
                 isActive={activeCategory === category.key}
                 onClick={() => setActiveCategory(category.key)}
                 hasContent={!!hasContent}
+                count={countByCategory[category.key]}
               />
             );
           })}
@@ -487,29 +784,65 @@ export function ModernBulletinLayout({
       </main>
 
       {/* FOOTER */}
-      <footer className="modern-footer mt-12 pt-8 border-t border-gray-200">
-        {/* Logo corporativo */}
-        <div className="flex justify-center mb-6">
-          <Image
-            src="/bulletin-assets/modern/logo.png"
-            alt="OttoSeguridad Logo"
-            width={100}
-            height={60}
-            className="modern-logo max-h-16 w-auto"
-            style={{ objectFit: "contain" }}
-            // Fallback si no hay logo
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = "none";
-            }}
-          />
+      <footer
+        className="modern-footer mt-12 pt-8 text-center"
+        style={{ borderTop: "1px solid #e6e5e1" }}
+      >
+        <div className="flex justify-center">
+          <div
+            className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-[10px]"
+            style={{ background: "#000" }}
+          >
+            <Image
+              src="/logos/buho-seguridad.png"
+              alt="OttoSeguridad"
+              width={88}
+              height={48}
+              className="h-auto w-[40px] object-contain"
+            />
+          </div>
         </div>
-
-        {/* Texto de copyright */}
-        <p className="text-center text-sm text-gray-500">
-          © {new Date().getFullYear()} OttoSeguridad. Todos los derechos
-          reservados.
-        </p>
+        <div
+          className="mt-3"
+          style={{
+            fontFamily:
+              "var(--font-space-grotesk), system-ui, sans-serif",
+            fontSize: "14px",
+            fontWeight: 700,
+            color: "#0e0e10",
+            letterSpacing: "-.2px",
+          }}
+        >
+          OttoSeguridad
+        </div>
+        <div
+          className="mt-1"
+          style={{
+            fontFamily:
+              "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: "10px",
+            letterSpacing: ".18em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            color: "#6c6c72",
+          }}
+        >
+          Resumen Diario · {formattedDate}
+        </div>
+        <div
+          className="mt-3 pb-2"
+          style={{
+            fontFamily:
+              "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: "9px",
+            letterSpacing: ".14em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            color: "#a0a0a8",
+          }}
+        >
+          Inteligencia · Análisis · Curaduría
+        </div>
       </footer>
 
       {/* ESTILOS ADICIONALES */}

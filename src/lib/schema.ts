@@ -85,6 +85,8 @@ export const bulletinCategories = pgTable("bulletin_categories", {
   displayOrder: integer("display_order").notNull().default(0),
   isDefault: boolean("is_default").default(false).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  description: text("description"),
+  keywords: jsonb("keywords").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

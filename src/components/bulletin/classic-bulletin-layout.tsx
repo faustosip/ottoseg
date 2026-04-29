@@ -135,10 +135,37 @@ function isImageUrl(url: string | null | undefined): boolean {
  */
 function ClassicSeparator() {
   return (
-    <hr
-      className="border-0 border-t-2 my-6"
-      style={{ borderColor: CLASSIC_DESIGN.colors.accent }}
-    />
+    <div
+      aria-hidden
+      className="my-6 flex items-center justify-center gap-2"
+      style={{ color: "#c9c9c9" }}
+    >
+      <span
+        style={{
+          flex: 1,
+          height: "1px",
+          background: "var(--otto-rule)",
+        }}
+      />
+      <span
+        style={{
+          fontFamily:
+            "var(--font-jetbrains-mono), ui-monospace, monospace",
+          fontSize: "10px",
+          letterSpacing: ".4em",
+          color: "#a0a0a8",
+        }}
+      >
+        · · ·
+      </span>
+      <span
+        style={{
+          flex: 1,
+          height: "1px",
+          background: "var(--otto-rule)",
+        }}
+      />
+    </div>
   );
 }
 
@@ -165,26 +192,51 @@ function CategorySection({ number, categoryName, data, roadClosureMapUrl }: Cate
   const firstNewsImageUrl = data.imageUrl; // Ya viene del CategoryData
 
   return (
-    <section className="classic-section mb-[60px]">
-      {/* Título de categoría numerado y subrayado */}
-      <h2
-        className="classic-section-title text-[24px] leading-[1.3] mb-6"
+    <section className="classic-section mb-10">
+      {/* Tag editorial — categoría · número */}
+      <div
+        className="mb-2 flex items-center gap-2"
         style={{
-          fontWeight: 700,
-          color: "#000000",
-          textDecorationLine: "underline",
+          fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+          fontSize: "10px",
+          letterSpacing: ".18em",
+          textTransform: "uppercase",
+          fontWeight: 600,
+          color: "rgb(214, 40, 40)",
         }}
       >
-        {number}. {categoryName}
+        <span
+          aria-hidden
+          style={{
+            display: "inline-block",
+            width: "20px",
+            height: "2px",
+            background: "rgb(214, 40, 40)",
+          }}
+        />
+        {categoryName} · {String(number).padStart(2, "0")}
+      </div>
+
+      {/* Título de categoría */}
+      <h2
+        className="classic-section-title text-[22px] leading-[1.2] mb-4"
+        style={{
+          fontFamily: "var(--font-space-grotesk), system-ui, sans-serif",
+          fontWeight: 700,
+          color: "#0e0e10",
+          letterSpacing: "-.5px",
+        }}
+      >
+        {categoryName}
       </h2>
 
-      {/* Título de la noticia - Color azul específico */}
+      {/* Título de la noticia */}
       {firstNewsTitle && (
         <h3
-          className="classic-news-title text-[22px] leading-[1.4] text-center my-6"
+          className="classic-news-title text-[18px] leading-[1.35] mb-3"
           style={{
             fontWeight: 700,
-            color: "rgb(0, 74, 173)", // Azul específico del diseño original
+            color: "rgb(214, 40, 40)",
           }}
         >
           {firstNewsTitle}
@@ -193,16 +245,16 @@ function CategorySection({ number, categoryName, data, roadClosureMapUrl }: Cate
 
       {/* Imagen */}
       {firstNewsImageUrl && (
-        <div className="classic-news-image-container flex justify-center my-6">
+        <div className="classic-news-image-container my-4">
           <Image
             src={firstNewsImageUrl}
             alt={firstNewsTitle || categoryName}
             width={455}
             height={256}
-            className="classic-news-image w-full h-auto"
+            className="classic-news-image h-auto w-full rounded-[8px]"
             style={{
               maxWidth: "455px",
-              objectFit: "cover"
+              objectFit: "cover",
             }}
           />
         </div>
@@ -210,10 +262,10 @@ function CategorySection({ number, categoryName, data, roadClosureMapUrl }: Cate
 
       {/* Contenido del resumen */}
       <div
-        className="classic-news-content text-[16px] leading-[1.6] text-justify my-6 mt-6"
+        className="classic-news-content text-[15px] leading-[1.6] text-justify mt-3"
         style={{
           fontWeight: 400,
-          color: "#000000",
+          color: "#1a1a1a",
         }}
       >
         {data.summary}
@@ -221,26 +273,26 @@ function CategorySection({ number, categoryName, data, roadClosureMapUrl }: Cate
 
       {/* Imagen del mapa de cierres viales (solo para categoría Vial) */}
       {roadClosureMapUrl && isImageUrl(roadClosureMapUrl) && (
-        <div className="my-6">
+        <div className="my-4">
           <h4
-            className="text-[18px] leading-[1.4] text-center mb-4"
+            className="mb-2.5 text-[15px] leading-[1.4]"
             style={{
               fontWeight: 700,
-              color: "rgb(0, 74, 173)",
+              color: "rgb(214, 40, 40)",
             }}
           >
-            Mapa de Cierres Viales
+            Mapa de cierres viales
           </h4>
-          <div className="classic-news-image-container flex justify-center">
+          <div className="classic-news-image-container">
             <Image
               src={roadClosureMapUrl}
               alt="Mapa de Cierres Viales"
               width={455}
               height={400}
-              className="classic-news-image w-full h-auto rounded-lg"
+              className="classic-news-image h-auto w-full rounded-[8px]"
               style={{
                 maxWidth: "455px",
-                objectFit: "contain"
+                objectFit: "contain",
               }}
             />
           </div>
@@ -249,18 +301,18 @@ function CategorySection({ number, categoryName, data, roadClosureMapUrl }: Cate
 
       {/* Link "Leer más" */}
       {firstNewsUrl && (
-        <div className="text-right mt-4">
+        <div className="mt-3 text-right">
           <Link
             href={firstNewsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="classic-link text-[16px] underline"
+            className="classic-link inline-flex items-center gap-1 text-[14px] hover:underline"
             style={{
               fontWeight: 700,
-              color: "rgb(0, 74, 173)"
+              color: "rgb(214, 40, 40)",
             }}
           >
-            Leer más
+            Leer más →
           </Link>
         </div>
       )}
@@ -307,25 +359,30 @@ export function ClassicBulletinLayout({
       {/* HEADER */}
       <header className="classic-header relative w-full">
         {/* Banner Image */}
-        <div className="w-full">
+        <div
+          className="w-full overflow-hidden"
+          style={{ maxHeight: "180px" }}
+        >
           <Image
             src="/banner.png"
             alt="Resumen Diario de Noticias"
             width={1920}
             height={485}
-            className="w-full h-auto"
+            className="h-auto w-full object-cover"
+            style={{ maxHeight: "180px" }}
             priority
           />
         </div>
 
         {/* Título y fecha sobre fondo blanco */}
-        <div className="bg-white py-8">
+        <div className="bg-white py-6">
           {/* Título principal */}
           <h1
-            className="classic-title text-center px-4 text-[28px]"
+            className="classic-title text-center px-4 text-[24px]"
             style={{
               fontWeight: 700,
               color: "#000000",
+              letterSpacing: "0.5px",
             }}
           >
             RESUMEN DIARIO DE NOTICIAS
@@ -333,10 +390,10 @@ export function ClassicBulletinLayout({
 
           {/* Fecha */}
           <p
-            className="classic-date text-center mt-4 px-4 text-[20px]"
+            className="classic-date text-center mt-2 px-4 text-[15px]"
             style={{
               fontWeight: 400,
-              color: "#000000",
+              color: "#4a4a4a",
             }}
           >
             {formattedDate}
@@ -376,37 +433,48 @@ export function ClassicBulletinLayout({
       {/* Separador antes del footer */}
       <ClassicSeparator />
 
-      {/* FOOTER */}
-      <footer className="classic-footer mt-12">
-        {/* Imagen decorativa del footer */}
+      {/* FOOTER — minimalista institucional */}
+      <footer className="classic-footer pb-10 pt-8 text-center">
+        <div className="flex justify-center">
+          <div
+            className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-[10px]"
+            style={{ background: "#000" }}
+          >
+            <Image
+              src="/logos/buho-seguridad.png"
+              alt="OttoSeguridad"
+              width={88}
+              height={48}
+              className="h-auto w-[40px] object-contain"
+            />
+          </div>
+        </div>
         <div
-          className="classic-footer-image w-full h-auto mb-6"
+          className="mt-3"
           style={{
-            backgroundImage: "url('/bulletin-assets/classic/footer-bg.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            minHeight: "200px",
+            fontFamily:
+              "var(--font-space-grotesk), system-ui, sans-serif",
+            fontSize: "14px",
+            fontWeight: 700,
+            color: "#0e0e10",
+            letterSpacing: "-.2px",
           }}
         >
-          {/* Fallback si no hay imagen */}
-          <div className="w-full h-full bg-gradient-to-t from-gray-100 to-gray-200" />
+          OttoSeguridad
         </div>
-
-        {/* Logo corporativo */}
-        <div className="classic-logo-container flex justify-center pb-12">
-          <Image
-            src="/bulletin-assets/classic/logo.png"
-            alt="OttoSeguridad Logo"
-            width={120}
-            height={80}
-            className="classic-logo max-h-[80px] w-auto"
-            style={{ objectFit: "contain" }}
-            // Fallback si no hay logo
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = "none";
-            }}
-          />
+        <div
+          className="mt-1"
+          style={{
+            fontFamily:
+              "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: "10px",
+            letterSpacing: ".18em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            color: "#6c6c72",
+          }}
+        >
+          Resumen Diario · {formattedDate}
         </div>
       </footer>
 
@@ -418,49 +486,20 @@ export function ClassicBulletinLayout({
             max-width: 100%;
             padding: 0 24px;
           }
-
-          .classic-title {
-            font-size: 24px !important;
-          }
-
-          .classic-date {
-            font-size: 18px !important;
-          }
-
-          .classic-section-title {
-            font-size: 22px !important;
-          }
-
-          .classic-news-title {
-            font-size: 20px !important;
-          }
-
-          .classic-news-content {
-            font-size: 15px !important;
-          }
-
-          .classic-link {
-            font-size: 15px !important;
-          }
         }
 
         /* Mobile */
         @media (max-width: 767px) {
-          .classic-header {
-            height: 300px !important;
-          }
-
           .classic-title {
             font-size: 20px !important;
-            padding: 0 16px;
           }
 
           .classic-date {
-            font-size: 14px !important;
+            font-size: 13px !important;
           }
 
           .classic-section {
-            margin-bottom: 40px;
+            margin-bottom: 32px;
           }
 
           .classic-section-title {
@@ -469,11 +508,6 @@ export function ClassicBulletinLayout({
 
           .classic-news-title {
             font-size: 16px !important;
-            text-align: left !important;
-          }
-
-          .classic-news-image {
-            max-width: 100%;
           }
 
           .classic-news-content {
@@ -482,7 +516,7 @@ export function ClassicBulletinLayout({
           }
 
           .classic-link {
-            font-size: 14px !important;
+            font-size: 13px !important;
           }
 
           .classic-content {

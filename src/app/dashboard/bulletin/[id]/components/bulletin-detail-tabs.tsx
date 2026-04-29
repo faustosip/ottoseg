@@ -12,6 +12,7 @@ import type { BulletinData } from "@/components/bulletin/classic-bulletin-layout
 import { Loader2, Edit, Newspaper, Shield, CheckCircle, Send, Trash2, Download } from "lucide-react";
 import type { ClassifiedNews, ClassifiedArticle } from "@/lib/news/classifier";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 
 /**
@@ -179,20 +180,38 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
 
   return (
     <Tabs defaultValue={defaultTab} className="w-full">
-      <TabsList className={`grid w-full ${hasRawNews ? "grid-cols-4" : "grid-cols-3"}`}>
-        <TabsTrigger value="resumes">Resúmenes</TabsTrigger>
+      <TabsList
+        className="flex h-auto w-full items-center justify-start gap-1 rounded-none border-b bg-transparent p-0"
+        style={{ borderColor: "var(--otto-rule)" }}
+      >
+        <TabsTrigger
+          value="resumes"
+          className="font-mono-otto relative inline-flex items-center gap-1.5 rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-[11px] font-semibold uppercase tracking-[.14em] text-[var(--otto-muted)] shadow-none transition-colors data-[state=active]:border-[var(--otto-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--otto-ink)] data-[state=active]:shadow-none"
+        >
+          <Newspaper className="h-3.5 w-3.5" />
+          Resúmenes
+        </TabsTrigger>
         {hasRawNews && (
-          <TabsTrigger value="noticias" className="flex items-center gap-1">
-            <Newspaper className="h-3 w-3" />
+          <TabsTrigger
+            value="noticias"
+            className="font-mono-otto relative inline-flex items-center gap-1.5 rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-[11px] font-semibold uppercase tracking-[.14em] text-[var(--otto-muted)] shadow-none transition-colors data-[state=active]:border-[var(--otto-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--otto-ink)] data-[state=active]:shadow-none"
+          >
+            <Newspaper className="h-3.5 w-3.5" />
             Noticias
           </TabsTrigger>
         )}
-        <TabsTrigger value="edit" className="flex items-center gap-1">
-          <Edit className="h-3 w-3" />
+        <TabsTrigger
+          value="edit"
+          className="font-mono-otto relative inline-flex items-center gap-1.5 rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-[11px] font-semibold uppercase tracking-[.14em] text-[var(--otto-muted)] shadow-none transition-colors data-[state=active]:border-[var(--otto-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--otto-ink)] data-[state=active]:shadow-none"
+        >
+          <Edit className="h-3.5 w-3.5" />
           Editar
         </TabsTrigger>
-        <TabsTrigger value="audit" className="flex items-center gap-1">
-          <Shield className="h-3 w-3" />
+        <TabsTrigger
+          value="audit"
+          className="font-mono-otto relative inline-flex items-center gap-1.5 rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-[11px] font-semibold uppercase tracking-[.14em] text-[var(--otto-muted)] shadow-none transition-colors data-[state=active]:border-[var(--otto-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--otto-ink)] data-[state=active]:shadow-none"
+        >
+          <Shield className="h-3.5 w-3.5" />
           Auditoría
         </TabsTrigger>
       </TabsList>
@@ -210,21 +229,39 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
 
           {/* Banner de resúmenes en proceso */}
           {isSummarizing && (
-            <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <Loader2 className="h-5 w-5 animate-spin text-amber-600 shrink-0" />
+            <div
+              className="flex items-center gap-3 rounded-[10px] border bg-white px-4 py-3"
+              style={{ borderColor: "var(--otto-rule)" }}
+            >
+              <Loader2
+                className="h-5 w-5 shrink-0 animate-spin"
+                style={{ color: "var(--otto-primary)" }}
+              />
               <div>
-                <p className="text-sm font-medium text-amber-800">
-                  Generando resúmenes con IA...
+                <p
+                  className="font-display text-sm font-bold"
+                  style={{ color: "var(--otto-ink)" }}
+                >
+                  Generando resúmenes con IA…
                 </p>
-                <p className="text-xs text-amber-600">
-                  Las noticias ya están clasificadas. Los resúmenes se actualizarán automáticamente.
+                <p
+                  className="font-mono-otto text-[10px] font-medium uppercase"
+                  style={{ color: "var(--otto-muted)", letterSpacing: ".14em" }}
+                >
+                  Se actualizará automáticamente cada 5 segundos
                 </p>
               </div>
             </div>
           )}
 
           {/* Renderer del boletín */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div
+            className="rounded-[14px] border bg-white p-6"
+            style={{
+              borderColor: "var(--otto-rule)",
+              boxShadow: "var(--otto-shadow-1)",
+            }}
+          >
             {classifiedNews && Object.values(classifiedNews).some((cat) => cat && cat.length > 0) ? (
               <BulletinRenderer
                 bulletin={bulletinData}
@@ -232,60 +269,21 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
                 editable={false}
               />
             ) : bulletin.rawNews ? (
-              <div className="text-center py-12">
-                <div className="max-w-md mx-auto">
-                  <div className="mb-6">
-                    <svg
-                      className="mx-auto h-12 w-12 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Noticias listas para editar
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-4">
-                    Las noticias han sido scrapeadas exitosamente. Ahora puedes seleccionar cuáles incluir en el boletín.
-                  </p>
-                  <a
-                    href={`/dashboard/bulletin/${bulletin.id}/edit`}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                    Editar y Procesar Noticias
-                  </a>
-                  <p className="text-gray-500 text-xs mt-4">
-                    Después de seleccionar las noticias, se clasificarán automáticamente por categorías
-                  </p>
-                </div>
-              </div>
+              <EmptyState
+                icon={<Newspaper className="h-7 w-7" />}
+                title="Noticias listas para revisar"
+                description="Las noticias han sido scrapeadas exitosamente. Selecciona cuáles incluir y se clasificarán automáticamente."
+                cta={{
+                  label: "Editar y procesar noticias",
+                  href: `/dashboard/bulletin/${bulletin.id}/edit`,
+                }}
+              />
             ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500">
-                  Los resúmenes aún no están disponibles. El boletín está en estado:{" "}
-                  <strong>{bulletin.status}</strong>
-                </p>
-              </div>
+              <EmptyState
+                icon={<Loader2 className="h-7 w-7 animate-spin" />}
+                title="Resúmenes aún no disponibles"
+                description={`El boletín está en estado "${bulletin.status}". Vuelve en unos minutos.`}
+              />
             )}
           </div>
         </div>
@@ -305,27 +303,40 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
       {/* Tab 3: Editar */}
       <TabsContent value="edit" className="mt-6">
         {classifiedNews && missingFullContent && (
-          <div className="mb-4 flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div
+            className="mb-4 flex items-center gap-3 rounded-[10px] border p-4"
+            style={{
+              borderColor: "var(--otto-primary)",
+              background: "var(--otto-primary-soft)",
+            }}
+          >
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-800">
+              <p
+                className="font-display text-sm font-bold"
+                style={{ color: "var(--otto-primary-ink)" }}
+              >
                 Algunos artículos no tienen contenido completo
               </p>
-              <p className="text-xs text-amber-600">
-                Haz clic para obtener el contenido completo de las noticias desde las fuentes originales.
+              <p
+                className="font-mono-otto mt-1 text-[10px] font-medium uppercase"
+                style={{ color: "var(--otto-primary-ink)", letterSpacing: ".14em", opacity: .75 }}
+              >
+                Obtener contenido completo desde las fuentes originales
               </p>
             </div>
             <Button
               onClick={handleFetchFullContent}
               disabled={isFetchingContent}
-              variant="outline"
-              className="gap-2 border-amber-500 text-amber-700 hover:bg-amber-100"
+              size="sm"
+              className="gap-2 text-white"
+              style={{ background: "var(--otto-primary)" }}
             >
               {isFetchingContent ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              {isFetchingContent ? "Obteniendo..." : "Obtener Contenido Completo"}
+              {isFetchingContent ? "Obteniendo…" : "Obtener contenido"}
             </Button>
           </div>
         )}
@@ -339,42 +350,52 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
             onSave={handleSaveBulletin}
           />
         ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-500">
-              No hay noticias clasificadas para editar.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Edit className="h-7 w-7" />}
+            title="Sin noticias clasificadas"
+            description="Aún no hay contenido editable. Genera o procesa el boletín primero."
+          />
         )}
       </TabsContent>
 
       {/* Tab 4: Auditoría */}
       <TabsContent value="audit" className="mt-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Registro de Auditoría</h3>
+        <div
+          className="rounded-[14px] border bg-white p-6"
+          style={{
+            borderColor: "var(--otto-rule)",
+            boxShadow: "var(--otto-shadow-1)",
+          }}
+        >
+          <h3
+            className="font-display mb-4 text-[18px] font-bold"
+            style={{
+              letterSpacing: "-.3px",
+              color: "var(--otto-ink)",
+            }}
+          >
+            Registro de Auditoría
+          </h3>
           {auditLogs.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {auditLogs.map((log) => {
-                const actionConfig: Record<string, { icon: React.ReactNode; label: string; badgeClass: string }> = {
+                const actionConfig: Record<string, { icon: React.ReactNode; label: string }> = {
                   authorized: {
-                    icon: <CheckCircle className="h-4 w-4 text-green-600" />,
+                    icon: <CheckCircle className="h-4 w-4" style={{ color: "var(--otto-primary)" }} />,
                     label: "Autorizado",
-                    badgeClass: "bg-green-100 text-green-800",
                   },
                   published: {
-                    icon: <Send className="h-4 w-4 text-blue-600" />,
+                    icon: <Send className="h-4 w-4" style={{ color: "var(--otto-primary)" }} />,
                     label: "Publicado",
-                    badgeClass: "bg-blue-100 text-blue-800",
                   },
                   deleted: {
-                    icon: <Trash2 className="h-4 w-4 text-red-600" />,
+                    icon: <Trash2 className="h-4 w-4" style={{ color: "var(--otto-primary)" }} />,
                     label: "Eliminado",
-                    badgeClass: "bg-red-100 text-red-800",
                   },
                 };
                 const config = actionConfig[log.action] || {
-                  icon: <Shield className="h-4 w-4 text-gray-600" />,
+                  icon: <Shield className="h-4 w-4" style={{ color: "var(--otto-muted)" }} />,
                   label: log.action,
-                  badgeClass: "bg-gray-100 text-gray-800",
                 };
                 const formattedTime = new Intl.DateTimeFormat("es-EC", {
                   dateStyle: "medium",
@@ -382,27 +403,55 @@ export function BulletinDetailTabs({ bulletin, auditLogs = [] }: BulletinDetailT
                 }).format(new Date(log.createdAt));
 
                 return (
-                  <div key={log.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50">
+                  <div
+                    key={log.id}
+                    className="flex items-center gap-3 rounded-[10px] border p-3 transition-colors hover:bg-[var(--otto-bg)]"
+                    style={{ borderColor: "var(--otto-rule)" }}
+                  >
                     {config.icon}
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${config.badgeClass}`}>
+                        <span
+                          className="font-mono-otto inline-flex items-center rounded-[6px] px-2 py-0.5 text-[10px] font-semibold uppercase"
+                          style={{
+                            background: "var(--otto-primary-soft)",
+                            color: "var(--otto-primary-ink)",
+                            letterSpacing: ".14em",
+                          }}
+                        >
                           {config.label}
                         </span>
-                        <span className="text-sm font-medium text-gray-900 truncate">{log.userName}</span>
+                        <span
+                          className="truncate text-sm font-medium"
+                          style={{ color: "var(--otto-ink)" }}
+                        >
+                          {log.userName}
+                        </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{log.userEmail}</p>
+                      <p
+                        className="mt-0.5 text-xs"
+                        style={{ color: "var(--otto-muted)" }}
+                      >
+                        {log.userEmail}
+                      </p>
                     </div>
-                    <span className="text-xs text-gray-400 whitespace-nowrap">{formattedTime}</span>
+                    <span
+                      className="font-mono-otto whitespace-nowrap text-[10px] uppercase"
+                      style={{ color: "var(--otto-muted)", letterSpacing: ".14em" }}
+                    >
+                      {formattedTime}
+                    </span>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Shield className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">No hay registros de auditoría para este boletín.</p>
-            </div>
+            <EmptyState
+              icon={<Shield className="h-7 w-7" />}
+              title="Sin registros de auditoría"
+              description="Todavía nadie ha autorizado, publicado o eliminado este boletín."
+              compact
+            />
           )}
         </div>
       </TabsContent>

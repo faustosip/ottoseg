@@ -22,12 +22,14 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { displayName, displayOrder, isActive } = body;
+    const { displayName, displayOrder, isActive, description, keywords } = body;
 
     const updateData: Record<string, unknown> = {};
     if (displayName !== undefined) updateData.displayName = displayName;
     if (displayOrder !== undefined) updateData.displayOrder = displayOrder;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (description !== undefined) updateData.description = description;
+    if (keywords !== undefined) updateData.keywords = keywords;
 
     const category = await updateCategory(id, updateData);
     return NextResponse.json({ category });

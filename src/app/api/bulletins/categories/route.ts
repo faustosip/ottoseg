@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     if (!guard.ok) return guard.response;
 
     const body = await request.json();
-    const { name, displayName, displayOrder } = body;
+    const { name, displayName, displayOrder, description, keywords } = body;
 
     if (!name || !displayName) {
       return NextResponse.json(
@@ -58,6 +58,8 @@ export async function POST(request: NextRequest) {
       name,
       displayName,
       displayOrder: displayOrder ?? 0,
+      description: description ?? null,
+      keywords: Array.isArray(keywords) ? keywords : [],
     });
 
     return NextResponse.json({ category }, { status: 201 });

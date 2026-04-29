@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import {
-  ChevronRight,
   BookOpen,
   LogIn,
   LayoutDashboard,
@@ -19,29 +17,37 @@ import {
   FileText,
   Shield,
   Video,
-  ArrowUp,
-  Menu,
-  X,
+  ScrollText,
+  Mail,
+  type LucideIcon,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 
-const sections = [
-  { id: "intro", label: "Introduccion", icon: BookOpen },
-  { id: "login", label: "Inicio de Sesion", icon: LogIn },
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "boletines", label: "Boletines", icon: Newspaper },
-  { id: "generar", label: "Generar Boletin", icon: Plus },
-  { id: "detalle", label: "Detalle del Boletin", icon: FileText },
+type Section = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+const sections: Section[] = [
+  { id: "intro", label: "Introducción al sistema", icon: BookOpen },
+  { id: "login", label: "Inicio de sesión", icon: LogIn },
+  { id: "dashboard", label: "Dashboard ejecutivo", icon: LayoutDashboard },
+  { id: "navegacion", label: "Menú de navegación", icon: ScrollText },
+  { id: "boletines", label: "Lista de boletines", icon: Newspaper },
+  { id: "generar", label: "Generar nuevo boletín", icon: Plus },
+  { id: "detalle", label: "Detalle del boletín", icon: FileText },
   { id: "noticias", label: "Tab Noticias", icon: Rss },
   { id: "editar", label: "Tab Editar", icon: Settings },
-  { id: "auditoria", label: "Tab Auditoria", icon: Shield },
-  { id: "publicar", label: "Autorizar y Publicar", icon: Send },
-  { id: "vista-publica", label: "Vista Publica", icon: Eye },
-  { id: "fuentes", label: "Fuentes", icon: Rss },
-  { id: "suscriptores", label: "Suscriptores", icon: Users },
-  { id: "categorias", label: "Categorias", icon: Tag },
-  { id: "usuarios", label: "Usuarios", icon: Users },
-  { id: "email", label: "Envio de Correos", icon: Send },
-  { id: "video", label: "Video Tutorial", icon: Video },
+  { id: "auditoria", label: "Tab Auditoría", icon: Shield },
+  { id: "publicar", label: "Autorizar y publicar", icon: Send },
+  { id: "vista-publica", label: "Vista pública", icon: Eye },
+  { id: "fuentes", label: "Configuración de fuentes", icon: Rss },
+  { id: "suscriptores", label: "Gestión de suscriptores", icon: Users },
+  { id: "categorias", label: "Gestión de categorías", icon: Tag },
+  { id: "usuarios", label: "Administración de usuarios", icon: Users },
+  { id: "email", label: "Envío de correos", icon: Mail },
+  { id: "video", label: "Video tutorial", icon: Video },
 ];
 
 function ScreenshotImg({
@@ -55,21 +61,31 @@ function ScreenshotImg({
 }) {
   return (
     <figure className="my-6">
-      <div className="border border-gray-200 rounded-lg overflow-hidden shadow-md">
+      <div
+        className="overflow-hidden rounded-xl border"
+        style={{
+          borderColor: "var(--otto-rule)",
+          background: "var(--otto-surface)",
+          boxShadow: "var(--otto-shadow-1)",
+        }}
+      >
         <Image
           src={src}
           alt={alt}
           width={1440}
           height={900}
-          className="w-full h-auto"
+          className="h-auto w-full"
           unoptimized
         />
       </div>
-      {caption && (
-        <figcaption className="text-sm text-gray-500 mt-2 text-center italic">
+      {caption ? (
+        <figcaption
+          className="font-mono-otto mt-3 text-center"
+          style={{ color: "var(--otto-muted)" }}
+        >
           {caption}
         </figcaption>
-      )}
+      ) : null}
     </figure>
   );
 }
@@ -82,205 +98,405 @@ function StepBox({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex gap-4 my-4">
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center font-bold text-sm">
-        {number}
+    <div className="my-4 flex items-start gap-4">
+      <div
+        className="font-mono-otto flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-white"
+        style={{
+          background: "var(--otto-primary)",
+          letterSpacing: 0,
+          fontSize: "12px",
+        }}
+      >
+        {String(number).padStart(2, "0")}
       </div>
-      <div className="flex-1 pt-0.5">{children}</div>
+      <div
+        className="flex-1 pt-1 text-[15px] leading-[1.6]"
+        style={{ color: "var(--otto-ink-2)" }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
 function SectionTitle({
   id,
+  index,
   icon: Icon,
   children,
 }: {
   id: string;
-  icon: React.ElementType;
+  index: number;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
-    <h2
-      id={id}
-      className="text-2xl font-bold text-gray-900 mt-12 mb-4 pb-3 border-b-2 border-red-600 flex items-center gap-3 scroll-mt-20"
-    >
-      <div className="p-2 bg-red-50 rounded-lg">
-        <Icon className="h-6 w-6 text-red-600" />
+    <div className="mt-14 mb-5 scroll-mt-24" id={id}>
+      <div className="flex items-center gap-4">
+        <div
+          className="flex h-12 w-12 items-center justify-center rounded-xl"
+          style={{ background: "var(--otto-primary-soft)" }}
+        >
+          <Icon
+            className="h-6 w-6"
+            style={{ color: "var(--otto-primary)" }}
+          />
+        </div>
+        <div>
+          <span
+            className="font-mono-otto block"
+            style={{ color: "var(--otto-primary)" }}
+          >
+            Capítulo {String(index).padStart(2, "0")}
+          </span>
+          <h2
+            className="font-display m-0 text-[28px] font-bold leading-tight"
+            style={{ color: "var(--otto-ink)", letterSpacing: "-0.8px" }}
+          >
+            {children}
+          </h2>
+        </div>
       </div>
+      <div
+        className="mt-4 h-px w-full"
+        style={{
+          background:
+            "linear-gradient(90deg, var(--otto-primary) 0%, var(--otto-primary) 56px, var(--otto-rule) 56px)",
+        }}
+      />
+    </div>
+  );
+}
+
+function Subheading({ children }: { children: React.ReactNode }) {
+  return (
+    <h3
+      className="font-display mt-8 mb-3 text-[18px] font-semibold"
+      style={{ color: "var(--otto-ink)", letterSpacing: "-0.3px" }}
+    >
       {children}
-    </h2>
+    </h3>
   );
 }
 
-function InfoBox({ children }: { children: React.ReactNode }) {
+function Paragraph({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-blue-50 border-l-4 border-blue-500 p-4 my-4 rounded-r-lg">
-      <p className="text-sm text-blue-800">{children}</p>
+    <p
+      className="my-3 text-[15px] leading-[1.7]"
+      style={{ color: "var(--otto-ink-2)" }}
+    >
+      {children}
+    </p>
+  );
+}
+
+function BulletList({ children }: { children: React.ReactNode }) {
+  return (
+    <ul
+      className="my-3 list-disc space-y-2 pl-5 text-[15px] leading-[1.65]"
+      style={{ color: "var(--otto-ink-2)" }}
+    >
+      {children}
+    </ul>
+  );
+}
+
+function ImportantBox({
+  label = "Importante",
+  children,
+}: {
+  label?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="my-5 rounded-lg p-4 pl-5"
+      style={{
+        background: "var(--otto-primary-soft)",
+        borderLeft: "4px solid var(--otto-primary)",
+      }}
+    >
+      <p
+        className="m-0 text-[14px] leading-[1.65]"
+        style={{ color: "var(--otto-primary-ink)" }}
+      >
+        <strong className="font-display font-bold">{label}:</strong>{" "}
+        <span style={{ color: "var(--otto-ink-2)" }}>{children}</span>
+      </p>
     </div>
   );
 }
 
-function WarningBox({ children }: { children: React.ReactNode }) {
+function NoteBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-amber-50 border-l-4 border-amber-500 p-4 my-4 rounded-r-lg">
-      <p className="text-sm text-amber-800">{children}</p>
+    <div
+      className="my-5 rounded-lg p-4 pl-5"
+      style={{
+        background: "var(--otto-warn-soft)",
+        borderLeft: "4px solid var(--otto-warn)",
+      }}
+    >
+      <p
+        className="m-0 text-[14px] leading-[1.65]"
+        style={{ color: "var(--otto-ink-2)" }}
+      >
+        <strong
+          className="font-display font-bold"
+          style={{ color: "var(--otto-warn)" }}
+        >
+          Atención:
+        </strong>{" "}
+        {children}
+      </p>
     </div>
+  );
+}
+
+function Code({ children }: { children: React.ReactNode }) {
+  return (
+    <code
+      className="font-mono-otto rounded px-1.5 py-0.5"
+      style={{
+        background: "var(--otto-primary-soft)",
+        color: "var(--otto-primary-ink)",
+        fontSize: "12px",
+        letterSpacing: "0.04em",
+      }}
+    >
+      {children}
+    </code>
+  );
+}
+
+function StatusPill({
+  label,
+  variant,
+}: {
+  label: string;
+  variant: "muted" | "info" | "ok" | "okStrong" | "err";
+}) {
+  const styles: Record<string, { bg: string; color: string }> = {
+    muted: { bg: "var(--otto-rule-2)", color: "var(--otto-ink-2)" },
+    info: { bg: "#dbeafe", color: "#1d4ed8" },
+    ok: { bg: "var(--otto-ok-soft)", color: "var(--otto-ok)" },
+    okStrong: { bg: "var(--otto-ok)", color: "#fff" },
+    err: { bg: "var(--otto-err-soft)", color: "var(--otto-err)" },
+  };
+  const s = styles[variant];
+  return (
+    <span
+      className="font-mono-otto inline-flex rounded-full px-3 py-1"
+      style={{ background: s.bg, color: s.color, fontSize: "10px" }}
+    >
+      {label}
+    </span>
   );
 }
 
 export function ManualContent() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeId, setActiveId] = useState<string>(sections[0].id);
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveId(entry.target.id);
+          }
+        });
+      },
+      {
+        rootMargin: "-30% 0px -60% 0px",
+        threshold: 0,
+      },
+    );
+
+    sections.forEach(({ id }) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-gray-900 to-red-900 text-white py-8 px-6 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 hover:bg-white/10 rounded-lg"
+    <div>
+      <PageHeader
+        title={
+          <>
+            Manual de uso{" "}
+            <em className="not-italic" style={{ color: "var(--otto-primary)" }}>
+              OttoSeguridad
+            </em>
+          </>
+        }
+        lede="Guía completa del sistema de boletines de seguridad: del primer login al envío masivo, configuración avanzada y administración del equipo editorial."
+      />
+
+      <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
+        {/* INDEX SIDEBAR */}
+        <aside className="lg:sticky lg:top-6 lg:self-start">
+          <div
+            className="rounded-2xl border p-6"
+            style={{
+              background: "var(--otto-surface)",
+              borderColor: "var(--otto-rule)",
+              boxShadow: "var(--otto-shadow-1)",
+            }}
+          >
+            <div className="mb-5 flex items-center gap-2">
+              <BookOpen
+                className="h-4 w-4"
+                style={{ color: "var(--otto-primary)" }}
+              />
+              <span
+                className="font-mono-otto"
+                style={{ color: "var(--otto-ink-2)" }}
+              >
+                Índice
+              </span>
+            </div>
+            <nav>
+              <ul className="space-y-3">
+                {sections.map((section, idx) => {
+                  const num = String(idx + 1).padStart(2, "0");
+                  const isActive = activeId === section.id;
+                  return (
+                    <li key={section.id}>
+                      <a
+                        href={`#${section.id}`}
+                        className="group flex items-baseline gap-3 transition-colors"
+                        style={{
+                          color: isActive
+                            ? "var(--otto-ink)"
+                            : "var(--otto-ink-2)",
+                        }}
+                      >
+                        <span
+                          className="font-mono-otto flex-shrink-0"
+                          style={{
+                            color: isActive
+                              ? "var(--otto-primary)"
+                              : "var(--otto-primary)",
+                            opacity: isActive ? 1 : 0.55,
+                            fontSize: "11px",
+                          }}
+                        >
+                          {num}
+                        </span>
+                        <span
+                          className="text-[14px] leading-[1.4] transition-colors group-hover:text-[var(--otto-primary)]"
+                          style={{
+                            fontWeight: isActive ? 600 : 400,
+                          }}
+                        >
+                          {section.label}
+                        </span>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+
+            <div
+              className="mt-6 border-t pt-5"
+              style={{ borderColor: "var(--otto-rule)" }}
             >
-              {sidebarOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
-              )}
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <BookOpen className="h-7 w-7" />
-                Manual de Usuario - OttoSeguridad
-              </h1>
-              <p className="text-red-200 text-sm mt-1">
-                Guia completa del sistema de boletines de seguridad
+              <span
+                className="font-mono-otto block"
+                style={{ color: "var(--otto-muted)" }}
+              >
+                Versión 1.0 · Abr 2026
+              </span>
+              <p
+                className="mt-2 text-[12px] leading-[1.5]"
+                style={{ color: "var(--otto-muted)" }}
+              >
+                ¿Necesita ayuda? Contacte al administrador del sistema.
               </p>
             </div>
           </div>
-          <Link
-            href="/dashboard"
-            className="hidden sm:flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm transition-colors"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Volver al Dashboard
-          </Link>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto flex">
-        {/* Sidebar - Table of Contents */}
-        <aside
-          className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:sticky top-[88px] left-0 w-72 h-[calc(100vh-88px)] overflow-y-auto bg-gray-50 border-r border-gray-200 p-4 transition-transform z-40 lg:z-0`}
-        >
-          <h3 className="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wider">
-            Contenido
-          </h3>
-          <nav className="space-y-1">
-            {sections.map((section) => {
-              const Icon = section.icon;
-              return (
-                <a
-                  key={section.id}
-                  href={`#${section.id}`}
-                  onClick={() => setSidebarOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors group"
-                >
-                  <Icon className="h-4 w-4 text-gray-400 group-hover:text-red-500" />
-                  <span>{section.label}</span>
-                  <ChevronRight className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                </a>
-              );
-            })}
-          </nav>
         </aside>
 
-        {/* Overlay for mobile sidebar */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/30 z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Main Content */}
-        <main className="flex-1 px-6 py-8 lg:px-12 max-w-4xl">
-          {/* ============================================ */}
-          {/* INTRODUCCION */}
-          {/* ============================================ */}
-          <SectionTitle id="intro" icon={BookOpen}>
-            Introduccion al Sistema
+        {/* MAIN CONTENT */}
+        <article
+          className="min-w-0"
+          style={{ color: "var(--otto-ink-2)" }}
+        >
+          {/* INTRO */}
+          <SectionTitle id="intro" index={1} icon={BookOpen}>
+            Introducción al sistema
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            <strong>OttoSeguridad</strong> es una plataforma de generacion
-            automatizada de boletines de noticias de seguridad para Ecuador. El
-            sistema recopila noticias de multiples fuentes periodisticas
-            ecuatorianas, las clasifica mediante inteligencia artificial, genera
-            resumenes y permite su distribucion por correo electronico a
-            suscriptores.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <div className="bg-gray-50 p-4 rounded-lg border">
-              <h4 className="font-semibold text-gray-900 mb-2">
-                Recopilacion Automatica
-              </h4>
-              <p className="text-sm text-gray-600">
-                Noticias de Primicias, La Hora, El Comercio, Teleamazonas y
-                ECU911
-              </p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg border">
-              <h4 className="font-semibold text-gray-900 mb-2">
-                Clasificacion con IA
-              </h4>
-              <p className="text-sm text-gray-600">
-                Categorizacion automatica en Economia, Politica, Sociedad,
-                Seguridad, Internacional y Vial
-              </p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg border">
-              <h4 className="font-semibold text-gray-900 mb-2">
-                Distribucion por Email
-              </h4>
-              <p className="text-sm text-gray-600">
-                Envio masivo a suscriptores con seguimiento de apertura y clicks
-              </p>
-            </div>
+          <Paragraph>
+            <strong style={{ color: "var(--otto-ink)" }}>OttoSeguridad</strong>{" "}
+            es una plataforma de generación automatizada de boletines de
+            noticias de seguridad para Ecuador. El sistema recopila noticias de
+            múltiples fuentes periodísticas ecuatorianas, las clasifica
+            mediante inteligencia artificial, genera resúmenes y permite su
+            distribución por correo electrónico a suscriptores.
+          </Paragraph>
+          <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {[
+              {
+                title: "Recopilación automática",
+                desc: "Noticias de Primicias, La Hora, El Comercio, Teleamazonas y ECU911",
+              },
+              {
+                title: "Clasificación con IA",
+                desc: "Categorización automática en Economía, Política, Sociedad, Seguridad, Internacional y Vial",
+              },
+              {
+                title: "Distribución por email",
+                desc: "Envío masivo a suscriptores con seguimiento de apertura y clicks",
+              },
+            ].map((card) => (
+              <div
+                key={card.title}
+                className="rounded-xl border p-4"
+                style={{
+                  background: "var(--otto-surface)",
+                  borderColor: "var(--otto-rule)",
+                  boxShadow: "var(--otto-shadow-1)",
+                }}
+              >
+                <h4
+                  className="font-display mb-1 text-[15px] font-semibold"
+                  style={{ color: "var(--otto-ink)" }}
+                >
+                  {card.title}
+                </h4>
+                <p
+                  className="m-0 text-[13px] leading-[1.5]"
+                  style={{ color: "var(--otto-muted)" }}
+                >
+                  {card.desc}
+                </p>
+              </div>
+            ))}
           </div>
 
-          {/* ============================================ */}
           {/* LOGIN */}
-          {/* ============================================ */}
-          <SectionTitle id="login" icon={LogIn}>
-            Inicio de Sesion
+          <SectionTitle id="login" index={2} icon={LogIn}>
+            Inicio de sesión
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
+          <Paragraph>
             Para acceder al sistema, ingrese a{" "}
-            <code className="bg-gray-100 px-2 py-1 rounded text-red-600 text-sm">
-              app.ottoseguridadai.com
-            </code>{" "}
-            y utilice sus credenciales de acceso.
-          </p>
+            <Code>app.ottoseguridadai.com</Code> y utilice sus credenciales
+            de acceso provistas por el administrador.
+          </Paragraph>
           <StepBox number={1}>
-            <p className="text-gray-700">
-              Abra su navegador y vaya a la URL del sistema. Vera la pantalla de
-              inicio de sesion.
-            </p>
+            Abra su navegador y vaya a la URL del sistema. Verá la pantalla de
+            inicio de sesión.
           </StepBox>
           <ScreenshotImg
             src="/manual/screenshots/01-login.png"
-            alt="Pantalla de inicio de sesion"
-            caption="Pantalla de inicio de sesion de OttoSeguridad"
+            alt="Pantalla de inicio de sesión"
+            caption="Pantalla de inicio de sesión de OttoSeguridad"
           />
           <StepBox number={2}>
-            <p className="text-gray-700">
-              Ingrese su <strong>correo electronico</strong> y{" "}
-              <strong>contrasena</strong> proporcionados por el administrador.
-            </p>
+            Ingrese su <strong>correo electrónico</strong> y{" "}
+            <strong>contraseña</strong> proporcionados por el administrador.
           </StepBox>
           <ScreenshotImg
             src="/manual/screenshots/02-login-filled.png"
@@ -288,694 +504,665 @@ export function ManualContent() {
             caption="Ingreso de credenciales de acceso"
           />
           <StepBox number={3}>
-            <p className="text-gray-700">
-              Haga clic en <strong>&quot;Iniciar Sesion&quot;</strong>. Sera
-              redirigido al Dashboard principal.
-            </p>
+            Haga clic en <strong>&quot;Iniciar sesión&quot;</strong>. Será
+            redirigido al Dashboard principal.
           </StepBox>
-          <InfoBox>
-            Si su cuenta ha sido desactivada por el administrador, recibira un
+          <ImportantBox>
+            Si su cuenta ha sido desactivada por el administrador, recibirá un
             mensaje de error. Contacte al administrador para reactivar su
             cuenta.
-          </InfoBox>
+          </ImportantBox>
 
-          {/* ============================================ */}
           {/* DASHBOARD */}
-          {/* ============================================ */}
-          <SectionTitle id="dashboard" icon={LayoutDashboard}>
-            Dashboard Ejecutivo
+          <SectionTitle id="dashboard" index={3} icon={LayoutDashboard}>
+            Dashboard ejecutivo
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
+          <Paragraph>
             El Dashboard es la pantalla principal del sistema. Muestra
-            indicadores clave de rendimiento (KPIs), graficos de tendencias y la
-            actividad reciente.
-          </p>
+            indicadores clave de rendimiento (KPIs), gráficos de tendencias y
+            la actividad reciente del equipo editorial.
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/03-dashboard.png"
             alt="Dashboard ejecutivo"
-            caption="Dashboard ejecutivo con KPIs, graficos y actividad reciente"
+            caption="Dashboard ejecutivo con KPIs, gráficos y actividad reciente"
           />
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Indicadores KPI
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 rounded-full bg-blue-500 mt-2" />
-              <div>
-                <p className="font-medium text-gray-900">
-                  Boletines Publicados
-                </p>
-                <p className="text-sm text-gray-600">
-                  Total de boletines que han sido autorizados y publicados
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 rounded-full bg-green-500 mt-2" />
-              <div>
-                <p className="font-medium text-gray-900">
-                  Suscriptores Activos
-                </p>
-                <p className="text-sm text-gray-600">
-                  Cantidad de suscriptores que reciben los boletines
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 rounded-full bg-orange-500 mt-2" />
-              <div>
-                <p className="font-medium text-gray-900">Tasa de Apertura</p>
-                <p className="text-sm text-gray-600">
-                  Porcentaje de emails abiertos vs enviados
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 rounded-full bg-purple-500 mt-2" />
-              <div>
-                <p className="font-medium text-gray-900">
-                  Noticias Procesadas
-                </p>
-                <p className="text-sm text-gray-600">
-                  Total de noticias recopiladas y clasificadas
-                </p>
-              </div>
-            </div>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Graficos Disponibles
-          </h3>
-          <ul className="list-disc list-inside space-y-2 text-gray-700">
-            <li>
-              <strong>Boletines por Semana:</strong> Tendencia de generacion de
-              boletines
-            </li>
-            <li>
-              <strong>Emails Enviados vs Abiertos:</strong> Efectividad de las
-              campanas de email
-            </li>
-            <li>
-              <strong>Noticias por Categoria:</strong> Distribucion de noticias
-              (Economia, Politica, etc.)
-            </li>
-            <li>
-              <strong>Articulos por Fuente:</strong> Volumen de noticias por
-              cada fuente periodistica
-            </li>
-          </ul>
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Actividad Reciente
-          </h3>
-          <p className="text-gray-700">
-            En la seccion inferior del Dashboard se muestra un registro de las
-            acciones recientes: autorizaciones, publicaciones, envios de email y
-            eliminaciones con fecha, hora y usuario responsable.
-          </p>
-
-          {/* ============================================ */}
-          {/* MENU NAVEGACION */}
-          {/* ============================================ */}
-          <h3 className="text-lg font-semibold text-gray-900 mt-8 mb-3">
-            Menu de Navegacion
-          </h3>
-          <ScreenshotImg
-            src="/manual/screenshots/19-menu-navegacion.png"
-            alt="Menu de navegacion"
-            caption="Barra de navegacion superior con todos los modulos del sistema"
-          />
-          <p className="text-gray-700">
-            El menu superior permite acceder a todos los modulos del sistema:
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">
+          <Subheading>Indicadores KPI</Subheading>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {[
-              { name: "Boletines", desc: "Gestion de boletines diarios" },
-              { name: "Fuentes", desc: "Configuracion de fuentes de noticias" },
-              { name: "Suscriptores", desc: "Gestion de lista de correos" },
-              { name: "Categorias", desc: "Categorias de clasificacion" },
-              { name: "Usuarios", desc: "Administracion de usuarios" },
-              { name: "Dashboard", desc: "Panel de indicadores" },
-            ].map((item) => (
+              {
+                color: "var(--otto-primary)",
+                title: "Boletines publicados",
+                desc: "Total de boletines que han sido autorizados y publicados.",
+              },
+              {
+                color: "var(--otto-ok)",
+                title: "Suscriptores activos",
+                desc: "Cantidad de suscriptores que reciben los boletines.",
+              },
+              {
+                color: "var(--otto-warn)",
+                title: "Tasa de apertura",
+                desc: "Porcentaje de emails abiertos vs enviados.",
+              },
+              {
+                color: "var(--otto-ink)",
+                title: "Noticias procesadas",
+                desc: "Total de noticias recopiladas y clasificadas.",
+              },
+            ].map((kpi) => (
               <div
-                key={item.name}
-                className="p-3 bg-gray-50 rounded-lg border text-sm"
+                key={kpi.title}
+                className="flex items-start gap-3 rounded-xl border p-4"
+                style={{
+                  background: "var(--otto-surface)",
+                  borderColor: "var(--otto-rule)",
+                }}
               >
-                <p className="font-semibold text-gray-900">{item.name}</p>
-                <p className="text-gray-500 text-xs">{item.desc}</p>
+                <span
+                  className="mt-1.5 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                  style={{ background: kpi.color }}
+                />
+                <div>
+                  <p
+                    className="font-display m-0 text-[14px] font-semibold"
+                    style={{ color: "var(--otto-ink)" }}
+                  >
+                    {kpi.title}
+                  </p>
+                  <p
+                    className="m-0 mt-0.5 text-[13px] leading-[1.5]"
+                    style={{ color: "var(--otto-muted)" }}
+                  >
+                    {kpi.desc}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
-          <InfoBox>
-            El administrador puede configurar que menus ve cada usuario. Si no
-            ve alguno de estos menus, contacte al administrador para solicitar
-            acceso.
-          </InfoBox>
+          <Subheading>Gráficos disponibles</Subheading>
+          <BulletList>
+            <li>
+              <strong>Boletines por semana:</strong> tendencia de generación
+              de boletines.
+            </li>
+            <li>
+              <strong>Emails enviados vs abiertos:</strong> efectividad de las
+              campañas de email.
+            </li>
+            <li>
+              <strong>Noticias por categoría:</strong> distribución de
+              noticias (Economía, Política, etc.).
+            </li>
+            <li>
+              <strong>Artículos por fuente:</strong> volumen de noticias por
+              cada fuente periodística.
+            </li>
+          </BulletList>
+          <Subheading>Actividad reciente</Subheading>
+          <Paragraph>
+            En la sección inferior del Dashboard se muestra un registro de las
+            acciones recientes: autorizaciones, publicaciones, envíos de email
+            y eliminaciones con fecha, hora y usuario responsable.
+          </Paragraph>
 
-          {/* ============================================ */}
-          {/* BOLETINES */}
-          {/* ============================================ */}
-          <SectionTitle id="boletines" icon={Newspaper}>
-            Lista de Boletines
+          {/* MENU NAVEGACION */}
+          <SectionTitle id="navegacion" index={4} icon={ScrollText}>
+            Menú de navegación
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            La seccion de Boletines muestra todos los boletines generados en
-            orden cronologico (mas recientes primero). Cada tarjeta muestra la
-            fecha, estado, cantidad de noticias y categorias cubiertas.
-          </p>
+          <Paragraph>
+            La barra lateral izquierda permite acceder a todos los módulos del
+            sistema, agrupados por <strong>Operación</strong>,{" "}
+            <strong>Audiencia</strong> y <strong>Configuración</strong>.
+          </Paragraph>
+          <ScreenshotImg
+            src="/manual/screenshots/19-menu-navegacion.png"
+            alt="Menú de navegación"
+            caption="Sidebar con todos los módulos del sistema"
+          />
+          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+            {[
+              { name: "Hoy", desc: "Dashboard del día y pipeline activo" },
+              { name: "Boletines", desc: "Gestión de boletines diarios" },
+              { name: "Generar", desc: "Crear un nuevo boletín" },
+              { name: "Suscriptores", desc: "Gestión de lista de correos" },
+              { name: "Fuentes", desc: "Configuración de fuentes" },
+              { name: "Categorías", desc: "Categorías de clasificación" },
+              { name: "Usuarios", desc: "Administración de usuarios" },
+            ].map((item) => (
+              <div
+                key={item.name}
+                className="rounded-lg border p-3"
+                style={{
+                  background: "var(--otto-surface)",
+                  borderColor: "var(--otto-rule)",
+                }}
+              >
+                <p
+                  className="font-display m-0 text-[14px] font-semibold"
+                  style={{ color: "var(--otto-ink)" }}
+                >
+                  {item.name}
+                </p>
+                <p
+                  className="m-0 mt-0.5 text-[12px] leading-[1.4]"
+                  style={{ color: "var(--otto-muted)" }}
+                >
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+          <ImportantBox>
+            El administrador puede configurar qué módulos ve cada usuario. Si
+            no aparece alguno de estos elementos en su sidebar, contacte al
+            administrador para solicitar acceso.
+          </ImportantBox>
+
+          {/* BOLETINES */}
+          <SectionTitle id="boletines" index={5} icon={Newspaper}>
+            Lista de boletines
+          </SectionTitle>
+          <Paragraph>
+            La sección de Boletines muestra todos los boletines generados
+            agrupados por semana (más recientes primero). Cada fila muestra el
+            día, título, cantidad de noticias, tasa de apertura y estado del
+            envío.
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/04-boletines-lista.png"
             alt="Lista de boletines"
             caption="Vista general de todos los boletines generados"
           />
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Estados de un Boletin
-          </h3>
+          <Subheading>Estados de un boletín</Subheading>
           <div className="space-y-2">
             {[
               {
                 status: "Borrador",
-                color: "bg-gray-200 text-gray-700",
-                desc: "Recien creado, en proceso de recopilacion",
+                variant: "muted" as const,
+                desc: "Recién creado, en proceso de recopilación",
               },
               {
                 status: "Listo",
-                color: "bg-blue-100 text-blue-700",
-                desc: "Noticias clasificadas y resumenes generados",
+                variant: "info" as const,
+                desc: "Noticias clasificadas y resúmenes generados",
               },
               {
                 status: "Autorizado",
-                color: "bg-green-100 text-green-700",
+                variant: "ok" as const,
                 desc: "Aprobado por un administrador",
               },
               {
                 status: "Publicado",
-                color: "bg-green-200 text-green-800",
-                desc: "Disponible publicamente y enviado",
+                variant: "okStrong" as const,
+                desc: "Disponible públicamente y enviado",
               },
               {
                 status: "Fallido",
-                color: "bg-red-100 text-red-700",
-                desc: "Error durante la generacion",
+                variant: "err" as const,
+                desc: "Error durante la generación",
               },
             ].map((item) => (
-              <div key={item.status} className="flex items-center gap-3">
+              <div
+                key={item.status}
+                className="flex items-center gap-3 rounded-lg border px-4 py-2.5"
+                style={{
+                  background: "var(--otto-surface)",
+                  borderColor: "var(--otto-rule)",
+                }}
+              >
+                <StatusPill label={item.status} variant={item.variant} />
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${item.color}`}
+                  className="text-[13px]"
+                  style={{ color: "var(--otto-ink-2)" }}
                 >
-                  {item.status}
+                  {item.desc}
                 </span>
-                <span className="text-sm text-gray-600">{item.desc}</span>
               </div>
             ))}
           </div>
 
-          {/* ============================================ */}
-          {/* GENERAR BOLETIN */}
-          {/* ============================================ */}
-          <SectionTitle id="generar" icon={Plus}>
-            Generar Nuevo Boletin
+          {/* GENERAR */}
+          <SectionTitle id="generar" index={6} icon={Plus}>
+            Generar nuevo boletín
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            Para generar un nuevo boletin diario, haga clic en el boton{" "}
-            <strong>&quot;Generar Nuevo Boletin&quot;</strong> en la esquina
-            superior derecha de la lista de boletines.
-          </p>
+          <Paragraph>
+            Para generar un nuevo boletín diario, haga clic en{" "}
+            <strong>&quot;Generar boletín&quot;</strong> desde el menú lateral
+            o desde la lista de boletines.
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/05-generar-boletin.png"
-            alt="Generar boletin"
-            caption="Pantalla de generacion de un nuevo boletin"
+            alt="Generar boletín"
+            caption="Pantalla de generación de un nuevo boletín"
           />
-          <WarningBox>
-            Solo se puede generar un boletin por dia. Si ya existe un boletin
-            para la fecha actual, el boton estara deshabilitado.
-          </WarningBox>
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Proceso de Generacion (Pipeline)
-          </h3>
-          <div className="space-y-4">
-            <StepBox number={1}>
-              <p className="text-gray-700">
-                <strong>Recopilacion (Scraping):</strong> El sistema visita
-                automaticamente las fuentes configuradas y extrae las noticias
-                del dia.
-              </p>
-            </StepBox>
-            <StepBox number={2}>
-              <p className="text-gray-700">
-                <strong>Clasificacion (IA):</strong> La inteligencia artificial
-                analiza cada noticia y la asigna a una categoria (Economia,
-                Politica, Sociedad, Seguridad, Internacional, Vial).
-              </p>
-            </StepBox>
-            <StepBox number={3}>
-              <p className="text-gray-700">
-                <strong>Resumen (IA):</strong> Se generan resumenes concisos de
-                las noticias mas relevantes de cada categoria.
-              </p>
-            </StepBox>
-          </div>
-          <InfoBox>
-            El proceso completo toma entre 3-8 minutos dependiendo de la
-            cantidad de noticias. No cierre la ventana durante la generacion.
-          </InfoBox>
+          <NoteBox>
+            Solo se puede generar un boletín por día. Si ya existe un boletín
+            para la fecha actual, el botón estará deshabilitado.
+          </NoteBox>
+          <Subheading>Proceso de generación (Pipeline)</Subheading>
+          <StepBox number={1}>
+            <strong>Recopilación (Scraping):</strong> el sistema visita
+            automáticamente las fuentes configuradas y extrae las noticias del
+            día.
+          </StepBox>
+          <StepBox number={2}>
+            <strong>Clasificación (IA):</strong> la inteligencia artificial
+            analiza cada noticia y la asigna a una categoría.
+          </StepBox>
+          <StepBox number={3}>
+            <strong>Resumen (IA):</strong> se generan resúmenes concisos de las
+            noticias más relevantes de cada categoría.
+          </StepBox>
+          <ImportantBox>
+            El proceso completo toma entre 3 y 8 minutos dependiendo de la
+            cantidad de noticias. No cierre la ventana durante la generación.
+          </ImportantBox>
 
-          {/* ============================================ */}
-          {/* DETALLE BOLETIN */}
-          {/* ============================================ */}
-          <SectionTitle id="detalle" icon={FileText}>
-            Detalle del Boletin
+          {/* DETALLE */}
+          <SectionTitle id="detalle" index={7} icon={FileText}>
+            Detalle del boletín
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            Al hacer clic en un boletin de la lista, accede a su vista
-            detallada. Aqui puede ver los resumenes, las noticias originales,
-            editar contenido, revisar la auditoria y gestionar la publicacion.
-          </p>
+          <Paragraph>
+            Al hacer clic en un boletín de la lista, accede a su vista
+            detallada. Aquí puede ver los resúmenes, las noticias originales,
+            editar contenido, revisar la auditoría y gestionar la
+            publicación.
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/06-boletin-detalle.png"
-            alt="Detalle del boletin"
-            caption="Vista de detalle de un boletin con tabs y botones de accion"
+            alt="Detalle del boletín"
+            caption="Vista de detalle de un boletín con tabs y botones de acción"
           />
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Botones de Accion
-          </h3>
+          <Subheading>Botones de acción</Subheading>
           <div className="space-y-2">
             {[
               {
-                btn: "Reactivar Boletin",
-                desc: "Permite regenerar el procesamiento del boletin",
+                btn: "Reactivar boletín",
+                desc: "Permite regenerar el procesamiento del boletín",
               },
               {
-                btn: "Enviar Prueba",
-                desc: "Envia un email de prueba al administrador antes del envio masivo",
+                btn: "Enviar prueba",
+                desc: "Envía un email de prueba al administrador antes del envío masivo",
               },
               {
-                btn: "Compartir Link Publico",
-                desc: "Genera un enlace publico para compartir el boletin (solo si esta autorizado/publicado)",
+                btn: "Compartir link público",
+                desc: "Genera un enlace público para compartir el boletín (solo si está autorizado/publicado)",
               },
               {
                 btn: "Eliminar",
-                desc: "Elimina el boletin permanentemente (con confirmacion)",
+                desc: "Elimina el boletín permanentemente (con confirmación)",
               },
             ].map((item) => (
-              <div key={item.btn} className="flex items-start gap-3 text-sm">
-                <code className="bg-gray-100 px-2 py-1 rounded text-red-600 whitespace-nowrap">
-                  {item.btn}
-                </code>
-                <span className="text-gray-600">{item.desc}</span>
+              <div
+                key={item.btn}
+                className="flex items-start gap-3 rounded-lg border p-3"
+                style={{
+                  background: "var(--otto-surface)",
+                  borderColor: "var(--otto-rule)",
+                }}
+              >
+                <Code>{item.btn}</Code>
+                <span
+                  className="flex-1 text-[13px] leading-[1.5]"
+                  style={{ color: "var(--otto-muted)" }}
+                >
+                  {item.desc}
+                </span>
               </div>
             ))}
           </div>
-
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Tab: Resumenes
-          </h3>
-          <p className="text-gray-700">
-            Muestra el boletin con los resumenes generados por IA. Puede
-            alternar entre dos disenos: <strong>Clasico</strong> (formato
-            tradicional de newsletter) y <strong>Moderno</strong> (tarjetas con
-            gradientes).
-          </p>
+          <Subheading>Tab: Resúmenes</Subheading>
+          <Paragraph>
+            Muestra el boletín con los resúmenes generados por IA. Puede
+            alternar entre dos diseños:{" "}
+            <strong>Clásico</strong> (formato tradicional editorial) y{" "}
+            <strong>Moderno</strong> (tarjetas con jerarquía visual).
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/07-tab-resumenes.png"
-            alt="Tab resumenes"
-            caption="Tab de resumenes con selector de diseno Clasico/Moderno"
+            alt="Tab resúmenes"
+            caption="Tab de resúmenes con selector de diseño Clásico/Moderno"
           />
 
-          {/* ============================================ */}
           {/* TAB NOTICIAS */}
-          {/* ============================================ */}
-          <SectionTitle id="noticias" icon={Rss}>
-            Tab: Noticias
+          <SectionTitle id="noticias" index={8} icon={Rss}>
+            Tab Noticias
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            Esta pestana muestra todas las noticias recopiladas, organizadas por
-            fuente. Cada noticia tiene un checkbox que indica si fue
-            seleccionada para el boletin. Puede ver el total de noticias, las
+          <Paragraph>
+            Esta pestaña muestra todas las noticias recopiladas, organizadas
+            por fuente. Cada noticia tiene un checkbox que indica si fue
+            seleccionada para el boletín. Puede ver el total de noticias, las
             seleccionadas y las fuentes consultadas.
-          </p>
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/08-tab-noticias.png"
             alt="Tab noticias"
             caption="Noticias organizadas por fuente con contadores y checkboxes"
           />
-          <p className="text-gray-700 mt-3">
-            Las fuentes se muestran como pestanas secundarias:{" "}
-            <strong>La Hora, Primicias, El Comercio, Teleamazonas, ECU911</strong>.
-            Haga clic en cada fuente para ver sus noticias.
-            Cada noticia incluye titulo, descripcion, fecha y un enlace{" "}
-            <strong>&quot;Ver original&quot;</strong> para abrir la noticia en su
-            fuente original.
-          </p>
+          <Paragraph>
+            Las fuentes se muestran como pestañas secundarias:{" "}
+            <strong>La Hora, Primicias, El Comercio, Teleamazonas, ECU911</strong>
+            . Haga clic en cada fuente para ver sus noticias. Cada noticia
+            incluye título, descripción, fecha y un enlace{" "}
+            <strong>&quot;Ver original&quot;</strong> para abrir la noticia en
+            su fuente.
+          </Paragraph>
 
-          {/* ============================================ */}
           {/* TAB EDITAR */}
-          {/* ============================================ */}
-          <SectionTitle id="editar" icon={Settings}>
-            Tab: Editar
+          <SectionTitle id="editar" index={9} icon={Settings}>
+            Tab Editar
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            En esta pestana puede editar los resumenes generados por la IA,
-            agregar noticias manualmente y modificar el contenido antes de
-            autorizar el boletin. Los cambios se guardan automaticamente.
-          </p>
+          <Paragraph>
+            En esta pestaña puede editar los resúmenes generados por la IA,
+            agregar noticias manualmente, reordenar con drag &amp; drop y
+            modificar el contenido antes de autorizar el boletín. Los cambios
+            se guardan automáticamente.
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/09-tab-editar.png"
             alt="Tab editar"
-            caption="Interfaz de edicion del boletin con campos editables por categoria"
+            caption="Interfaz de edición del boletín con campos editables por categoría"
           />
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Agregar Noticias Manualmente
-          </h3>
-          <p className="text-gray-700">
-            Si desea agregar una noticia que no fue recopilada automaticamente,
-            use el formulario de <strong>&quot;Agregar noticia manual&quot;</strong>.
-            Complete el titulo, resumen, URL de la fuente y seleccione la
-            categoria correspondiente.
-          </p>
+          <Subheading>Agregar noticias manualmente</Subheading>
+          <Paragraph>
+            Si desea agregar una noticia que no fue recopilada
+            automáticamente, use el formulario de{" "}
+            <strong>&quot;Agregar noticia manual&quot;</strong>. Complete el
+            título, resumen, URL de la fuente y seleccione la categoría
+            correspondiente.
+          </Paragraph>
 
-          {/* ============================================ */}
           {/* TAB AUDITORIA */}
-          {/* ============================================ */}
-          <SectionTitle id="auditoria" icon={Shield}>
-            Tab: Auditoria
+          <SectionTitle id="auditoria" index={10} icon={Shield}>
+            Tab Auditoría
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            El registro de auditoria muestra un historial cronologico de todas
-            las acciones realizadas sobre el boletin: quien lo autorizo, quien
-            lo publico, cuando se envio el email y cualquier eliminacion.
-          </p>
+          <Paragraph>
+            El registro de auditoría muestra un historial cronológico de todas
+            las acciones realizadas sobre el boletín: quién lo autorizó, quién
+            lo publicó, cuándo se envió el email y cualquier eliminación.
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/10-tab-auditoria.png"
-            alt="Tab auditoria"
-            caption="Registro de auditoria mostrando acciones, usuarios y fechas"
+            alt="Tab auditoría"
+            caption="Registro de auditoría mostrando acciones, usuarios y fechas"
           />
-          <p className="text-gray-700 mt-3">
-            Cada entrada muestra:
-          </p>
-          <ul className="list-disc list-inside space-y-1 text-gray-700 mt-2">
+          <Paragraph>Cada entrada muestra:</Paragraph>
+          <BulletList>
             <li>
-              <strong>Tipo de accion:</strong> Autorizado, Publicado, Email
-              Enviado, Eliminado
+              <strong>Tipo de acción:</strong> Autorizado, Publicado, Email
+              enviado, Eliminado.
             </li>
             <li>
-              <strong>Usuario:</strong> Nombre y correo del responsable
+              <strong>Usuario:</strong> nombre y correo del responsable.
             </li>
             <li>
-              <strong>Fecha y hora:</strong> Momento exacto de la accion
+              <strong>Fecha y hora:</strong> momento exacto de la acción.
             </li>
-          </ul>
+          </BulletList>
 
-          {/* ============================================ */}
-          {/* AUTORIZAR Y PUBLICAR */}
-          {/* ============================================ */}
-          <SectionTitle id="publicar" icon={Send}>
-            Autorizar y Publicar
+          {/* PUBLICAR */}
+          <SectionTitle id="publicar" index={11} icon={Send}>
+            Autorizar y publicar
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            El flujo de publicacion de un boletin sigue estos pasos:
-          </p>
-          <div className="flex flex-wrap items-center gap-2 my-6 justify-center">
-            {[
-              "Borrador",
-              "Listo",
-              "Autorizado",
-              "Publicado",
-              "Email Enviado",
-            ].map((step, i) => (
-              <div key={step} className="flex items-center gap-2">
-                <span
-                  className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                    i === 4
-                      ? "bg-green-600 text-white"
-                      : i === 3
-                        ? "bg-green-100 text-green-800"
-                        : i === 2
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {step}
-                </span>
-                {i < 4 && (
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                )}
-              </div>
-            ))}
+          <Paragraph>
+            El flujo de publicación de un boletín sigue cinco etapas
+            secuenciales:
+          </Paragraph>
+          <div
+            className="my-6 flex flex-wrap items-center gap-3 rounded-xl border p-5"
+            style={{
+              background: "var(--otto-surface)",
+              borderColor: "var(--otto-rule)",
+            }}
+          >
+            {["Borrador", "Listo", "Autorizado", "Publicado", "Email enviado"].map(
+              (step, i) => {
+                const variants: Array<
+                  "muted" | "info" | "ok" | "okStrong"
+                > = ["muted", "muted", "info", "ok", "okStrong"];
+                return (
+                  <div key={step} className="flex items-center gap-3">
+                    <StatusPill label={step} variant={variants[i]} />
+                    {i < 4 ? (
+                      <span
+                        className="font-mono-otto"
+                        style={{ color: "var(--otto-muted)" }}
+                      >
+                        →
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              },
+            )}
           </div>
           <StepBox number={1}>
-            <p className="text-gray-700">
-              <strong>Autorizar:</strong> Revise el contenido del boletin en la
-              tab &quot;Resumenes&quot;. Si todo esta correcto, haga clic en{" "}
-              <strong>&quot;Autorizar&quot;</strong>. Esto registra en la
-              auditoria quien aprobo el boletin.
-            </p>
+            <strong>Autorizar:</strong> revise el contenido en la tab
+            &quot;Resúmenes&quot;. Si todo está correcto, haga clic en{" "}
+            <strong>&quot;Autorizar&quot;</strong>. Esto registra en la
+            auditoría quién aprobó el boletín.
           </StepBox>
           <StepBox number={2}>
-            <p className="text-gray-700">
-              <strong>Publicar:</strong> Una vez autorizado, haga clic en{" "}
-              <strong>&quot;Publicar&quot;</strong>. Esto genera el enlace
-              publico del boletin.
-            </p>
+            <strong>Publicar:</strong> una vez autorizado, haga clic en{" "}
+            <strong>&quot;Publicar&quot;</strong>. Esto genera el enlace
+            público del boletín.
           </StepBox>
           <StepBox number={3}>
-            <p className="text-gray-700">
-              <strong>Enviar Prueba:</strong> Antes del envio masivo, envie un
-              email de prueba con <strong>&quot;Enviar Prueba&quot;</strong> para
-              verificar como se ve el correo.
-            </p>
+            <strong>Enviar prueba:</strong> antes del envío masivo, haga clic
+            en <strong>&quot;Enviar prueba&quot;</strong> para verificar cómo
+            se ve el correo.
           </StepBox>
           <StepBox number={4}>
-            <p className="text-gray-700">
-              <strong>Enviar a Suscriptores:</strong> Finalmente, envie el
-              boletin a todos los suscriptores registrados. El sistema rastrea
-              las aperturas y los clicks.
-            </p>
+            <strong>Enviar a suscriptores:</strong> finalmente, envíe el
+            boletín a todos los suscriptores registrados. El sistema rastrea
+            las aperturas y los clicks.
           </StepBox>
-          <WarningBox>
-            Una vez enviado el email a suscriptores, el boletin no se puede
-            eliminar para mantener la integridad del registro de auditoria.
-          </WarningBox>
+          <NoteBox>
+            Una vez enviado el email a suscriptores, el boletín no se puede
+            eliminar para mantener la integridad del registro de auditoría.
+          </NoteBox>
 
-          {/* ============================================ */}
           {/* VISTA PUBLICA */}
-          {/* ============================================ */}
-          <SectionTitle id="vista-publica" icon={Eye}>
-            Vista Publica del Boletin
+          <SectionTitle id="vista-publica" index={12} icon={Eye}>
+            Vista pública del boletín
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            Los boletines publicados tienen una vista publica accesible sin
-            necesidad de iniciar sesion. Esta vista tiene un diseno de 3
-            columnas: Video (izquierda), Noticias por categoria (centro) y
-            Ultima Hora (derecha).
-          </p>
+          <Paragraph>
+            Los boletines publicados tienen una vista pública accesible sin
+            necesidad de iniciar sesión. Esta vista organiza el contenido en
+            tres columnas: video (izquierda), noticias por categoría (centro)
+            y última hora (derecha).
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/17-vista-publica.png"
-            alt="Vista publica"
-            caption="Vista publica del boletin con layout de 3 columnas"
+            alt="Vista pública"
+            caption="Vista pública del boletín con layout de 3 columnas"
           />
-          <p className="text-gray-700 mt-3">
-            Para compartir un boletin, use el boton{" "}
-            <strong>&quot;Compartir Link Publico&quot;</strong> en la vista de
-            detalle. El enlace se copiara al portapapeles y podra compartirlo
-            por cualquier medio.
-          </p>
+          <Paragraph>
+            Para compartir un boletín, use el botón{" "}
+            <strong>&quot;Compartir link público&quot;</strong> en la vista
+            de detalle. El enlace se copiará al portapapeles y podrá
+            distribuirlo por cualquier medio.
+          </Paragraph>
 
-          {/* ============================================ */}
           {/* FUENTES */}
-          {/* ============================================ */}
-          <SectionTitle id="fuentes" icon={Rss}>
-            Configuracion de Fuentes
+          <SectionTitle id="fuentes" index={13} icon={Rss}>
+            Configuración de fuentes
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            En la seccion de <strong>Fuentes</strong> se configuran los sitios
-            web de donde el sistema recopila noticias automaticamente. Las
+          <Paragraph>
+            En la sección de <strong>Fuentes</strong> se configuran los sitios
+            web de donde el sistema recopila noticias automáticamente. Las
             fuentes actuales incluyen los principales medios ecuatorianos.
-          </p>
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/13-fuentes.png"
             alt="Fuentes de noticias"
-            caption="Configuracion de fuentes de noticias del sistema"
+            caption="Configuración de fuentes de noticias del sistema"
           />
-          <InfoBox>
-            La configuracion de fuentes es una tarea avanzada. Solo modifique
-            estos valores si sabe lo que esta haciendo o bajo instrucciones del
-            equipo tecnico.
-          </InfoBox>
+          <ImportantBox>
+            La configuración de fuentes es una tarea avanzada. Solo modifique
+            estos valores si sabe lo que está haciendo o bajo instrucciones
+            del equipo técnico.
+          </ImportantBox>
 
-          {/* ============================================ */}
           {/* SUSCRIPTORES */}
-          {/* ============================================ */}
-          <SectionTitle id="suscriptores" icon={Users}>
-            Gestion de Suscriptores
+          <SectionTitle id="suscriptores" index={14} icon={Users}>
+            Gestión de suscriptores
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            La seccion de Suscriptores permite gestionar la lista de correos
-            electronicos que reciben los boletines. Puede agregar, editar y
+          <Paragraph>
+            La sección de Suscriptores permite gestionar la lista de correos
+            electrónicos que reciben los boletines. Puede agregar, editar y
             eliminar suscriptores individualmente o importarlos masivamente
             desde un archivo CSV.
-          </p>
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/14-suscriptores.png"
             alt="Suscriptores"
-            caption="Gestion de suscriptores de email"
+            caption="Gestión de suscriptores de email"
           />
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Funciones Disponibles
-          </h3>
-          <ul className="list-disc list-inside space-y-2 text-gray-700">
+          <Subheading>Funciones disponibles</Subheading>
+          <BulletList>
             <li>
-              <strong>Agregar suscriptor:</strong> Ingrese nombre y correo
-              electronico
+              <strong>Agregar suscriptor:</strong> ingrese nombre y correo
+              electrónico.
             </li>
             <li>
-              <strong>Importar CSV:</strong> Cargue un archivo CSV con columnas
-              &quot;name&quot; y &quot;email&quot;
+              <strong>Importar CSV:</strong> cargue un archivo CSV con
+              columnas <Code>name</Code> y <Code>email</Code>.
             </li>
             <li>
-              <strong>Exportar:</strong> Descargue la lista completa en formato
-              CSV
+              <strong>Exportar:</strong> descargue la lista completa en
+              formato CSV.
             </li>
             <li>
-              <strong>Eliminar:</strong> Remueva suscriptores individuales
+              <strong>Eliminar:</strong> remueva suscriptores individuales o
+              en lote.
             </li>
-          </ul>
-          <InfoBox>
-            Los suscriptores pueden desuscribirse automaticamente a traves del
-            enlace incluido en cada correo electronico.
-          </InfoBox>
+          </BulletList>
+          <ImportantBox>
+            Los suscriptores pueden darse de baja automáticamente a través del
+            enlace incluido en cada correo electrónico.
+          </ImportantBox>
 
-          {/* ============================================ */}
           {/* CATEGORIAS */}
-          {/* ============================================ */}
-          <SectionTitle id="categorias" icon={Tag}>
-            Gestion de Categorias
+          <SectionTitle id="categorias" index={15} icon={Tag}>
+            Gestión de categorías
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            Las categorias determinan como se clasifican las noticias. Puede
-            crear nuevas categorias, editar las existentes y reordenarlas
-            arrastrando las tarjetas.
-          </p>
+          <Paragraph>
+            Las categorías determinan cómo se clasifican las noticias. Puede
+            crear nuevas categorías, editar las existentes y reordenarlas
+            arrastrando las tarjetas en el grid.
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/15-categorias.png"
-            alt="Categorias"
-            caption="Gestion de categorias de noticias"
+            alt="Categorías"
+            caption="Gestión de categorías de noticias"
           />
-          <p className="text-gray-700 mt-3">
-            Las categorias predeterminadas son:{" "}
+          <Paragraph>
+            Las categorías predeterminadas son:{" "}
             <strong>
-              Economia, Politica, Sociedad, Seguridad, Internacional y Vial
+              Economía, Política, Sociedad, Seguridad, Internacional y Vial
             </strong>
-            . La IA utilizara estas categorias para clasificar automaticamente
-            las noticias recopiladas.
-          </p>
+            . La IA utilizará estas categorías para clasificar
+            automáticamente las noticias recopiladas.
+          </Paragraph>
 
-          {/* ============================================ */}
           {/* USUARIOS */}
-          {/* ============================================ */}
-          <SectionTitle id="usuarios" icon={Users}>
-            Administracion de Usuarios
+          <SectionTitle id="usuarios" index={16} icon={Users}>
+            Administración de usuarios
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            La seccion de Usuarios permite al administrador gestionar las
+          <Paragraph>
+            La sección de Usuarios permite al administrador gestionar las
             cuentas de acceso al sistema. Puede crear nuevos usuarios, cambiar
-            contrasenas, activar/desactivar cuentas y asignar permisos de menu.
-          </p>
+            contraseñas, activar/desactivar cuentas y asignar permisos por
+            rol (Admin, Editor, Viewer).
+          </Paragraph>
           <ScreenshotImg
             src="/manual/screenshots/16-usuarios.png"
             alt="Usuarios"
-            caption="Panel de administracion de usuarios"
+            caption="Panel de administración de usuarios"
           />
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Funciones de Administracion
-          </h3>
-          <ul className="list-disc list-inside space-y-2 text-gray-700">
+          <Subheading>Funciones de administración</Subheading>
+          <BulletList>
             <li>
-              <strong>Crear usuario:</strong> Defina nombre, email y contrasena
-              para un nuevo usuario
+              <strong>Crear usuario:</strong> defina nombre, email y
+              contraseña para un nuevo usuario.
             </li>
             <li>
-              <strong>Cambiar contrasena:</strong> Restablezca la contrasena de
-              cualquier usuario
+              <strong>Cambiar contraseña:</strong> restablezca la contraseña
+              de cualquier usuario.
             </li>
             <li>
-              <strong>Activar/Desactivar:</strong> Las cuentas desactivadas no
-              pueden iniciar sesion
+              <strong>Activar/Desactivar:</strong> las cuentas desactivadas no
+              pueden iniciar sesión.
             </li>
             <li>
-              <strong>Permisos de menu:</strong> Controle que secciones del
-              sistema puede ver cada usuario
+              <strong>Permisos por rol:</strong> Admin (control total), Editor
+              (gestión editorial), Viewer (solo lectura).
             </li>
-          </ul>
-          <WarningBox>
+          </BulletList>
+          <NoteBox>
             Los cambios en permisos se aplican inmediatamente. El usuario
-            afectado vera los cambios la proxima vez que cargue la pagina.
-          </WarningBox>
+            afectado verá los cambios la próxima vez que cargue la página.
+          </NoteBox>
 
-          {/* ============================================ */}
           {/* EMAIL */}
-          {/* ============================================ */}
-          <SectionTitle id="email" icon={Send}>
-            Envio de Correos Electronicos
+          <SectionTitle id="email" index={17} icon={Mail}>
+            Envío de correos electrónicos
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed">
-            El sistema envia boletines por correo electronico a todos los
-            suscriptores registrados. Los correos incluyen el contenido completo
-            del boletin con un diseno profesional.
-          </p>
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Proceso de Envio
-          </h3>
+          <Paragraph>
+            El sistema envía boletines por correo electrónico a todos los
+            suscriptores registrados. Los correos incluyen el contenido
+            completo del boletín con un diseño editorial profesional.
+          </Paragraph>
+          <Subheading>Proceso de envío</Subheading>
           <StepBox number={1}>
-            <p className="text-gray-700">
-              Asegurese de que el boletin este en estado{" "}
-              <strong>Autorizado</strong> o <strong>Publicado</strong>.
-            </p>
+            Asegúrese de que el boletín esté en estado{" "}
+            <strong>Autorizado</strong> o <strong>Publicado</strong>.
           </StepBox>
           <StepBox number={2}>
-            <p className="text-gray-700">
-              Haga clic en <strong>&quot;Enviar Prueba&quot;</strong> para recibir
-              un email de prueba en su correo y verificar el contenido.
-            </p>
+            Haga clic en <strong>&quot;Enviar prueba&quot;</strong> para
+            recibir un email de prueba en su correo y verificar el contenido.
           </StepBox>
           <StepBox number={3}>
-            <p className="text-gray-700">
-              Si la prueba se ve bien, haga clic en{" "}
-              <strong>&quot;Enviar a Suscriptores&quot;</strong> para distribuir
-              el boletin a toda la lista.
-            </p>
+            Si la prueba se ve bien, haga clic en{" "}
+            <strong>&quot;Enviar a suscriptores&quot;</strong> para distribuir
+            el boletín a toda la lista.
           </StepBox>
-          <h3 className="text-lg font-semibold text-gray-900 mt-6 mb-3">
-            Seguimiento de Emails
-          </h3>
-          <p className="text-gray-700">
-            El sistema rastrea automaticamente:
-          </p>
-          <ul className="list-disc list-inside space-y-1 text-gray-700 mt-2">
+          <Subheading>Seguimiento de emails</Subheading>
+          <Paragraph>El sistema rastrea automáticamente:</Paragraph>
+          <BulletList>
             <li>
-              <strong>Aperturas:</strong> Cuantos destinatarios abrieron el
-              email
+              <strong>Aperturas:</strong> cuántos destinatarios abrieron el
+              email.
             </li>
             <li>
-              <strong>Clicks:</strong> Cuantos hicieron clic en los enlaces de
-              noticias
+              <strong>Clicks:</strong> cuántos hicieron clic en los enlaces de
+              noticias.
             </li>
-          </ul>
-          <p className="text-gray-700 mt-3">
-            Estos datos se reflejan en el Dashboard ejecutivo en los graficos de
-            &quot;Emails Enviados vs Abiertos&quot; y en la &quot;Tasa de
-            Apertura&quot;.
-          </p>
+          </BulletList>
+          <Paragraph>
+            Estos datos alimentan los KPIs del Dashboard ejecutivo
+            (&quot;Tasa de apertura&quot;, &quot;Emails enviados vs
+            abiertos&quot;).
+          </Paragraph>
 
-          {/* ============================================ */}
-          {/* VIDEO TUTORIAL */}
-          {/* ============================================ */}
-          <SectionTitle id="video" icon={Video}>
-            Video Tutorial
+          {/* VIDEO */}
+          <SectionTitle id="video" index={18} icon={Video}>
+            Video tutorial
           </SectionTitle>
-          <p className="text-gray-700 leading-relaxed mb-6">
-            A continuacion puede ver un video tutorial que demuestra el uso
-            completo del sistema OttoSeguridad:
-          </p>
-          <div className="border border-gray-200 rounded-lg overflow-hidden shadow-lg">
+          <Paragraph>
+            A continuación puede ver un video tutorial que demuestra el uso
+            completo del sistema OttoSeguridad de inicio a fin:
+          </Paragraph>
+          <div
+            className="overflow-hidden rounded-xl border"
+            style={{
+              borderColor: "var(--otto-rule)",
+              background: "var(--otto-ink)",
+              boxShadow: "var(--otto-shadow-2)",
+            }}
+          >
             <video
               controls
               className="w-full"
@@ -983,40 +1170,49 @@ export function ManualContent() {
               preload="metadata"
             >
               <source src="/manual/video-tutorial.mp4" type="video/mp4" />
-              Su navegador no soporta la reproduccion de video.
+              Su navegador no soporta la reproducción de video.
             </video>
           </div>
-          <p className="text-sm text-gray-500 mt-2 text-center italic">
-            Video tutorial del sistema OttoSeguridad
+          <p
+            className="font-mono-otto mt-3 text-center"
+            style={{ color: "var(--otto-muted)" }}
+          >
+            Video tutorial · OttoSeguridad
           </p>
 
-          {/* ============================================ */}
           {/* FOOTER */}
-          {/* ============================================ */}
-          <div className="mt-16 pt-8 border-t border-gray-200">
-            <div className="bg-gray-50 rounded-lg p-6 text-center">
-              <p className="text-gray-600 text-sm">
-                <strong>Manual de Usuario - OttoSeguridad</strong>
-              </p>
-              <p className="text-gray-500 text-xs mt-1">
-                Version 1.0 | Ultima actualizacion: Abril 2026
-              </p>
-              <p className="text-gray-500 text-xs mt-1">
-                Para soporte tecnico, contacte al administrador del sistema.
-              </p>
-            </div>
+          <div
+            className="mt-16 rounded-2xl border p-8 text-center"
+            style={{
+              background: "var(--otto-surface)",
+              borderColor: "var(--otto-rule)",
+            }}
+          >
+            <BookOpen
+              className="mx-auto h-8 w-8"
+              style={{ color: "var(--otto-primary)" }}
+            />
+            <p
+              className="font-display mt-3 text-[16px] font-bold"
+              style={{ color: "var(--otto-ink)" }}
+            >
+              Manual de usuario · OttoSeguridad
+            </p>
+            <p
+              className="font-mono-otto mt-2"
+              style={{ color: "var(--otto-muted)" }}
+            >
+              Versión 1.0 · Última actualización abril 2026
+            </p>
+            <p
+              className="m-0 mt-3 text-[13px]"
+              style={{ color: "var(--otto-muted)" }}
+            >
+              Para soporte técnico, contacte al administrador del sistema.
+            </p>
           </div>
-        </main>
+        </article>
       </div>
-
-      {/* Scroll to top button */}
-      <button
-        onClick={scrollToTop}
-        className="fixed bottom-6 right-6 bg-red-600 text-white p-3 rounded-full shadow-lg hover:bg-red-700 transition-colors z-50"
-        title="Volver arriba"
-      >
-        <ArrowUp className="h-5 w-5" />
-      </button>
     </div>
   );
 }

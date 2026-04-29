@@ -200,22 +200,53 @@ export function ManualNewsFormDialog({
     onOpenChange(false);
   };
 
+  const monoLabelClass = "font-mono-otto text-[10px] font-semibold uppercase";
+  const monoLabelStyle = {
+    color: "var(--otto-muted)",
+    letterSpacing: ".14em",
+  } as React.CSSProperties;
+  const requiredStyle = { color: "var(--otto-primary)" } as React.CSSProperties;
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Agregar Noticia Manual</DialogTitle>
-          <DialogDescription>
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto p-0 sm:max-w-[560px]"
+        style={{ borderColor: "var(--otto-rule)" }}
+      >
+        <DialogHeader
+          className="space-y-2 px-6 pt-6 pb-4"
+          style={{ borderBottom: "1px solid var(--otto-rule)" }}
+        >
+          <span
+            className="font-mono-otto inline-flex w-fit items-center gap-1.5 rounded-[6px] px-2 py-1 text-[10px] font-semibold uppercase"
+            style={{
+              background: "var(--otto-primary-soft)",
+              color: "var(--otto-primary-ink)",
+              letterSpacing: ".14em",
+            }}
+          >
+            ● Noticia manual
+          </span>
+          <DialogTitle
+            className="font-display text-[22px] font-bold leading-tight"
+            style={{ color: "var(--otto-ink)", letterSpacing: "-.3px" }}
+          >
+            Agregar noticia
+          </DialogTitle>
+          <DialogDescription
+            className="text-[13px]"
+            style={{ color: "var(--otto-muted)" }}
+          >
             Crea una noticia manualmente para incluir en el boletín.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 px-6 py-5">
             {/* Title */}
-            <div className="grid gap-2">
-              <Label htmlFor="title">
-                Título <span className="text-red-500">*</span>
+            <div className="grid gap-1.5">
+              <Label htmlFor="title" className={monoLabelClass} style={monoLabelStyle}>
+                Título <span style={requiredStyle}>*</span>
               </Label>
               <Input
                 id="title"
@@ -224,17 +255,22 @@ export function ManualNewsFormDialog({
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, title: e.target.value }))
                 }
-                className={errors.title ? "border-red-500" : ""}
+                style={errors.title ? { borderColor: "var(--otto-primary)" } : undefined}
               />
               {errors.title && (
-                <p className="text-sm text-red-500">{errors.title}</p>
+                <p
+                  className="font-mono-otto text-[10px] font-medium uppercase"
+                  style={{ color: "var(--otto-primary)", letterSpacing: ".14em" }}
+                >
+                  {errors.title}
+                </p>
               )}
             </div>
 
             {/* Category */}
-            <div className="grid gap-2">
-              <Label htmlFor="category">
-                Categoría <span className="text-red-500">*</span>
+            <div className="grid gap-1.5">
+              <Label htmlFor="category" className={monoLabelClass} style={monoLabelStyle}>
+                Categoría <span style={requiredStyle}>*</span>
               </Label>
               <Select
                 value={formData.category}
@@ -242,7 +278,9 @@ export function ManualNewsFormDialog({
                   setFormData((prev) => ({ ...prev, category: value, subcategory: "" }))
                 }
               >
-                <SelectTrigger className={errors.category ? "border-red-500" : ""}>
+                <SelectTrigger
+                  style={errors.category ? { borderColor: "var(--otto-primary)" } : undefined}
+                >
                   <SelectValue placeholder="Selecciona una categoría" />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,14 +292,19 @@ export function ManualNewsFormDialog({
                 </SelectContent>
               </Select>
               {errors.category && (
-                <p className="text-sm text-red-500">{errors.category}</p>
+                <p
+                  className="font-mono-otto text-[10px] font-medium uppercase"
+                  style={{ color: "var(--otto-primary)", letterSpacing: ".14em" }}
+                >
+                  {errors.category}
+                </p>
               )}
             </div>
 
             {/* Subcategory - only when ultima_hora is selected */}
             {formData.category === "ultima_hora" && (
-              <div className="grid gap-2">
-                <Label htmlFor="subcategory">
+              <div className="grid gap-1.5">
+                <Label htmlFor="subcategory" className={monoLabelClass} style={monoLabelStyle}>
                   Subcategoría (opcional)
                 </Label>
                 <Select
@@ -283,76 +326,92 @@ export function ManualNewsFormDialog({
                       ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs" style={{ color: "var(--otto-muted)" }}>
                   Agrupa esta noticia bajo una categoría temática en Última Hora
                 </p>
               </div>
             )}
 
             {/* Content */}
-            <div className="grid gap-2">
-              <Label htmlFor="content">
-                Contenido / Resumen <span className="text-red-500">*</span>
+            <div className="grid gap-1.5">
+              <Label htmlFor="content" className={monoLabelClass} style={monoLabelStyle}>
+                Contenido / Resumen <span style={requiredStyle}>*</span>
               </Label>
               <Textarea
                 id="content"
-                placeholder="Escribe el resumen o contenido de la noticia..."
+                placeholder="Escribe el resumen o contenido de la noticia…"
                 value={formData.content}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, content: e.target.value }))
                 }
-                className={`min-h-[120px] ${errors.content ? "border-red-500" : ""}`}
+                className="min-h-[120px]"
+                style={errors.content ? { borderColor: "var(--otto-primary)" } : undefined}
               />
               {errors.content && (
-                <p className="text-sm text-red-500">{errors.content}</p>
+                <p
+                  className="font-mono-otto text-[10px] font-medium uppercase"
+                  style={{ color: "var(--otto-primary)", letterSpacing: ".14em" }}
+                >
+                  {errors.content}
+                </p>
               )}
             </div>
 
-            {/* Source */}
-            <div className="grid gap-2">
-              <Label htmlFor="source">Fuente (opcional)</Label>
-              <Input
-                id="source"
-                placeholder="Ej: El Comercio, Primicias, etc."
-                value={formData.source}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, source: e.target.value }))
-                }
-              />
-            </div>
-
-            {/* URL */}
-            <div className="grid gap-2">
-              <Label htmlFor="url">URL (opcional)</Label>
-              <Input
-                id="url"
-                type="url"
-                placeholder="https://..."
-                value={formData.url}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, url: e.target.value }))
-                }
-              />
+            {/* Source + URL en grid 2 col */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="source" className={monoLabelClass} style={monoLabelStyle}>
+                  Fuente
+                </Label>
+                <Input
+                  id="source"
+                  placeholder="Ej: Primicias, El Comercio…"
+                  value={formData.source}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, source: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="url" className={monoLabelClass} style={monoLabelStyle}>
+                  URL
+                </Label>
+                <Input
+                  id="url"
+                  type="url"
+                  placeholder="https://…"
+                  value={formData.url}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, url: e.target.value }))
+                  }
+                />
+              </div>
             </div>
 
             {/* Image */}
-            <div className="grid gap-2">
-              <Label>Imagen (opcional)</Label>
+            <div className="grid gap-1.5">
+              <Label className={monoLabelClass} style={monoLabelStyle}>
+                Imagen (opcional)
+              </Label>
 
               {formData.imageUrl ? (
-                <div className="relative w-full h-40 rounded-lg overflow-hidden bg-gray-100 border">
+                <div
+                  className="relative w-full overflow-hidden rounded-[10px] border bg-[var(--otto-bg)]"
+                  style={{ aspectRatio: "16 / 9", borderColor: "var(--otto-rule)" }}
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={formData.imageUrl}
                     alt="Vista previa"
-                    className="object-cover w-full h-full absolute inset-0"
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                   <button
                     type="button"
                     onClick={() =>
                       setFormData((prev) => ({ ...prev, imageUrl: "" }))
                     }
-                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                    className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-white transition-opacity hover:opacity-90"
+                    style={{ background: "var(--otto-primary)" }}
                     title="Quitar imagen"
                   >
                     <X className="h-4 w-4" />
@@ -371,18 +430,33 @@ export function ManualNewsFormDialog({
                     }}
                     disabled={isUploading}
                   />
-                  <div className="flex items-center justify-center gap-2 px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                  <div
+                    className="flex items-center justify-center gap-2 rounded-[10px] border-2 border-dashed bg-white px-4 py-6 transition-colors hover:bg-[var(--otto-primary-soft)]"
+                    style={{ borderColor: "var(--otto-primary)" }}
+                  >
                     {isUploading ? (
                       <>
-                        <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                        <span className="text-sm text-blue-600">
-                          Subiendo imagen...
+                        <Loader2
+                          className="h-5 w-5 animate-spin"
+                          style={{ color: "var(--otto-primary)" }}
+                        />
+                        <span
+                          className="text-sm"
+                          style={{ color: "var(--otto-primary-ink)" }}
+                        >
+                          Subiendo imagen…
                         </span>
                       </>
                     ) : (
                       <>
-                        <ImageIcon className="h-5 w-5 text-gray-400" />
-                        <span className="text-sm text-gray-600">
+                        <ImageIcon
+                          className="h-5 w-5"
+                          style={{ color: "var(--otto-primary)" }}
+                        />
+                        <span
+                          className="text-sm font-medium"
+                          style={{ color: "var(--otto-primary-ink)" }}
+                        >
                           Haz clic para subir una imagen
                         </span>
                       </>
@@ -393,9 +467,12 @@ export function ManualNewsFormDialog({
 
               {/* URL input as alternative */}
               {!formData.imageUrl && (
-                <div className="mt-2">
-                  <p className="text-xs text-gray-500 mb-1">
-                    O pega una URL de imagen:
+                <div className="mt-1">
+                  <p
+                    className="font-mono-otto mb-1 text-[10px] font-medium uppercase"
+                    style={{ color: "var(--otto-muted)", letterSpacing: ".14em" }}
+                  >
+                    O pega una URL
                   </p>
                   <Input
                     type="url"
@@ -412,23 +489,38 @@ export function ManualNewsFormDialog({
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter
+            className="gap-2 px-6 py-4"
+            style={{
+              borderTop: "1px solid var(--otto-rule)",
+              background: "var(--otto-bg)",
+            }}
+          >
             <Button
               type="button"
               variant="outline"
               onClick={handleClose}
               disabled={isSubmitting}
+              style={{ borderColor: "var(--otto-rule)" }}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting || isUploading}>
+            <Button
+              type="submit"
+              disabled={isSubmitting || isUploading}
+              className="text-white"
+              style={{
+                background: "var(--otto-primary)",
+                boxShadow: "0 4px 12px rgba(214,40,40,.3)",
+              }}
+            >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Agregando...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Agregando…
                 </>
               ) : (
-                "Agregar Noticia"
+                "Agregar noticia"
               )}
             </Button>
           </DialogFooter>

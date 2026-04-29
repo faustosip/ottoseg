@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, ArrowLeft, Loader2, Trash2, GripVertical, Shield } from "lucide-react";
-import Link from "next/link";
+import { Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { BulletinCategory } from "@/lib/schema";
 import {
@@ -24,18 +30,49 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Topline } from "@/components/dashboard/topline";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { FooterNote } from "@/components/dashboard/footer-note";
+import { CategoriesStatsRow } from "@/components/categories/categories-stats-row";
+import { CategoryCard } from "@/components/categories/category-card";
 
-function SortableCategoryRow({
+type FormState = {
+  id?: string;
+  name: string;
+  displayName: string;
+  description: string;
+  keywords: string;
+  isActive: boolean;
+  displayOrder: number;
+};
+
+const EMPTY_FORM: FormState = {
+  name: "",
+  displayName: "",
+  description: "",
+  keywords: "",
+  isActive: true,
+  displayOrder: 0,
+};
+
+function parseKeywords(input: string): string[] {
+  return input
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function SortableCategoryCard({
   category,
-  onToggleActive,
+  onEdit,
   onDelete,
 }: {
   category: BulletinCategory;
-  onToggleActive: (id: string, isActive: boolean) => void;
-  onDelete: (id: string, name: string) => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const {
     attributes,
@@ -52,82 +89,30 @@ function SortableCategoryRow({
   };
 
   return (
-    <Card
+    <CategoryCard
       ref={setNodeRef}
       style={style}
-      className={`p-4 flex items-center gap-4 ${
-        !category.isActive ? "opacity-50" : ""
-      } ${isDragging ? "z-50 shadow-lg" : ""}`}
-    >
-      <button
-        type="button"
-        className="cursor-grab active:cursor-grabbing touch-none"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-      </button>
-
-      <div className="flex-shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
-        {category.displayOrder}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">{category.displayName}</span>
-          <span className="text-xs text-muted-foreground font-mono">
-            {category.name}
-          </span>
-          {category.isDefault && (
-            <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-              <Shield className="h-3 w-3" />
-              Default
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={category.isActive}
-            onCheckedChange={(checked) =>
-              onToggleActive(category.id, checked)
-            }
-          />
-          <span className="text-xs text-muted-foreground w-14">
-            {category.isActive ? "Activa" : "Inactiva"}
-          </span>
-        </div>
-
-        {!category.isDefault && (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => onDelete(category.id, category.displayName)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-    </Card>
+      isDragging={isDragging}
+      category={category}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      dragHandleProps={{ ...attributes, ...listeners }}
+    />
   );
 }
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<BulletinCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newDisplayName, setNewDisplayName] = useState("");
-  const [newDisplayOrder, setNewDisplayOrder] = useState(0);
-  const [isCreating, setIsCreating] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [isSaving, setIsSaving] = useState(false);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const loadCategories = useCallback(async () => {
@@ -152,25 +137,18 @@ export default function CategoriesPage() {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
     const oldIndex = categories.findIndex((c) => c.id === active.id);
     const newIndex = categories.findIndex((c) => c.id === over.id);
-
     const reordered = arrayMove(categories, oldIndex, newIndex).map(
-      (cat, index) => ({ ...cat, displayOrder: index })
+      (cat, index) => ({ ...cat, displayOrder: index }),
     );
-
     setCategories(reordered);
-
     try {
       const response = await fetch("/api/bulletins/categories/reorder", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderedIds: reordered.map((c) => c.id),
-        }),
+        body: JSON.stringify({ orderedIds: reordered.map((c) => c.id) }),
       });
-
       if (!response.ok) throw new Error("Error al reordenar");
       toast.success("Orden actualizado");
     } catch (err) {
@@ -180,73 +158,92 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openNew = () => {
+    setForm({ ...EMPTY_FORM, displayOrder: categories.length });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (cat: BulletinCategory) => {
+    setForm({
+      id: cat.id,
+      name: cat.name,
+      displayName: cat.displayName,
+      description: cat.description ?? "",
+      keywords: ((cat.keywords as string[] | null) ?? []).join(", "),
+      isActive: cat.isActive,
+      displayOrder: cat.displayOrder,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || !newDisplayName.trim()) {
-      toast.error("Nombre y nombre visible son requeridos");
+    if (!form.displayName.trim()) {
+      toast.error("Nombre visible es requerido");
       return;
     }
-
-    setIsCreating(true);
+    setIsSaving(true);
     try {
-      const response = await fetch("/api/bulletins/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newName.trim().toLowerCase().replace(/\s+/g, "_"),
-          displayName: newDisplayName.trim(),
-          displayOrder: newDisplayOrder,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Error al crear categoría");
+      if (form.id) {
+        const res = await fetch(`/api/bulletins/categories/${form.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            displayName: form.displayName.trim(),
+            displayOrder: form.displayOrder,
+            isActive: form.isActive,
+            description: form.description.trim() || null,
+            keywords: parseKeywords(form.keywords),
+          }),
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          throw new Error(d.error || "Error al actualizar");
+        }
+        toast.success("Categoría actualizada");
+      } else {
+        if (!form.name.trim()) {
+          toast.error("Slug es requerido");
+          setIsSaving(false);
+          return;
+        }
+        const res = await fetch("/api/bulletins/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.name.trim().toLowerCase().replace(/\s+/g, "_"),
+            displayName: form.displayName.trim(),
+            displayOrder: form.displayOrder,
+            description: form.description.trim() || null,
+            keywords: parseKeywords(form.keywords),
+          }),
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          throw new Error(d.error || "Error al crear");
+        }
+        toast.success("Categoría creada");
       }
-
-      toast.success("Categoría creada");
-      setNewName("");
-      setNewDisplayName("");
-      setNewDisplayOrder(0);
-      setShowAddForm(false);
+      setDialogOpen(false);
+      setForm(EMPTY_FORM);
       await loadCategories();
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
-      setIsCreating(false);
+      setIsSaving(false);
     }
   };
 
-  const handleToggleActive = async (id: string, isActive: boolean) => {
+  const handleDelete = async (cat: BulletinCategory) => {
+    if (!confirm(`¿Eliminar la categoría "${cat.displayName}"?`)) return;
     try {
-      const response = await fetch(`/api/bulletins/categories/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive }),
-      });
-
-      if (!response.ok) throw new Error("Error actualizando categoría");
-      toast.success(isActive ? "Categoría activada" : "Categoría desactivada");
-      await loadCategories();
-    } catch (err) {
-      console.error("Error toggling category:", err);
-      toast.error("Error actualizando categoría");
-    }
-  };
-
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`¿Estás seguro de eliminar la categoría "${name}"?`)) return;
-
-    try {
-      const response = await fetch(`/api/bulletins/categories/${id}`, {
+      const response = await fetch(`/api/bulletins/categories/${cat.id}`, {
         method: "DELETE",
       });
-
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || "Error eliminando categoría");
       }
-
       toast.success("Categoría eliminada");
       await loadCategories();
     } catch (err) {
@@ -254,108 +251,54 @@ export default function CategoriesPage() {
     }
   };
 
-  const activeCount = categories.filter((c) => c.isActive).length;
+  const stats = useMemo(() => {
+    const active = categories.filter((c) => c.isActive).length;
+    const totalKeywords = categories.reduce(
+      (acc, c) => acc + (((c.keywords as string[] | null) ?? []).length),
+      0,
+    );
+    return { total: categories.length, active, totalKeywords };
+  }, [categories]);
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      {/* Header */}
-      <div className="mb-8">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver al dashboard
-        </Link>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Categorías del Boletín</h1>
-            <p className="text-muted-foreground">
-              Administra las categorías para clasificar noticias. Arrastra para reordenar.
-            </p>
-          </div>
-
-          <Button onClick={() => setShowAddForm(true)} disabled={showAddForm}>
-            <Plus className="h-4 w-4 mr-2" />
-            Agregar Categoría
+    <>
+      <Topline crumbs={["Configuración", "Categorías"]} />
+      <PageHeader
+        title="Categorías"
+        lede="Etiquetas con las que el clasificador agrupa las noticias del boletín."
+        actions={
+          <Button
+            onClick={openNew}
+            className="rounded-[10px] text-white"
+            style={{
+              background: "var(--otto-primary)",
+              boxShadow: "0 4px 14px rgba(214,40,40,.28)",
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Nueva categoría
           </Button>
+        }
+      />
+
+      <CategoriesStatsRow
+        items={[
+          { label: "Total", value: stats.total },
+          { label: "Activas", value: stats.active },
+          { label: "Keywords totales", value: stats.totalKeywords },
+        ]}
+      />
+
+      {isLoading ? (
+        <div
+          className="flex items-center justify-center rounded-[14px] border bg-white p-12"
+          style={{ borderColor: "var(--otto-rule)" }}
+        >
+          <Loader2
+            className="h-8 w-8 animate-spin"
+            style={{ color: "var(--otto-primary)" }}
+          />
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 mt-6">
-          <Card className="p-4">
-            <div className="text-2xl font-bold">{categories.length}</div>
-            <div className="text-sm text-muted-foreground">Total</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-2xl font-bold text-green-600">{activeCount}</div>
-            <div className="text-sm text-muted-foreground">Activas</div>
-          </Card>
-        </div>
-      </div>
-
-      {/* Add Form */}
-      {showAddForm && (
-        <Card className="p-6 mb-6 border-blue-200 bg-blue-50/50">
-          <h3 className="text-lg font-semibold mb-4">Nueva Categoría</h3>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="newName">Slug (identificador)</Label>
-                <Input
-                  id="newName"
-                  placeholder="ej: ultima_hora"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="newDisplayName">Nombre visible</Label>
-                <Input
-                  id="newDisplayName"
-                  placeholder="ej: Última Hora"
-                  value={newDisplayName}
-                  onChange={(e) => setNewDisplayName(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="newDisplayOrder">Orden</Label>
-                <Input
-                  id="newDisplayOrder"
-                  type="number"
-                  value={newDisplayOrder}
-                  onChange={(e) => setNewDisplayOrder(Number(e.target.value))}
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={isCreating}>
-                {isCreating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Crear
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowAddForm(false)}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-muted-foreground">Cargando categorías...</span>
-        </div>
-      )}
-
-      {/* Categories List with Drag & Drop */}
-      {!isLoading && (
+      ) : (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -363,21 +306,113 @@ export default function CategoriesPage() {
         >
           <SortableContext
             items={categories.map((c) => c.id)}
-            strategy={verticalListSortingStrategy}
+            strategy={rectSortingStrategy}
           >
-            <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-3.5">
               {categories.map((category) => (
-                <SortableCategoryRow
+                <SortableCategoryCard
                   key={category.id}
                   category={category}
-                  onToggleActive={handleToggleActive}
-                  onDelete={handleDelete}
+                  onEdit={() => openEdit(category)}
+                  onDelete={() => handleDelete(category)}
                 />
               ))}
             </div>
           </SortableContext>
         </DndContext>
       )}
-    </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {form.id ? "Editar categoría" : "Nueva categoría"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSave} className="space-y-4">
+            {!form.id ? (
+              <div>
+                <Label htmlFor="cat-name">Slug (identificador)</Label>
+                <Input
+                  id="cat-name"
+                  placeholder="ej: ultima_hora"
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, name: e.target.value }))
+                  }
+                />
+              </div>
+            ) : null}
+            <div>
+              <Label htmlFor="cat-display">Nombre visible</Label>
+              <Input
+                id="cat-display"
+                placeholder="ej: Última Hora"
+                value={form.displayName}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, displayName: e.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="cat-desc">Descripción</Label>
+              <Textarea
+                id="cat-desc"
+                placeholder="Qué noticias caen en esta categoría…"
+                rows={3}
+                value={form.description}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="cat-keywords">Keywords (separadas por coma)</Label>
+              <Input
+                id="cat-keywords"
+                placeholder="asamblea, ministerio, presidencia…"
+                value={form.keywords}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, keywords: e.target.value }))
+                }
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={form.isActive}
+                onCheckedChange={(v) =>
+                  setForm((f) => ({ ...f, isActive: v }))
+                }
+              />
+              <span className="text-sm">
+                {form.isActive ? "Activa" : "Pausada"}
+              </span>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="text-white"
+                style={{ background: "var(--otto-primary)" }}
+              >
+                {isSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {form.id ? "Guardar" : "Crear"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <FooterNote>OttoSeguridad · Console · Categorías</FooterNote>
+    </>
   );
 }
