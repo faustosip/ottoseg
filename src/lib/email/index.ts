@@ -1,141 +1,140 @@
 /**
  * Email Service
  *
- * Nodemailer-based email sending service for newsletter distribution
+ * Envío de correos vía Resend (https://resend.com) para la distribución
+ * del boletín a suscriptores.
+ *
+ * Variables de entorno:
+ *   RESEND_API_KEY - clave API de Resend (permiso "Sending access")
+ *   EMAIL_FROM     - remitente, ej. "COPSE <copse@ottoseguridad.com.ec>"
+ *                    (el dominio debe estar verificado en Resend)
  */
 
-import nodemailer from "nodemailer";
-import type { Transporter } from "nodemailer";
+import { Resend } from "resend";
+import type { ErrorResponse } from "resend";
 
-// SMTP configuration from environment variables
-const SMTP_CONFIG = {
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER || "",
-    pass: process.env.SMTP_PASS || "",
-  },
-};
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+const EMAIL_FROM =
+  process.env.EMAIL_FROM ||
+  process.env.SMTP_FROM || // compatibilidad con la configuración anterior
+  "Otto Seguridad <noticias@ottoseguridad.com>";
 
-const SMTP_FROM = process.env.SMTP_FROM || "Otto Seguridad <noticias@ottoseguridad.com>";
+/** Intentos máximos por correo (solo ante errores transitorios: 429 / 5xx) */
+const MAX_ATTEMPTS = 3;
 
-// Singleton transporter
-let transporter: Transporter | null = null;
+// Cliente singleton
+let client: Resend | null = null;
 
-/**
- * Get or create the email transporter
- */
-function getTransporter(): Transporter {
-  if (!transporter) {
-    if (!SMTP_CONFIG.auth.user || !SMTP_CONFIG.auth.pass) {
-      throw new Error("SMTP credentials not configured. Set SMTP_USER and SMTP_PASS environment variables.");
+function getClient(): Resend {
+  if (!client) {
+    if (!RESEND_API_KEY) {
+      throw new Error(
+        "Resend no configurado. Define la variable de entorno RESEND_API_KEY."
+      );
     }
-
-    transporter = nodemailer.createTransport(SMTP_CONFIG);
+    client = new Resend(RESEND_API_KEY);
   }
+  return client;
+}
 
-  return transporter;
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Verify SMTP connection
+ * Errores que vale la pena reintentar: límite de tasa (429) y fallos del
+ * servidor (5xx). Errores de validación, API key o dominio no verificado
+ * no se reintentan porque van a fallar igual.
  */
-export async function verifyConnection(): Promise<boolean> {
-  try {
-    const transport = getTransporter();
-    await transport.verify();
-    return true;
-  } catch (error) {
-    console.error("SMTP connection error:", error);
-    return false;
-  }
+function isRetryable(error: ErrorResponse): boolean {
+  if (error.statusCode === 429) return true;
+  if (error.statusCode !== null && error.statusCode >= 500) return true;
+  return (
+    error.name === "rate_limit_exceeded" ||
+    error.name === "application_error" ||
+    error.name === "internal_server_error"
+  );
 }
 
-/**
- * Send a single email
- */
 export interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  /**
+   * Clave de idempotencia: si se reintenta la misma petición, Resend no
+   * envía el correo dos veces. Debe ser única por envío (ej. trackingId).
+   */
+  idempotencyKey?: string;
 }
 
-export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
-  try {
-    const transport = getTransporter();
-
-    await transport.sendMail({
-      from: SMTP_FROM,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      text: options.text,
-    });
-
-    return true;
-  } catch (error) {
-    console.error(`Error sending email to ${options.to}:`, error);
-    return false;
-  }
-}
+export type SendEmailResult =
+  | { success: true; id: string }
+  | { success: false; error: string };
 
 /**
- * Send emails to multiple recipients
- * Returns count of successful sends
+ * Envía un correo individual.
+ *
+ * Nunca lanza: devuelve `{ success: false, error }` con el motivo real
+ * (p. ej. "validation_error: The ottoseguridad.com.ec domain is not verified")
+ * para que quien llama pueda registrarlo en la base de datos.
  */
-export async function sendBulkEmail(
-  recipients: Array<{ email: string; name?: string | null }>,
-  subject: string,
-  html: string,
-  text?: string
-): Promise<{ sent: number; failed: number; errors: string[] }> {
-  let sent = 0;
-  let failed = 0;
-  const errors: string[] = [];
-
-  // Verify connection first
-  const isConnected = await verifyConnection();
-  if (!isConnected) {
-    return {
-      sent: 0,
-      failed: recipients.length,
-      errors: ["SMTP connection failed"],
-    };
+export async function sendEmail(
+  options: SendEmailOptions
+): Promise<SendEmailResult> {
+  let resend: Resend;
+  try {
+    resend = getClient();
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
   }
 
-  // Send emails one by one (to avoid rate limiting and allow personalization)
-  for (const recipient of recipients) {
-    try {
-      const success = await sendEmail({
-        to: recipient.email,
-        subject,
-        html,
-        text,
-      });
+  let lastError = "Error desconocido";
 
-      if (success) {
-        sent++;
-      } else {
-        failed++;
-        errors.push(`Failed to send to ${recipient.email}`);
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const { data, error } = await resend.emails.send(
+        {
+          from: EMAIL_FROM,
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+          text: options.text,
+        },
+        options.idempotencyKey
+          ? { idempotencyKey: options.idempotencyKey }
+          : undefined
+      );
+
+      if (data) {
+        return { success: true, id: data.id };
       }
 
-      // Small delay to avoid rate limiting
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (!error) {
+        lastError = "Respuesta vacía de Resend";
+        break;
+      }
+
+      lastError = `${error.name}: ${error.message}`;
+      if (!isRetryable(error)) break;
     } catch (error) {
-      failed++;
-      errors.push(`Error with ${recipient.email}: ${(error as Error).message}`);
+      // Error de red o excepción inesperada del SDK
+      lastError = (error as Error).message;
+    }
+
+    if (attempt < MAX_ATTEMPTS) {
+      // Backoff exponencial: 1s, 2s
+      await delay(1000 * 2 ** (attempt - 1));
     }
   }
 
-  return { sent, failed, errors };
+  console.error(`Error sending email to ${options.to}: ${lastError}`);
+  return { success: false, error: lastError };
 }
 
 /**
- * Check if email service is configured
+ * Indica si el servicio de email está configurado
  */
 export function isEmailConfigured(): boolean {
-  return !!(SMTP_CONFIG.auth.user && SMTP_CONFIG.auth.pass);
+  return !!RESEND_API_KEY;
 }

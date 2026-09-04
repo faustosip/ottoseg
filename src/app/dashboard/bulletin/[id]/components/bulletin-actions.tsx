@@ -44,7 +44,8 @@ export function BulletinActions({
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isReactivating, setIsReactivating] = useState(false);
-  const [sendEmail, setSendEmail] = useState(false);
+  // Envío por email activo por defecto; el usuario solo puede desactivarlo para NO enviar.
+  const [sendEmail, setSendEmail] = useState(true);
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [showTestDialog, setShowTestDialog] = useState(false);
   const [testEmail, setTestEmail] = useState("");
@@ -108,13 +109,24 @@ export function BulletinActions({
             }
           );
 
+          const result = await emailResponse.json().catch(() => ({}));
+
           if (emailResponse.ok) {
-            const result = await emailResponse.json();
-            toast.success(
-              `Emails enviados a ${result.sentCount} suscriptores`
-            );
+            if (result.failedCount > 0) {
+              toast.warning(
+                `Emails enviados a ${result.sentCount} de ${result.totalSubscribers} suscriptores (${result.failedCount} fallidos)`
+              );
+            } else {
+              toast.success(
+                `Emails enviados a ${result.sentCount} suscriptores`
+              );
+            }
           } else {
-            toast.error("Error al enviar emails a suscriptores");
+            toast.error(
+              result.message ||
+                result.error ||
+                "Error al enviar emails a suscriptores"
+            );
           }
         } catch (emailError) {
           console.error("Email sending error:", emailError);
@@ -221,17 +233,15 @@ export function BulletinActions({
       {/* Publish button with email toggle - only when authorized */}
       {status === "authorized" && (
         <div className="flex items-center gap-4 flex-wrap">
-          {/* Test email button — oculto en producción */}
-          {false && (
-            <Button
-              variant="outline"
-              onClick={() => setShowTestDialog(true)}
-              className="gap-2"
-            >
-              <Mail className="h-4 w-4" />
-              Enviar Prueba
-            </Button>
-          )}
+          {/* Test email button: envía solo al correo del usuario logueado */}
+          <Button
+            variant="outline"
+            onClick={() => setShowTestDialog(true)}
+            className="gap-2"
+          >
+            <Mail className="h-4 w-4" />
+            Enviar Prueba
+          </Button>
 
           {/* Email toggle */}
           <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border">
@@ -292,17 +302,15 @@ export function BulletinActions({
             Reactivar Boletín
           </Button>
 
-          {/* Test email button — oculto en producción */}
-          {false && (
-            <Button
-              variant="outline"
-              onClick={() => setShowTestDialog(true)}
-              className="gap-2"
-            >
-              <Mail className="h-4 w-4" />
-              Enviar Prueba
-            </Button>
-          )}
+          {/* Test email button: envía solo al correo del usuario logueado */}
+          <Button
+            variant="outline"
+            onClick={() => setShowTestDialog(true)}
+            className="gap-2"
+          >
+            <Mail className="h-4 w-4" />
+            Enviar Prueba
+          </Button>
         </div>
       )}
     </div>

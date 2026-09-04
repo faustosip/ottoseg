@@ -14,7 +14,10 @@ import { getBulletinById } from "@/lib/db/queries/bulletins";
 import { getActiveSubscribers } from "@/lib/db/queries/subscribers";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
 import { generateBulletinEmail } from "@/lib/email/templates/bulletin";
-import { createEmailSend } from "@/lib/db/queries/email-tracking";
+import {
+  createEmailSend,
+  updateEmailSendStatus,
+} from "@/lib/db/queries/email-tracking";
 import { createAuditLog } from "@/lib/db/queries/audit";
 import { errorResponse } from "@/lib/http/error-response";
 
@@ -46,7 +49,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: "Email no configurado",
-          message: "Configure las variables de entorno SMTP_USER y SMTP_PASS",
+          message: "Configure la variable de entorno RESEND_API_KEY",
         },
         { status: 503 }
       );
@@ -117,24 +120,30 @@ export async function POST(
             );
           })()
         : "http://localhost:3000");
+
     let sentCount = 0;
     let failedCount = 0;
+    const errors: string[] = [];
 
-    // Envío individual con tracking por suscriptor
+    // Envío individual con tracking por suscriptor.
+    // El registro en email_sends se crea como "pending" y se actualiza con el
+    // resultado real que devuelve Resend (sent / failed + error_message).
     for (const subscriber of subscriberList) {
+      const trackingId = crypto.randomUUID();
+
       try {
-        const trackingId = crypto.randomUUID();
         const unsubscribeUrl = subscriber.unsubscribeToken
           ? `${appUrl}/api/unsubscribe/${subscriber.unsubscribeToken}`
           : undefined;
         const trackingPixelUrl = `${appUrl}/api/track/open/${trackingId}`;
 
-        // Crear registro en email_sends
+        // Crear registro en email_sends (pendiente hasta confirmar envío)
         await createEmailSend(
           bulletin.id,
           subscriber.id,
           subscriber.email,
-          trackingId
+          trackingId,
+          "pending"
         );
 
         // Generar HTML personalizado con tracking
@@ -148,28 +157,67 @@ export async function POST(
         });
 
         // Enviar email individual
-        const success = await sendEmail({
+        const result = await sendEmail({
           to: subscriber.email,
           subject,
           html,
           text,
+          idempotencyKey: `bulletin-${bulletin.id}-${trackingId}`,
         });
 
-        if (success) {
+        if (result.success) {
           sentCount++;
+          await updateEmailSendStatus(trackingId, "sent");
         } else {
           failedCount++;
+          errors.push(`${subscriber.email}: ${result.error}`);
+          await updateEmailSendStatus(trackingId, "failed", result.error);
         }
 
-        // Rate limiting
-        await delay(100);
+        // Resend permite ~10 req/s; un pequeño respiro evita 429
+        await delay(150);
       } catch (error) {
-        console.error(
-          `Error sending to ${subscriber.email}:`,
-          error
-        );
+        const message = (error as Error).message;
+        console.error(`Error sending to ${subscriber.email}:`, error);
         failedCount++;
+        errors.push(`${subscriber.email}: ${message}`);
+        await updateEmailSendStatus(trackingId, "failed", message).catch(
+          () => {}
+        );
       }
+    }
+
+    const auditUser = {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+    };
+    const auditMetadata = {
+      subscriberCount: subscriberList.length,
+      sentCount,
+      failedCount,
+      errors: errors.slice(0, 5),
+    };
+
+    // Si no salió ningún correo NO marcamos el boletín como enviado, para
+    // poder reintentar una vez corregida la configuración del proveedor.
+    if (sentCount === 0) {
+      await createAuditLog(id, "email_failed", auditUser, auditMetadata);
+
+      console.error(
+        `❌ Email sending failed for all ${subscriberList.length} subscribers: ${errors[0] ?? "unknown error"}`
+      );
+
+      return NextResponse.json(
+        {
+          error: "No se pudo enviar el boletín a ningún suscriptor",
+          message: errors[0] ?? "Error desconocido",
+          sentCount,
+          failedCount,
+          totalSubscribers: subscriberList.length,
+        },
+        { status: 502 }
+      );
     }
 
     // Marcar boletín como enviado
@@ -179,11 +227,7 @@ export async function POST(
       .where(eq(bulletins.id, id));
 
     // Registrar auditoría
-    await createAuditLog(id, "email_sent", {
-      id: session.user.id,
-      name: session.user.name,
-      email: session.user.email,
-    }, { subscriberCount: subscriberList.length, sentCount, failedCount });
+    await createAuditLog(id, "email_sent", auditUser, auditMetadata);
 
     console.log(
       `✅ Email sending completed: ${sentCount} sent, ${failedCount} failed`

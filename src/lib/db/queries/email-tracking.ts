@@ -6,14 +6,19 @@ import {
 } from "@/lib/schema";
 import { eq, sql, isNotNull } from "drizzle-orm";
 
+export type EmailSendStatus = "pending" | "sent" | "failed" | "bounced";
+
 /**
- * Registrar un envío individual de email
+ * Registrar un envío individual de email.
+ * Se recomienda crearlo como "pending" y luego actualizarlo con
+ * `updateEmailSendStatus` según el resultado real del proveedor.
  */
 export async function createEmailSend(
   bulletinId: string,
   subscriberId: string | null,
   subscriberEmail: string,
-  trackingId: string
+  trackingId: string,
+  status: EmailSendStatus = "sent"
 ): Promise<EmailSend> {
   const [send] = await db
     .insert(emailSends)
@@ -22,9 +27,24 @@ export async function createEmailSend(
       subscriberId,
       subscriberEmail,
       trackingId,
+      status,
     })
     .returning();
   return send;
+}
+
+/**
+ * Actualizar el resultado real del envío (sent / failed + mensaje de error)
+ */
+export async function updateEmailSendStatus(
+  trackingId: string,
+  status: EmailSendStatus,
+  errorMessage?: string
+): Promise<void> {
+  await db
+    .update(emailSends)
+    .set({ status, errorMessage: errorMessage ?? null })
+    .where(eq(emailSends.trackingId, trackingId));
 }
 
 /**

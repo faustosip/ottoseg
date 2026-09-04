@@ -35,7 +35,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: "Email no configurado",
-          message: "Configure las variables de entorno SMTP_USER y SMTP_PASS",
+          message: "Configure la variable de entorno RESEND_API_KEY",
         },
         { status: 503 }
       );
@@ -82,16 +82,16 @@ export async function POST(
       subscriberName: recipientName,
     });
 
-    const success = await sendEmail({
+    const result = await sendEmail({
       to: recipientEmail,
       subject: `[PRUEBA] ${subject}`,
       html,
       text,
     });
 
-    if (!success) {
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Error al enviar email de prueba" },
+        { error: "Error al enviar email de prueba", message: result.error },
         { status: 500 }
       );
     }
