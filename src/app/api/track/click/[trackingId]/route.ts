@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   getEmailSendByTrackingId,
   recordEmailClick,
@@ -42,24 +42,37 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ trackingId: string }> }
 ) {
-  const { trackingId } = await context.params;
-  const rawUrl = new URL(request.url).searchParams.get("url");
+  const rawUrl = request.nextUrl.searchParams.get("url");
   const redirectTo = sanitizeRedirect(rawUrl);
-  const ip = getClientIp(request);
 
-  // Rate limit por IP (60/min). Siempre redirigimos — el usuario legítimo no
-  // debe sufrir por nuestro rate-limit — pero sólo registramos el click si no
-  // se ha excedido, para no contaminar la métrica ni llenar la BD.
-  const rl = await checkRateLimit("track-click", ip, 60, 60);
-  if (rl.allowed && rawUrl && redirectTo !== FALLBACK_URL) {
-    getEmailSendByTrackingId(trackingId)
-      .then((emailSend) => {
-        if (emailSend) {
-          return recordEmailClick(emailSend.id, redirectTo);
-        }
-      })
-      .catch(() => {});
+  // El registro del clic es "best effort": pase lo que pase (Redis caído,
+  // BD inaccesible, trackingId inválido) el lector SIEMPRE debe llegar al
+  // destino. Por eso todo el tracking va dentro de un try/catch y la
+  // redirección se construye al final, fuera de él.
+  try {
+    const { trackingId } = await context.params;
+    const ip = getClientIp(request);
+
+    // Rate limit por IP (60/min): sólo registramos el click si no se ha
+    // excedido, para no contaminar la métrica ni llenar la BD.
+    const rl = await checkRateLimit("track-click", ip, 60, 60);
+    if (rl.allowed && rawUrl && redirectTo !== FALLBACK_URL) {
+      getEmailSendByTrackingId(trackingId)
+        .then((emailSend) => {
+          if (emailSend) {
+            return recordEmailClick(emailSend.id, redirectTo);
+          }
+        })
+        .catch((err) => {
+          console.error("[track-click] error registrando clic:", err);
+        });
+    }
+  } catch (err) {
+    console.error("[track-click] error en tracking, redirigiendo igual:", err);
   }
 
-  return Response.redirect(redirectTo, 302);
+  // NextResponse.redirect en vez de Response.redirect: la Response nativa
+  // devuelve cabeceras inmutables y Next.js falla con "TypeError: immutable"
+  // (HTTP 500) al intentar añadir las suyas.
+  return NextResponse.redirect(redirectTo, 302);
 }
