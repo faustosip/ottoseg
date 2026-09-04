@@ -9,8 +9,11 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { getBulletinById } from "@/lib/db/queries/bulletins";
 import { sendEmail, isEmailConfigured } from "@/lib/email";
+import { requireAdmin } from "@/lib/auth-guard";
 import { generateBulletinEmail } from "@/lib/email/templates/bulletin";
 import { errorResponse } from "@/lib/http/error-response";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * POST /api/bulletins/[id]/send-test-email
@@ -51,25 +54,40 @@ export async function POST(
       );
     }
 
-    // Restricción: los emails de prueba solo pueden enviarse al email del
-    // usuario autenticado. Permitir destinatarios arbitrarios aquí convertiría
-    // el endpoint en un relay para enviar correo desde el dominio corporativo
-    // a cualquier dirección del mundo, habilitando spoofing/phishing.
+    // Restricción: un usuario normal solo puede enviarse la prueba a su
+    // propio correo (evita usar el endpoint como relay desde el dominio
+    // corporativo). Un administrador puede enviarla a cualquier dirección.
     const body = await request.json().catch(() => ({}));
-    const requestedEmail: string | undefined = body.email;
-    const recipientEmail = session.user.email;
+    const requestedEmail: string | undefined =
+      typeof body.email === "string" ? body.email.trim() : undefined;
     const recipientName = body.name || session.user.name || undefined;
+    let recipientEmail = session.user.email;
 
     if (
       requestedEmail &&
       requestedEmail.toLowerCase() !== session.user.email.toLowerCase()
     ) {
-      return NextResponse.json(
-        {
-          error:
-            "El email de prueba solo puede enviarse a la dirección del usuario autenticado.",
-        },
-        { status: 403 }
+      const admin = await requireAdmin();
+      if (!admin.ok) {
+        return NextResponse.json(
+          {
+            error:
+              "Solo un administrador puede enviar el email de prueba a otra dirección.",
+          },
+          { status: 403 }
+        );
+      }
+
+      if (!EMAIL_RE.test(requestedEmail)) {
+        return NextResponse.json(
+          { error: "Dirección de correo inválida" },
+          { status: 400 }
+        );
+      }
+
+      recipientEmail = requestedEmail;
+      console.log(
+        `📧 Test email: admin ${session.user.email} -> ${recipientEmail} (bulletin ${id})`
       );
     }
 
