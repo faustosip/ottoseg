@@ -37,13 +37,13 @@ export async function GET(
     }
 
     // Redirigir a página de confirmación (incluso si ya estaba desuscrito)
-    return Response.redirect(
+    return NextResponse.redirect(
       new URL(`/unsubscribe/${token}`, _request.url),
       302
     );
   } catch (error) {
     console.error("Error en desuscripción:", error);
-    return Response.redirect(
+    return NextResponse.redirect(
       new URL(`/unsubscribe/${token}`, _request.url),
       302
     );

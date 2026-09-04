@@ -99,9 +99,10 @@ services:
         - traefik.http.routers.ottoseguridad.entrypoints=websecure
         - traefik.http.routers.ottoseguridad.tls.certresolver=letsencryptresolver
         - traefik.http.routers.ottoseguridad.service=ottoseguridad
-        - traefik.http.routers.ottoseguridad.middlewares=ottoseguridad-buffering
-        - traefik.http.middlewares.ottoseguridad-buffering.buffering.maxRequestBodyBytes=52428800
-        - traefik.http.middlewares.ottoseguridad-buffering.buffering.maxResponseBodyBytes=52428800
+        # Sin middleware "buffering": en Traefik v3 convierte en HTTP 500 las
+        # respuestas de redirección sin cuerpo (302 de /api/track/click y
+        # /api/unsubscribe). Traefik no limita el tamaño del body por defecto,
+        # así que las subidas grandes siguen funcionando sin él.
         - traefik.http.services.ottoseguridad.loadbalancer.server.port=3000
         - traefik.http.services.ottoseguridad.loadbalancer.passHostHeader=1
 
